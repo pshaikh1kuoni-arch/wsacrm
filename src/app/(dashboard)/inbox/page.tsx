@@ -562,11 +562,18 @@ function InboxPageInner() {
   const hasActiveConv = !!activeConversation;
 
   return (
-    <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
+    // Mobile keeps the historical full-bleed edge-to-edge feel (single
+    // pane at a time, no floating-card gaps). At lg+ the three panes
+    // become separate floating cards, so we stop cancelling <main>'s own
+    // padding there and size off the real flex-computed height instead
+    // of a hardcoded viewport calc — h-full also self-corrects for the
+    // lg:gap-4 the shell puts between header and main (Phase 1), which
+    // the old calc(100vh-3.5rem) never accounted for.
+    <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col gap-4 overflow-hidden sm:-m-6 lg:m-0 lg:h-full">
       {/* WhatsApp connection banner — in the flex column, not absolute,
           so it pushes the panels down instead of overlapping them. */}
       {whatsappConnected === false && (
-        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
+        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 lg:rounded-2xl lg:border-0 lg:shadow-card-sm">
           <WifiOff className="h-4 w-4 text-amber-400" />
           <p className="text-xs text-amber-400">
             {t("whatsappNotConnected")}
@@ -574,7 +581,7 @@ function InboxPageInner() {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 gap-4 overflow-hidden">
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
             thread can occupy the full width. Always visible on lg+. */}

@@ -120,7 +120,7 @@ export function BrowserNotificationsCard({ className }: { className?: string }) 
           </p>
         ) : (
           <>
-            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-card-2 p-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">
                   {t('toggleLabel')}

@@ -377,7 +377,7 @@ export function DealForm({
             </div>
 
             {deal && (
-              <div className="space-y-2 rounded-lg border border-border bg-muted/50 p-3">
+              <div className="space-y-2 rounded-xl bg-card-2 p-3">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {t("status")}
                 </p>

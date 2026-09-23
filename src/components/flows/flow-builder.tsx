@@ -174,7 +174,7 @@ export function FlowBuilder() {
         </div>
 
         {state.nodes.length === 0 ? (
-          <div className="border-border bg-card/50 text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
+          <div className="bg-card text-muted-foreground rounded-2xl p-8 text-center text-sm shadow-card-sm">
             {t.rich('nodesEmpty', { strong: (chunks) => <strong>{chunks}</strong> })}
           </div>
         ) : (
@@ -273,7 +273,7 @@ function TriggerPanel({
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <section className="border-border bg-card rounded-lg border p-4">
+    <section className="bg-card rounded-2xl p-4 shadow-card-sm">
       <h2 className="text-foreground mb-3 text-sm font-semibold">{t('triggerTitle')}</h2>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
@@ -355,7 +355,7 @@ function EntryPicker({
 }) {
   if (state.nodes.length === 0) return null;
   return (
-    <section className="border-border bg-card flex items-center gap-3 rounded-lg border p-3">
+    <section className="bg-card flex items-center gap-3 rounded-2xl p-3 shadow-card-sm">
       <CornerDownRight className="text-primary h-4 w-4 shrink-0" />
       <span className="text-muted-foreground text-xs">{t('entryNodeTitle')}</span>
       <NodeKeySelect
@@ -411,12 +411,12 @@ function NodeCard({
     <div
       ref={cardRef}
       className={cn(
-        'bg-card relative overflow-hidden rounded-xl border transition-shadow duration-500',
+        'bg-card relative overflow-hidden rounded-xl border border-transparent shadow-card-sm transition-shadow duration-500',
         hasError
           ? 'border-red-500/40'
           : isEntry
             ? 'border-primary/50'
-            : 'border-border',
+            : undefined,
         isFlashed && 'ring-primary ring-offset-background ring-2 ring-offset-2'
       )}
     >

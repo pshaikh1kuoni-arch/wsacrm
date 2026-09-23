@@ -249,7 +249,7 @@ export function AiConfig() {
       />
 
       {!canEdit && (
-        <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+        <p className="mb-4 rounded-xl bg-card-2 px-3 py-2 text-sm text-muted-foreground shadow-card-sm">
           {t('adminOnlyConfig')}
         </p>
       )}
@@ -401,7 +401,7 @@ export function AiConfig() {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-card-2 p-3">
               <div>
                 <p className="text-sm font-medium text-foreground">
                   {t('enableAssistant')}
@@ -417,7 +417,7 @@ export function AiConfig() {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-card-2 p-3">
               <div>
                 <p className="text-sm font-medium text-foreground">
                   {t('autoReply')}

@@ -102,7 +102,7 @@ export default function AutomationLogsPage({
       </div>
 
       {logs.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/40">
+        <div className="flex h-48 flex-col items-center justify-center rounded-2xl bg-card-2 shadow-card">
           <p className="text-sm text-foreground">{t("emptyTitle")}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {t("emptyDesc")}
@@ -115,7 +115,7 @@ export default function AutomationLogsPage({
             return (
               <li
                 key={log.id}
-                className="rounded-xl border border-border bg-card"
+                className="rounded-2xl bg-card shadow-card-sm"
               >
                 <button
                   type="button"

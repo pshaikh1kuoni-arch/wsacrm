@@ -50,9 +50,9 @@ export function SettingsRail({
     <nav
       aria-label={t('sectionsNav')}
       className={cn(
-        'flex gap-1 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-        'border-b border-border',
-        'lg:sticky lg:top-0 lg:flex-col lg:overflow-visible lg:border-b-0 lg:pb-0',
+        'flex gap-1 overflow-x-auto p-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        'rounded-2xl bg-card shadow-card',
+        'lg:sticky lg:top-0 lg:flex-col lg:overflow-visible lg:pb-3',
       )}
     >
       {RAIL_GROUPS.map(({ label, group }) => {

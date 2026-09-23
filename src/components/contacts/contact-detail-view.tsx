@@ -625,7 +625,7 @@ export function ContactDetailView({
                     notes.map((note) => (
                       <div
                         key={note.id}
-                        className="rounded-lg bg-muted/50 border border-border/50 p-3 group"
+                        className="rounded-xl bg-card-2 p-3 group"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap flex-1">
@@ -713,7 +713,7 @@ export function ContactDetailView({
                     {deals.map((deal) => (
                       <div
                         key={deal.id}
-                        className="rounded-lg border border-border bg-muted/50 p-3"
+                        className="rounded-xl bg-card-2 p-3"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium text-foreground">

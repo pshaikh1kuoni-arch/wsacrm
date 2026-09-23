@@ -211,10 +211,12 @@ function StageColumn({
     // restore the flex-1 share-the-row behavior. The droppable ref is
     // on the inner messages region below — intentionally NOT here, so
     // a drag over the column header doesn't highlight the whole column.
-    <div className="flex w-[85vw] min-w-[260px] max-w-[320px] shrink-0 snap-start flex-col rounded-xl border border-border bg-card/60 p-4 lg:w-auto lg:max-w-none lg:flex-1 lg:basis-[260px] lg:shrink lg:snap-none">
-      {/* 3px colored top border — sits above the column's padding */}
+    <div className="flex w-[85vw] min-w-[260px] max-w-[320px] shrink-0 snap-start flex-col rounded-2xl bg-card p-4 shadow-card lg:w-auto lg:max-w-none lg:flex-1 lg:basis-[260px] lg:shrink lg:snap-none">
+      {/* Rounded accent pill, inset from the card's edges — not a flush
+          straight-edged bar — so the per-stage color reads as part of
+          the floating card rather than a ruled divider. */}
       <div
-        className="-mx-4 -mt-4 h-[3px] rounded-t-xl"
+        className="h-1.5 w-10 rounded-full"
         style={{ backgroundColor: stage.color }}
       />
       <div className="flex items-center justify-between pt-3">

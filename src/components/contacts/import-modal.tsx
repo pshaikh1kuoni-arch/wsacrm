@@ -460,7 +460,7 @@ export function ImportModal({
               'group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-5 transition-all',
               file
                 ? 'border-primary/35 bg-primary/[0.04]'
-                : 'hover:border-primary/40 border-border/80 bg-background/40 hover:bg-background/70'
+                : 'hover:border-primary/40 border-border/80 bg-muted/40 hover:bg-muted/70'
             )}
           >
             {file ? (
@@ -519,11 +519,11 @@ export function ImportModal({
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-border ring-1 ring-border/50">
+              <div className="overflow-hidden rounded-2xl bg-card-2 shadow-card-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[32rem] text-xs">
                     <thead>
-                      <tr className="border-b border-border bg-background/60">
+                      <tr className="border-b border-border">
                         <th className="px-3 py-2 text-left font-medium whitespace-nowrap text-muted-foreground">
                           {t('columns.phone')}
                         </th>
@@ -602,7 +602,7 @@ export function ImportModal({
           )}
 
           {result && (
-            <div className="rounded-xl border border-border bg-background/50 p-4">
+            <div className="rounded-2xl bg-card-2 p-4 shadow-card-sm">
               <p className="text-sm font-medium text-popover-foreground">{t('importComplete')}</p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {result.imported > 0 && (

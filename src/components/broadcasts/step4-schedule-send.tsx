@@ -113,7 +113,7 @@ export function Step4ScheduleSend({
       </div>
 
       {/* Summary Card */}
-      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
+      <div className="rounded-xl bg-card-2 p-4 space-y-3">
         <p className="text-sm font-medium text-foreground">{t('scheduleSend.summary')}</p>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>

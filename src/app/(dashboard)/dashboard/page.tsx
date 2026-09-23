@@ -37,12 +37,17 @@ import { ActivityFeed } from '@/components/dashboard/activity-feed'
 import { useTranslations } from 'next-intl'
 
 type RangeDays = 7 | 30 | 90
+type MetricKey = 'activeConversations' | 'newContactsToday' | 'openDealsValue' | 'messagesSentToday'
 
 export default function DashboardPage() {
   const t = useTranslations('Dashboard.page')
   const { defaultCurrency } = useAuth()
   const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
   const [metricsLoading, setMetricsLoading] = useState(true)
+  // Which KPI tile is highlighted — a pure "what am I looking at"
+  // indicator the user toggles by clicking a tile. It doesn't filter
+  // or re-scope anything else on the page.
+  const [highlightedMetric, setHighlightedMetric] = useState<MetricKey>('activeConversations')
 
   const [range, setRange] = useState<RangeDays>(30)
   // Keep a cache per range so switching tabs doesn't re-fetch what we
@@ -139,21 +144,27 @@ export default function DashboardPage() {
           <>
             <MetricCard
               title={t('activeConversations')}
-              value={metrics.activeConversations.current.toLocaleString()}
+              value={metrics.activeConversations.current}
               icon={MessageSquare}
+              highlight={highlightedMetric === 'activeConversations'}
+              onClick={() => setHighlightedMetric('activeConversations')}
+              enterDelayMs={0}
               delta={{
                 sign: metrics.activeConversations.previous,
                 label: deltaLabel(
-                  metrics.activeConversations.previous, 
-                  t('newTodayVsYesterday'), 
+                  metrics.activeConversations.previous,
+                  t('newTodayVsYesterday'),
                   t('noChange', { suffix: t('newTodayVsYesterday') })
                 ),
               }}
             />
             <MetricCard
               title={t('newContactsToday')}
-              value={metrics.newContactsToday.current.toLocaleString()}
+              value={metrics.newContactsToday.current}
               icon={UserPlus}
+              highlight={highlightedMetric === 'newContactsToday'}
+              onClick={() => setHighlightedMetric('newContactsToday')}
+              enterDelayMs={60}
               delta={{
                 sign:
                   metrics.newContactsToday.current - metrics.newContactsToday.previous,
@@ -166,14 +177,21 @@ export default function DashboardPage() {
             />
             <MetricCard
               title={t('openDealsValue')}
-              value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
+              value={metrics.openDealsValue}
+              format={(n) => formatCurrency(n, defaultCurrency)}
               icon={DollarSign}
+              highlight={highlightedMetric === 'openDealsValue'}
+              onClick={() => setHighlightedMetric('openDealsValue')}
+              enterDelayMs={120}
               subtitle={t('openDeals', { count: metrics.openDealsCount })}
             />
             <MetricCard
               title={t('messagesSentToday')}
-              value={metrics.messagesSentToday.current.toLocaleString()}
+              value={metrics.messagesSentToday.current}
               icon={Send}
+              highlight={highlightedMetric === 'messagesSentToday'}
+              onClick={() => setHighlightedMetric('messagesSentToday')}
+              enterDelayMs={180}
               delta={{
                 sign:
                   metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
@@ -189,7 +207,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick actions */}
-      <QuickActions />
+      <div
+        className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-400 ease-out"
+        style={{ animationDelay: '240ms' }}
+      >
+        <QuickActions />
+      </div>
 
       {/* Charts row */}
       {/* items-stretch (the grid default) stretches the two columns to
@@ -198,7 +221,10 @@ export default function DashboardPage() {
           stretched height so their rounded borders line up. Without
           this, the pipeline card rendered at its natural (shorter)
           height while the line chart drove the row height. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+      <div
+        className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-400 ease-out lg:grid-cols-5"
+        style={{ animationDelay: '300ms' }}
+      >
         <div className="h-full lg:col-span-3">
           <ConversationsChart
             series={series}
@@ -217,10 +243,20 @@ export default function DashboardPage() {
       </div>
 
       {/* Response time */}
-      <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
+      <div
+        className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-400 ease-out"
+        style={{ animationDelay: '360ms' }}
+      >
+        <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
+      </div>
 
       {/* Activity feed */}
-      <ActivityFeed items={activity} loading={activityLoading} />
+      <div
+        className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-400 ease-out"
+        style={{ animationDelay: '420ms' }}
+      >
+        <ActivityFeed items={activity} loading={activityLoading} />
+      </div>
     </div>
   )
 }

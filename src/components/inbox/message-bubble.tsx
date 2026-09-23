@@ -257,7 +257,7 @@ export function MessageBubble({
   return (
     <div
       className={cn(
-        "flex flex-col",
+        "flex flex-col animate-in fade-in duration-200",
         isAgent ? "items-end" : "items-start",
       )}
     >

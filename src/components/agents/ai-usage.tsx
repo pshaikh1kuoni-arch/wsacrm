@@ -184,7 +184,7 @@ export function AiUsageCard() {
                 <p className="mb-2 text-xs font-medium text-muted-foreground">
                   {t('byModel')}
                 </p>
-                <ul className="divide-y divide-border rounded-md border border-border">
+                <ul className="divide-y divide-border rounded-xl bg-card-2">
                   {data.by_model.map((m) => (
                     <li
                       key={`${m.provider}:${m.model}`}
@@ -230,7 +230,7 @@ function Stat({
   icon?: typeof Bot;
 }) {
   return (
-    <div className="rounded-md border border-border p-3">
+    <div className="rounded-xl bg-card-2 p-3">
       <p className="flex items-center gap-1 text-xs text-muted-foreground">
         {Icon && <Icon className="h-3 w-3" />}
         {label}

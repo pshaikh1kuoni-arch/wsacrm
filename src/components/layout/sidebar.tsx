@@ -175,18 +175,21 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          // Mobile: fixed drawer that slides in from the left.
-          "fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r border-border bg-card",
+          // Mobile: fixed drawer that slides in from the left. Separation
+          // from the backdrop is a shadow, not a border line — same
+          // "floating panel" treatment the desktop layout uses.
+          "fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col bg-card shadow-card",
           "transition-transform duration-200 ease-out will-change-transform",
           open ? "translate-x-0" : "-translate-x-full",
-          // Desktop: static, always visible — reset all the mobile framing.
-          "lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none",
+          // Desktop: static, always visible, inset within the shell's
+          // padding — reset the mobile framing and round every corner.
+          "lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:rounded-3xl lg:transition-none",
         )}
         aria-label={t("primaryNav")}
       >
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
-        <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
+        <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <MessageSquare className="h-4 w-4" />
@@ -229,9 +232,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     href={item.href}
                     className={cn(
                       // Taller on mobile so fingers can hit the row reliably (≥44px).
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
                       isActive
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-gradient-to-br from-primary to-primary-2 text-primary-foreground shadow-card-sm"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
@@ -268,9 +271,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             })}
           </ul>
 
-          <div className="my-4 border-t border-border" />
-
-          <ul className="flex flex-col gap-1">
+          <ul className="mt-4 flex flex-col gap-1">
             {bottomNavItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
               return (
@@ -278,9 +279,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
                       isActive
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-gradient-to-br from-primary to-primary-2 text-primary-foreground shadow-card-sm"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
@@ -293,8 +294,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           </ul>
         </nav>
 
-        {/* User section */}
-        <div className="shrink-0 border-t border-border p-3">
+        {/* User section — an inset tile, not a bordered footer strip. */}
+        <div className="mx-3 mt-3 mb-3 shrink-0 rounded-2xl bg-card-2 p-3">
           {/* Account name display — surfaced only when the account
               name differs from the user's own name (see
               `showAccountStrip`). For a default solo account the two

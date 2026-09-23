@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { MessageSquare, CheckCircle, ArrowLeft } from "lucide-react";
 
 export default function ForgotPasswordPage() {
@@ -45,13 +46,13 @@ export default function ForgotPasswordPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md border-border bg-card">
+      <AuthShell>
+        <Card className="w-full">
           <CardHeader className="items-center text-center">
             <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
               <CheckCircle className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="text-xl text-foreground">
+            <CardTitle className="font-[family-name:var(--font-display)] text-xl text-foreground">
               {t("checkEmailTitle")}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
@@ -74,18 +75,18 @@ export default function ForgotPasswordPage() {
             </Link>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
+    <AuthShell>
+      <Card className="w-full">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <MessageSquare className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-xl text-foreground">{t("title")}</CardTitle>
+          <CardTitle className="font-[family-name:var(--font-display)] text-xl text-foreground">{t("title")}</CardTitle>
           <CardDescription className="text-muted-foreground">
             {t("desc")}
           </CardDescription>
@@ -131,6 +132,6 @@ export default function ForgotPasswordPage() {
           </Link>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

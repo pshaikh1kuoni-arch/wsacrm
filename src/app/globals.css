@@ -48,6 +48,11 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
   --color-primary-soft-2: var(--primary-soft-2);
+  /* Gradient partner for --primary — one per accent theme, set in the
+   * ACCENT blocks below. Powers `bg-gradient-to-br from-primary
+   * to-primary-2` on hero surfaces (gradient button/card variants,
+   * dashboard hero tiles) without hardcoding a second color per site. */
+  --color-primary-2: var(--primary-2);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -55,6 +60,12 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Elevation — floating panels separate by shadow + gap, not a ruled
+   * border. Color/strength come from --shadow-color-1/2 (mode blocks,
+   * since dark needs a stronger black shadow and light needs a soft
+   * diffuse one); the shape stays the same across modes. */
+  --shadow-card: 0 1px 2px var(--shadow-color-1), 0 16px 32px -16px var(--shadow-color-2);
+  --shadow-card-sm: 0 1px 2px var(--shadow-color-1), 0 6px 16px -8px var(--shadow-color-2);
 }
 
 /* ============================================================
@@ -88,7 +99,7 @@
 
 :root,
 html[data-mode="dark"] {
-  --background: oklch(0.13 0.01 260);
+  --background: oklch(0.11 0.01 260);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.18 0.01 260);
   --card-2: oklch(0.205 0.01 260);
@@ -114,10 +125,15 @@ html[data-mode="dark"] {
   --sidebar-accent: oklch(0.22 0.01 260);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.28 0.01 260);
+  /* Floating-panel shadow — stronger and darker than light mode's,
+   * since dark-mode elevation reads mostly from the shadow (the
+   * card/background lightness gap is small by design). */
+  --shadow-color-1: oklch(0 0 0 / 0.35);
+  --shadow-color-2: oklch(0 0 0 / 0.55);
 }
 
 html[data-mode="light"] {
-  --background: oklch(0.99 0.002 260);
+  --background: oklch(0.95 0.003 260);
   --foreground: oklch(0.21 0.01 260);
   --card: oklch(1 0 0);
   --card-2: oklch(0.985 0.002 260);
@@ -143,22 +159,34 @@ html[data-mode="light"] {
   --sidebar-accent: oklch(0.96 0.004 260);
   --sidebar-accent-foreground: oklch(0.25 0.01 260);
   --sidebar-border: oklch(0.922 0.004 260);
+  /* Floating-panel shadow — soft and diffuse; light-mode elevation
+   * reads mostly from the background/card lightness gap (0.95 → 1),
+   * so the shadow only needs to add a little depth. */
+  --shadow-color-1: oklch(0.2 0.02 260 / 0.05);
+  --shadow-color-2: oklch(0.2 0.02 260 / 0.14);
 }
 
 /* ---- ACCENT: primary color ---- */
 
 :root,
 html[data-theme="violet"] {
-  --primary: oklch(0.526 0.247 293);
+  /* Brand accent — deep elegant green + gold (WAGenie brand colors,
+   * sampled from the real logo). Deliberately darker/richer than the
+   * "emerald" preset below, which stays a brighter, separate option. */
+  --primary: oklch(0.45 0.15 152);
   --primary-foreground: oklch(0.985 0 0);
-  --primary-hover: oklch(0.6 0.22 293);
-  --primary-soft: oklch(0.526 0.247 293 / 0.12);
-  --primary-soft-2: oklch(0.526 0.247 293 / 0.2);
-  --ring: oklch(0.526 0.247 293);
-  --chart-1: oklch(0.526 0.247 293);
-  --sidebar-primary: oklch(0.526 0.247 293);
+  --primary-hover: oklch(0.51 0.15 152);
+  --primary-soft: oklch(0.45 0.15 152 / 0.12);
+  --primary-soft-2: oklch(0.45 0.15 152 / 0.2);
+  /* Gradient partner (gold) — the ribbon color from the WAGenie logo.
+   * Paired with --primary in `from-primary to-primary-2` gradients;
+   * never used flat on its own. */
+  --primary-2: oklch(0.78 0.14 88);
+  --ring: oklch(0.45 0.15 152);
+  --chart-1: oklch(0.45 0.15 152);
+  --sidebar-primary: oklch(0.45 0.15 152);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-ring: oklch(0.526 0.247 293);
+  --sidebar-ring: oklch(0.45 0.15 152);
 }
 
 html[data-theme="emerald"] {
@@ -167,6 +195,8 @@ html[data-theme="emerald"] {
   --primary-hover: oklch(0.68 0.15 162);
   --primary-soft: oklch(0.62 0.16 162 / 0.12);
   --primary-soft-2: oklch(0.62 0.16 162 / 0.22);
+  /* Gradient partner (violet) — reuses violet's own --primary value. */
+  --primary-2: oklch(0.526 0.247 293);
   --ring: oklch(0.62 0.16 162);
   --chart-1: oklch(0.62 0.16 162);
   --chart-2: oklch(0.7 0.14 195);
@@ -181,6 +211,8 @@ html[data-theme="cobalt"] {
   --primary-hover: oklch(0.66 0.18 254);
   --primary-soft: oklch(0.585 0.2 254 / 0.12);
   --primary-soft-2: oklch(0.585 0.2 254 / 0.22);
+  /* Gradient partner (purple). */
+  --primary-2: oklch(0.6 0.23 305);
   --ring: oklch(0.585 0.2 254);
   --chart-1: oklch(0.585 0.2 254);
   --chart-2: oklch(0.7 0.15 220);
@@ -195,6 +227,8 @@ html[data-theme="amber"] {
   --primary-hover: oklch(0.8 0.15 65);
   --primary-soft: oklch(0.745 0.16 65 / 0.12);
   --primary-soft-2: oklch(0.745 0.16 65 / 0.22);
+  /* Gradient partner (pink). */
+  --primary-2: oklch(0.68 0.19 350);
   --ring: oklch(0.745 0.16 65);
   --chart-1: oklch(0.745 0.16 65);
   --chart-2: oklch(0.7 0.15 35);
@@ -209,6 +243,8 @@ html[data-theme="rose"] {
   --primary-hover: oklch(0.71 0.2 16);
   --primary-soft: oklch(0.645 0.22 16 / 0.12);
   --primary-soft-2: oklch(0.645 0.22 16 / 0.22);
+  /* Gradient partner (amber) — reuses amber's own --primary value. */
+  --primary-2: oklch(0.745 0.16 65);
   --ring: oklch(0.645 0.22 16);
   --chart-1: oklch(0.645 0.22 16);
   --chart-2: oklch(0.7 0.18 340);
@@ -227,4 +263,93 @@ html[data-theme="rose"] {
   html {
     @apply font-sans;
   }
+}
+
+/* Gradient "hero" surface — one KPI tile per row, never more. Always
+ * forces white text over a dark scrim + the primary/primary-2 gradient,
+ * rather than reusing --primary-foreground: that token is tuned to
+ * contrast against a single flat --primary, not against whichever two
+ * colors a given theme's gradient happens to pair (a light accent like
+ * amber can pair two stops that are both too light for its own dark
+ * foreground, or too light for white without the scrim). The scrim
+ * keeps this correct for every current and future accent theme without
+ * per-theme tuning. */
+.bg-gradient-hero {
+  background-image:
+    linear-gradient(135deg, oklch(0 0 0 / 0.28), oklch(0 0 0 / 0.28)),
+    linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: oklch(0.985 0 0);
+}
+
+/* Motion system — shared timing so every entrance/transition in the app
+ * feels like one design, not a pile of one-off durations. Kept short and
+ * un-springy on purpose: this is a professional SaaS tool, not a
+ * consumer app, so motion should confirm what happened, not perform. */
+:root {
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-slow: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+ * MARKETING LANDING PAGE (`/`) — scoped to `.wag-landing` so these
+ * neutral tokens never leak into or collide with the app's own
+ * dark-default `--background`/`--card` system above. The page is
+ * deliberately light-only (no dark-mode variant): it's reviewed and
+ * approved as a light canvas, and it sits outside the authenticated
+ * app's own light/dark toggle entirely. Accent colors are NOT
+ * duplicated here — the page reads `--primary`/`--primary-2` from
+ * the app's real theme tokens above, so it always matches whichever
+ * accent is active. ============================================ */
+.wag-landing {
+  --wbg: oklch(0.95 0.004 262);
+  --wsurface: oklch(0.99 0.002 262);
+  --wsurface-2: oklch(0.955 0.005 262);
+  --wink: oklch(0.19 0.014 262);
+  --wink-soft: oklch(0.46 0.02 262);
+  --wink-faint: oklch(0.62 0.014 262);
+  --wglass-fill: oklch(0.99 0.002 262 / 0.55);
+  --wglass-edge: oklch(1 0 0 / 0.55);
+  --wglass-sheen: oklch(1 0 0 / 0.65);
+  --wshadow-1: oklch(0.2 0.02 262 / 0.06);
+  --wshadow-2: oklch(0.2 0.02 262 / 0.16);
+  background: var(--wbg);
+  color: var(--wink);
+}
+
+@keyframes wag-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -24px) scale(1.06); }
+}
+@keyframes wag-reveal-in {
+  from { opacity: .001; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes wag-ring-out {
+  0% { opacity: .55; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.3); }
+}
+@keyframes wag-travel {
+  0% { left: 4%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 92%; opacity: 0; }
+}
+@keyframes wag-live-pulse {
+  0% { box-shadow: 0 0 0 0 oklch(0.7 0.19 152 / 0.4); }
+  70% { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }

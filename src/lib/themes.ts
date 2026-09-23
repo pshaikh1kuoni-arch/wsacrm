@@ -64,38 +64,51 @@ export interface ThemeMeta {
    * theme in globals.css.
    */
   swatch: string;
+  /**
+   * Second gradient stop for this theme's hero surfaces (`from-primary
+   * to-primary-2`) — logo mark, active nav item, hero KPI tile,
+   * gradient button/card variants. Must mirror `--primary-2` of the
+   * same theme in globals.css. Used flat on its own nowhere; it only
+   * ever pairs with `swatch` in a gradient.
+   */
+  swatch2: string;
 }
 
 export const THEMES: ReadonlyArray<ThemeMeta> = [
   {
     id: "violet",
-    name: "Violet",
-    tagline: "The default — confident, slightly playful.",
-    swatch: "oklch(0.526 0.247 293)",
+    name: "Forest",
+    tagline: "The default. WAGenie's own deep green and gold.",
+    swatch: "oklch(0.45 0.15 152)",
+    swatch2: "oklch(0.78 0.14 88)",
   },
   {
     id: "emerald",
     name: "Emerald",
     tagline: "Growth-coded, nods at messaging without copying WhatsApp green.",
     swatch: "oklch(0.62 0.16 162)",
+    swatch2: "oklch(0.526 0.247 293)",
   },
   {
     id: "cobalt",
     name: "Cobalt",
     tagline: "Clean B2B-SaaS blue — calm and product-y.",
     swatch: "oklch(0.585 0.2 254)",
+    swatch2: "oklch(0.6 0.23 305)",
   },
   {
     id: "amber",
     name: "Amber",
     tagline: "Warm and friendly — feels good for SMB teams.",
     swatch: "oklch(0.745 0.16 65)",
+    swatch2: "oklch(0.68 0.19 350)",
   },
   {
     id: "rose",
     name: "Rose",
     tagline: "Bold and modern — D2C, creator-economy, lifestyle.",
     swatch: "oklch(0.645 0.22 16)",
+    swatch2: "oklch(0.745 0.16 65)",
   },
 ];
 

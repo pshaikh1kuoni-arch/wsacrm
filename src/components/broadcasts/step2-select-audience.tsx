@@ -325,10 +325,10 @@ export function Step2SelectAudience({
                     option.type === 'csv' ? audience.csvContacts : undefined,
                 })
               }
-              className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
+              className={`flex items-start gap-3 rounded-xl border border-transparent p-4 text-left transition-all ${
                 isSelected
                   ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                  : 'border-border bg-card/50 hover:border-border'
+                  : 'bg-card-2 hover:bg-muted'
               }`}
             >
               <div
@@ -352,7 +352,7 @@ export function Step2SelectAudience({
       </div>
 
       {audience.type === 'tags' && (
-        <div className="rounded-xl border border-border bg-card/50 p-4">
+        <div className="rounded-xl bg-card-2 p-4">
           <p className="mb-3 text-sm font-medium text-foreground">{t('selectAudience.selectTags')}</p>
           {loadingTags ? (
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -388,7 +388,7 @@ export function Step2SelectAudience({
       )}
 
       {audience.type === 'custom_field' && (
-        <div className="space-y-3 rounded-xl border border-border bg-card/50 p-4">
+        <div className="space-y-3 rounded-xl bg-card-2 p-4">
           <p className="text-sm font-medium text-foreground">{t('selectAudience.method.customField')}</p>
           {loadingFields ? (
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -438,7 +438,7 @@ export function Step2SelectAudience({
       )}
 
       {audience.type === 'csv' && (
-        <div className="space-y-3 rounded-xl border border-border bg-card/50 p-4">
+        <div className="space-y-3 rounded-xl bg-card-2 p-4">
           <div>
             <p className="text-sm font-medium text-foreground">
               {t('selectAudience.uploadCsv')}
@@ -481,7 +481,7 @@ export function Step2SelectAudience({
       )}
 
       {/* Exclude list — applies regardless of audience type */}
-      <div className="rounded-xl border border-border bg-card/50 p-4">
+      <div className="rounded-xl bg-card-2 p-4">
         <div className="mb-3 flex items-center gap-2">
           <X className="h-4 w-4 text-red-400" />
           <p className="text-sm font-medium text-foreground">
@@ -517,7 +517,7 @@ export function Step2SelectAudience({
       </div>
 
       {/* Audience Summary */}
-      <div className="rounded-xl border border-border bg-card/50 p-4">
+      <div className="rounded-xl bg-card-2 p-4">
         <p className="mb-2 text-sm font-medium text-foreground">{t('selectAudience.audienceSummary')}</p>
         {loadingCount ? (
           <div className="flex items-center gap-2">

@@ -306,7 +306,7 @@ export function ProfileForm() {
           </div>
 
           {/* Read-only block */}
-          <div className="rounded-lg border border-border bg-muted p-4">
+          <div className="rounded-xl bg-card-2 p-4">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {t('accountDetails')}
             </p>

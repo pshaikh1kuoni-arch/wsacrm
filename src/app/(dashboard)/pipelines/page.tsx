@@ -392,7 +392,7 @@ export default function PipelinesPage() {
 
       {/* Board */}
       {pipelines.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20">
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-card py-20 shadow-card">
           <GitBranch className="h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 text-lg font-medium text-foreground">
             {t("noPipelinesYet")}

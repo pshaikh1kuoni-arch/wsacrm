@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
 
 // `useSearchParams` opts the component out of static prerendering
@@ -93,13 +94,13 @@ function SignupPageInner() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md border-border bg-card">
+      <AuthShell>
+        <Card className="w-full">
           <CardHeader className="items-center text-center">
             <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
               <CheckCircle className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="text-xl text-foreground">
+            <CardTitle className="font-[family-name:var(--font-display)] text-xl text-foreground">
               {t("checkEmailTitle")}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
@@ -128,13 +129,13 @@ function SignupPageInner() {
             </Link>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
+    <AuthShell>
+      <Card className="w-full">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             {inviteToken ? (
@@ -143,7 +144,7 @@ function SignupPageInner() {
               <MessageSquare className="h-6 w-6 text-primary" />
             )}
           </div>
-          <CardTitle className="text-xl text-foreground">
+          <CardTitle className="font-[family-name:var(--font-display)] text-xl text-foreground">
             {inviteToken ? t("titleJoin") : t("title")}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
@@ -242,6 +243,6 @@ function SignupPageInner() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

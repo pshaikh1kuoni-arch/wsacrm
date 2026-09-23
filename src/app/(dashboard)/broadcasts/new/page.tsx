@@ -179,8 +179,11 @@ export default function NewBroadcastPage() {
         })}
       </div>
 
-      {/* Step Content */}
-      <div className="relative min-h-[400px]">
+      {/* Step Content — one floating card holds the active step's body and
+          its own Back/Next footer, so the step's internal `border-t` divider
+          becomes a legitimate card-footer separator instead of a stray line
+          floating on the bare canvas. */}
+      <div className="relative min-h-[400px] rounded-2xl bg-card p-6 shadow-card">
         <div
           className="transition-all duration-300 ease-in-out"
           style={{

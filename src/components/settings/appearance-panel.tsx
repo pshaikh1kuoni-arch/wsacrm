@@ -67,6 +67,7 @@ export function AppearancePanel() {
               name={tObj.name}
               tagline={tObj.tagline}
               swatch={tObj.swatch}
+              swatch2={tObj.swatch2}
               isActive={tObj.id === theme}
               onPick={() => setTheme(tObj.id)}
             />
@@ -97,10 +98,10 @@ function ModeCard({
       aria-checked={isActive}
       aria-label={t("useMode", { mode })}
       className={cn(
-        "flex items-center gap-3 rounded-lg border bg-card p-4 text-left transition-colors",
+        "flex items-center gap-3 rounded-2xl border border-transparent bg-card p-4 text-left shadow-card-sm transition-colors",
         isActive
           ? "border-primary/60 ring-2 ring-primary/40"
-          : "border-border hover:border-border hover:bg-muted/40",
+          : "hover:bg-card-2",
       )}
     >
       <span
@@ -127,6 +128,7 @@ function ThemeCard({
   name,
   tagline,
   swatch,
+  swatch2,
   isActive,
   onPick,
 }: {
@@ -134,10 +136,15 @@ function ThemeCard({
   name: string;
   tagline: string;
   swatch: string;
+  swatch2: string;
   isActive: boolean;
   onPick: () => void;
 }) {
   const t = useTranslations("Settings.appearance");
+  // Same to-br diagonal two-stop gradient the `gradient` button variant
+  // and hero surfaces use elsewhere, so the swatch previews truthfully
+  // what picking this theme actually looks like — not a flat dot.
+  const gradient = `linear-gradient(135deg, ${swatch}, ${swatch2})`;
   return (
     <button
       type="button"
@@ -145,10 +152,10 @@ function ThemeCard({
       aria-pressed={isActive}
       aria-label={t("useTheme", { name })}
       className={cn(
-        "flex flex-col gap-3 rounded-lg border bg-card p-4 text-left transition-colors",
+        "flex flex-col gap-3 rounded-2xl border border-transparent bg-card p-4 text-left shadow-card-sm transition-colors",
         isActive
           ? "border-primary/60 ring-2 ring-primary/40"
-          : "border-border hover:border-border hover:bg-muted/40",
+          : "hover:bg-card-2",
       )}
     >
       <div className="flex items-center justify-between">
@@ -156,7 +163,7 @@ function ThemeCard({
           aria-hidden
           className="h-8 w-8 shrink-0 rounded-full"
           style={{
-            background: swatch,
+            background: gradient,
             boxShadow: "inset 0 0 0 1px oklch(1 0 0 / 0.15)",
           }}
         />
@@ -177,7 +184,7 @@ function ThemeCard({
         className="mt-1 flex h-2 overflow-hidden rounded-full"
         aria-hidden
       >
-        <span className="flex-1" style={{ background: swatch }} />
+        <span className="flex-1" style={{ background: gradient }} />
         <span className="w-3 bg-muted-foreground/60" />
         <span className="w-3 bg-muted" />
         <span className="w-3 bg-card" />

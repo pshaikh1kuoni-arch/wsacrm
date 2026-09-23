@@ -188,7 +188,7 @@ export default function NotificationsPage() {
       </div>
 
       {notifications.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/40">
+        <div className="flex h-48 flex-col items-center justify-center rounded-2xl bg-card shadow-card">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <Bell className="h-6 w-6 text-primary" />
           </div>
@@ -210,10 +210,8 @@ export default function NotificationsPage() {
                   type="button"
                   onClick={() => handleClick(n)}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors",
-                    isUnread
-                      ? "border-primary/30 bg-primary/5 hover:border-primary/50"
-                      : "border-border bg-card hover:border-border/70",
+                    "flex w-full items-start gap-3 rounded-2xl bg-card p-4 text-left shadow-card-sm transition-shadow hover:shadow-card",
+                    isUnread && "border-l-4 border-primary",
                   )}
                 >
                   <div

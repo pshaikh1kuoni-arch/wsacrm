@@ -386,7 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setProfile(null);
     setAccount(null);
-    window.location.href = "/login";
+    window.location.href = "/";
   }, []);
 
   const refreshProfile = useCallback(async () => {

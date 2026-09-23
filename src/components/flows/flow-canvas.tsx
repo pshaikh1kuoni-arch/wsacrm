@@ -166,10 +166,10 @@ function FlowNodeCard({ data, selected }: NodeProps) {
         } as React.CSSProperties
       }
       className={cn(
-        'bg-card relative max-w-[260px] min-w-[220px] rounded-xl border px-3.5 py-3 text-left shadow-[0_2px_6px_rgba(0,0,0,0.18)] transition-[box-shadow,border-color]',
+        'bg-card relative max-w-[260px] min-w-[220px] rounded-xl border border-transparent px-3.5 py-3 text-left shadow-[0_2px_6px_rgba(0,0,0,0.18)] transition-[box-shadow,border-color]',
         selected
           ? 'border-[var(--nc)]'
-          : 'border-border hover:border-[var(--nc-ring)]',
+          : 'hover:border-[var(--nc-ring)]',
         // Flash overrides hover/selected colors briefly. Tailwind's
         // built-in `animate-pulse` is too gentle; a ring with the
         // amber accent matches the list view's flash semantics.
@@ -555,7 +555,7 @@ function FlowCanvasInner() {
             color="var(--border)"
           />
           <Controls
-            className="!border-border !bg-card [&_button]:!border-border [&_button]:!bg-card [&_button:hover]:!bg-muted [&_button_svg]:!fill-foreground !overflow-hidden !rounded-xl !border !shadow-[0_6px_20px_-8px_rgba(0,0,0,0.5)]"
+            className="!bg-card [&_button]:!border-border [&_button]:!bg-card [&_button:hover]:!bg-muted [&_button_svg]:!fill-foreground !overflow-hidden !rounded-xl !shadow-[0_6px_20px_-8px_rgba(0,0,0,0.5)]"
             showInteractive={false}
           />
           <MiniMap
@@ -567,7 +567,7 @@ function FlowCanvasInner() {
             nodeStrokeWidth={0}
             nodeBorderRadius={3}
             maskColor="color-mix(in oklch, var(--background) 70%, transparent)"
-            className="!border-border !bg-card !rounded-xl !border !shadow-[0_6px_20px_-8px_rgba(0,0,0,0.5)]"
+            className="!bg-card !rounded-xl !shadow-[0_6px_20px_-8px_rgba(0,0,0,0.5)]"
           />
           <Panel position="top-left" className="!top-4 !left-4">
             <CanvasAddNodeButton t={t} />

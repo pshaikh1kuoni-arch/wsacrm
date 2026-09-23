@@ -393,7 +393,7 @@ function SortableStageRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 rounded-lg border border-border bg-muted p-2"
+      className="flex items-center gap-2 rounded-xl bg-card-2 p-2"
     >
       <button
         type="button"

@@ -141,7 +141,7 @@ export function QuickRepliesManager() {
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : items.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl bg-card py-10 text-center text-sm text-muted-foreground shadow-card">
           No quick replies yet. Create one to reuse it across conversations.
         </p>
       ) : (
@@ -149,7 +149,7 @@ export function QuickRepliesManager() {
           {items.map((qr) => (
             <li
               key={qr.id}
-              className="flex items-start gap-3 rounded-lg border border-border bg-card p-3"
+              className="flex items-start gap-3 rounded-2xl bg-card p-3 shadow-card-sm"
             >
               {qr.kind === "interactive" ? (
                 <Zap className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
