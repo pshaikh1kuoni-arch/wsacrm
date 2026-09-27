@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -203,9 +204,14 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           )}
         >
           <Link href="/dashboard" className="flex items-center gap-2" title={fullscreen ? t("title") : undefined}>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <MessageSquare className="h-4 w-4" />
-            </div>
+            <Image
+              src="/brand/wagenie-icon.png"
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8 shrink-0"
+              priority
+            />
             <span className={cn("text-sm font-semibold text-foreground", fullscreen && "lg:hidden")}>
               {t("title")}
             </span>

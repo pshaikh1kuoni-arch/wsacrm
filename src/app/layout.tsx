@@ -29,16 +29,13 @@ const bricolage = Bricolage_Grotesque({
 
 export const metadata: Metadata = {
   title: {
-    default: "wacrm",
-    template: "%s — wacrm",
+    default: "WAGenie",
+    template: "%s — WAGenie",
   },
-  description: "Self-hostable CRM template for WhatsApp.",
+  description: "WAGenie — your WhatsApp CRM, on autopilot.",
   robots: {
     index: false,
     follow: false,
-  },
-  icons: {
-    icon: [{ url: "/icon" }],
   },
   formatDetection: {
     email: false,
