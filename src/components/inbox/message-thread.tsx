@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { usePresence } from "@/hooks/use-presence";
+import { useOpenDeal } from "@/hooks/use-open-deal";
 import { PresenceDot } from "@/components/presence/presence-dot";
 import { presenceLabel } from "@/lib/presence";
 import { cn } from "@/lib/utils";
@@ -25,8 +26,9 @@ import {
   Clock,
   ArrowLeft,
   RefreshCw,
-  PanelRightOpen,
-  PanelRightClose,
+  Maximize2,
+  Minimize2,
+  DollarSign,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
 import { useTranslations } from "next-intl";
@@ -98,14 +100,23 @@ interface MessageThreadProps {
    */
   onRefresh?: () => void;
   /**
-   * Desktop-only contact-panel toggle. The page owns the open/closed
-   * state (it's the one that renders the sidebar), so the thread just
-   * reflects it and asks the page to flip it. Both optional so existing
-   * callers keep working; the toggle button only renders when
-   * `onToggleContactPanel` is wired up.
+   * Desktop-only full-screen toggle: collapses the app's own left nav
+   * (`Sidebar`, via the shared `useDashboardFullscreen` context) to an
+   * icon-only rail so the thread can use the width it gives back. The
+   * page owns the boolean — the thread just reflects it and asks the
+   * page to flip it. Optional so existing callers keep working; the
+   * button only renders when `onToggleFullscreen` is wired up.
    */
-  contactPanelOpen?: boolean;
-  onToggleContactPanel?: () => void;
+  fullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  /**
+   * Opens the page-level `DealForm` with this thread's contact locked
+   * in. Lives in the header (not the contact panel) specifically so it
+   * stays reachable when that panel is minimized or closed — the whole
+   * point of putting it here. Optional so existing callers keep working;
+   * the button only renders when wired up.
+   */
+  onAddDeal?: () => void;
 }
 
 function formatDateSeparator(dateStr: string, t: ReturnType<typeof useTranslations>): string {
@@ -162,8 +173,9 @@ export function MessageThread({
   onBack,
   resyncToken = 0,
   onRefresh,
-  contactPanelOpen,
-  onToggleContactPanel,
+  fullscreen,
+  onToggleFullscreen,
+  onAddDeal,
 }: MessageThreadProps) {
   const t = useTranslations("Inbox.messageThread");
   const tTimer = useTranslations("Inbox.sessionTimer");
@@ -171,6 +183,7 @@ export function MessageThread({
 
   const { user } = useAuth();
   const { getPresence, getRow, now } = usePresence();
+  const openDeal = useOpenDeal(contact?.id);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
@@ -939,32 +952,62 @@ export function MessageThread({
             <Clock className="h-3 w-3" />
             {sessionInfo.remaining}
           </Badge>
+          {/* Pipeline stage badge — same soft-pill pattern as the deal
+              stage chip in ContactSidebar/pipeline-board, so it stays
+              visible (chat header) even with the contact panel
+              collapsed or fully closed. Silent when the contact has no
+              open deal. */}
+          {openDeal?.stage && (
+            <Badge
+              variant="outline"
+              className="ml-1 hidden border-transparent text-[10px] sm:inline-flex sm:ml-2"
+              style={{
+                backgroundColor: `${openDeal.stage.color}20`,
+                color: openDeal.stage.color,
+              }}
+            >
+              {openDeal.stage.name}
+            </Badge>
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          {/* Contact-panel toggle — desktop only. The contact sidebar
-              eats a chunk of horizontal width that crowds the thread on
-              smaller laptops; this lets agents reclaim it when they just
-              want to read and reply. Hidden on mobile, where the sidebar
-              never renders as a permanent panel anyway. Issue #258. */}
-          {onToggleContactPanel && (
+          {/* Add deal — reachable from the header so it isn't lost when
+              the contact panel (where the same action also lives, in
+              the Deals section) is minimized or closed. Both open the
+              same page-level DealForm, contact already locked in. */}
+          {onAddDeal && (
             <button
               type="button"
-              onClick={onToggleContactPanel}
-              aria-label={
-                contactPanelOpen ? t("hideContactPanel") : t("showContactPanel")
-              }
-              title={contactPanelOpen ? t("hideContact") : t("showContact")}
-              aria-pressed={contactPanelOpen}
+              onClick={onAddDeal}
+              aria-label={t("addDeal")}
+              title={t("addDeal")}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <DollarSign className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Full-screen toggle — desktop only. Collapses the app's own
+              left nav to an icon-only rail so the thread can use the
+              width it gives back. Hidden on mobile, which never shows
+              the labeled nav as a permanent panel anyway. */}
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              aria-label={fullscreen ? t("exitFullscreen") : t("enterFullscreen")}
+              title={fullscreen ? t("exitFullscreen") : t("enterFullscreen")}
+              aria-pressed={fullscreen}
               className={cn(
                 "hidden h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground lg:inline-flex",
-                contactPanelOpen ? "text-primary" : "text-muted-foreground",
+                fullscreen ? "text-primary" : "text-muted-foreground",
               )}
             >
-              {contactPanelOpen ? (
-                <PanelRightClose className="h-4 w-4" />
+              {fullscreen ? (
+                <Minimize2 className="h-4 w-4" />
               ) : (
-                <PanelRightOpen className="h-4 w-4" />
+                <Maximize2 className="h-4 w-4" />
               )}
             </button>
           )}

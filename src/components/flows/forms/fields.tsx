@@ -18,6 +18,7 @@
  * (introduced in this PR) mount the exact same form components.
  */
 
+import { CircleAlert } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -30,6 +31,22 @@ import {
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { NODE_META, type BuilderNode } from "../shared";
+
+/**
+ * Inline caution note for a node's config form — same amber
+ * CircleAlert language `validation-panel.tsx` uses for warning-level
+ * issues, so a hard constraint (e.g. "must stay under 24 hours")
+ * reads consistently with how the builder already flags problems
+ * elsewhere, rather than inventing a new visual style.
+ */
+export function WarningNote({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+      <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <span>{children}</span>
+    </div>
+  );
+}
 
 export function TextRow({
   label,

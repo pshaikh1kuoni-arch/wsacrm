@@ -103,7 +103,7 @@ describe('resolveTemplateRow', () => {
     expect(filters).toEqual({ account_id: 'acct-1', name: 'order_update' });
   });
 
-  it("matches a synced 'en' row when the caller asks for 'en_US' (#483)", async () => {
+  it("matches a synced 'en' row when the caller asks for 'en_US', and sends 'en' (#483)", async () => {
     const resolved = await resolveTemplateRow(
       dbReturning([row({ language: 'en' })]),
       'acct-1',
@@ -111,8 +111,11 @@ describe('resolveTemplateRow', () => {
       'en_US'
     );
     expect(resolved.row?.language).toBe('en');
-    // Caller pinned a language — that is what Meta is sent.
-    expect(resolved.language).toBe('en_US');
+    // The matched row is what Meta actually approved — sending the
+    // caller's original 'en_US' guess here is exactly the pair Meta
+    // rejects with 132001 "Template name does not exist in the
+    // translation" once an account only has the 'en' variant synced.
+    expect(resolved.language).toBe('en');
   });
 
   it("resolves a bare 'en' row when the caller omits the language, and sends 'en'", async () => {

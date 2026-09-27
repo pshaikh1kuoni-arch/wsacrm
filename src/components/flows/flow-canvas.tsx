@@ -78,6 +78,7 @@ import {
 } from '@/lib/flows/edges';
 import { autoLayout, shouldAutoLayout } from '@/lib/flows/layout';
 import {
+  CANVAS_MUTED_TEXT,
   NODE_META,
   NodeIconChip,
   groupNodeTypesByCategory,
@@ -198,16 +199,25 @@ function FlowNodeCard({ data, selected }: NodeProps) {
           {t(`nodes.${node.node_type}.label`)}
         </span>
         {isEntry && (
-          <span className="border-border text-muted-foreground ml-auto rounded border px-1.5 py-0.5 text-[8.5px] font-bold tracking-[0.1em] uppercase">
+          <span
+            className="border-border ml-auto rounded border px-1.5 py-0.5 text-[8.5px] font-bold tracking-[0.1em] uppercase"
+            style={{ color: CANVAS_MUTED_TEXT }}
+          >
             {t('badgeEntry')}
           </span>
         )}
       </div>
-      <div className="text-muted-foreground mt-2 truncate font-mono text-[11px]">
+      <div
+        className="mt-2 truncate font-mono text-[11px]"
+        style={{ color: CANVAS_MUTED_TEXT }}
+      >
         {node.node_key}
       </div>
       {summary && (
-        <div className="text-muted-foreground mt-1 line-clamp-2 text-xs leading-relaxed">
+        <div
+          className="mt-1 line-clamp-2 text-xs leading-relaxed"
+          style={{ color: CANVAS_MUTED_TEXT }}
+        >
           {summary}
         </div>
       )}
@@ -217,7 +227,8 @@ function FlowNodeCard({ data, selected }: NodeProps) {
           {slots.map((slot) => (
             <div
               key={slot.id}
-              className="text-muted-foreground relative flex items-center justify-between gap-2 rounded px-1 py-0.5 text-[11px]"
+              className="relative flex items-center justify-between gap-2 rounded px-1 py-0.5 text-[11px]"
+              style={{ color: CANVAS_MUTED_TEXT }}
             >
               <span className="truncate" title={slot.label}>
                 {slot.label}
@@ -512,7 +523,10 @@ function FlowCanvasInner() {
 
   if (rfNodes.length === 0) {
     return (
-      <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 text-sm">
+      <div
+        className="flex h-full flex-col items-center justify-center gap-3 text-sm"
+        style={{ color: CANVAS_MUTED_TEXT }}
+      >
         <p>{t('noNodesYet')}</p>
         <CanvasAddNodeButton t={t} />
       </div>
@@ -630,7 +644,7 @@ function NodeEditSheet({
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent
         side="right"
-        className="border-border bg-popover flex w-full flex-col gap-0 border-l p-0 sm:max-w-md"
+        className="bg-popover flex w-full flex-col gap-0 p-0 sm:max-w-md"
       >
         <SheetHeader className="border-border flex-row items-center gap-3 space-y-0 border-b px-5 py-4">
           <NodeIconChip type={node.node_type} size={36} iconSize={18} />
@@ -697,9 +711,12 @@ const ADD_NODE_TYPES: NodeType[] = [
   'send_list',
   'send_message',
   'send_media',
+  'send_template',
+  'wait_followup',
   'collect_input',
   'condition',
   'set_tag',
+  'ai_agent',
   'handoff',
   'end',
 ];

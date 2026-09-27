@@ -270,7 +270,7 @@ export async function DELETE(
 
     const { data: existing, error: lookupErr } = await supabase
       .from('message_templates')
-      .select('id, name, meta_template_id')
+      .select('id, name, language, meta_template_id')
       .eq('id', id)
       .eq('account_id', accountId)
       .maybeSingle()
@@ -296,6 +296,7 @@ export async function DELETE(
           wabaId: config.waba_id,
           accessToken,
           name: existing.name,
+          language: existing.language,
           metaTemplateId: existing.meta_template_id,
         })
       } catch (e) {

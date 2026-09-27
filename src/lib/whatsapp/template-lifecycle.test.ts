@@ -194,18 +194,55 @@ describe('deleteMessageTemplate', () => {
     expect(url).toContain('hsm_id=12345');
   });
 
-  it('treats 404 as a no-op (template already gone on Meta)', async () => {
+  it('treats 404 as a no-op when the template is genuinely gone from Meta', async () => {
     fetchMock.mockResolvedValueOnce(
       errorResponse(404, { error: { message: 'not found' } }),
+    );
+    // Follow-up existence check (by name) finds nothing.
+    fetchMock.mockResolvedValueOnce(okResponse({ data: [] }));
+    await expect(
+      deleteMessageTemplate({
+        wabaId: 'W',
+        accessToken: 't',
+        name: 'x',
+        language: 'en_US',
+        metaTemplateId: 'y',
+      }),
+    ).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [checkUrl] = fetchMock.mock.calls[1];
+    expect(checkUrl).toContain('/W/message_templates');
+    expect(checkUrl).toContain('name=x');
+  });
+
+  it('does NOT double-check on 404 when no metaTemplateId was sent (nothing stale to be wrong about)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(404, { error: { message: 'not found' } }),
+    );
+    await expect(
+      deleteMessageTemplate({ wabaId: 'W', accessToken: 't', name: 'x' }),
+    ).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws instead of no-opping when a 404 is actually a stale id — the template still exists on Meta under a different id', async () => {
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(404, { error: { message: 'not found' } }),
+    );
+    // Follow-up existence check finds a live template with this
+    // name/language — our hsm_id just didn't match it.
+    fetchMock.mockResolvedValueOnce(
+      okResponse({ data: [{ name: 'x', language: 'en_US' }] }),
     );
     await expect(
       deleteMessageTemplate({
         wabaId: 'W',
         accessToken: 't',
         name: 'x',
-        metaTemplateId: 'y',
+        language: 'en_US',
+        metaTemplateId: 'stale-id',
       }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow(/still exists on Meta/);
   });
 
   it('throws on non-404 errors', async () => {

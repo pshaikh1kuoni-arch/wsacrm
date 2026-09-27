@@ -516,6 +516,298 @@ describe("validateFlowForActivation — send_media", () => {
   });
 });
 
+describe("validateFlowForActivation — send_template", () => {
+  const baseFlow = { ...validFlow, entry_node_id: "s" };
+  const nodesWith = (templateConfig: Record<string, unknown>) => [
+    { node_key: "s", node_type: "start", config: { next_node_key: "t" } },
+    { node_key: "t", node_type: "send_template", config: templateConfig },
+    { node_key: "h", node_type: "handoff", config: {} },
+  ];
+
+  it("passes on a fully-populated send_template node", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        template_name: "order_shipped",
+        language: "en_US",
+        next_node_key: "h",
+      }),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("flags missing template_name", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ language: "en_US", next_node_key: "h" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "t" && i.field === "template_name"),
+    ).toBe(true);
+  });
+
+  it("flags missing language", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ template_name: "order_shipped", next_node_key: "h" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "t" && i.field === "language"),
+    ).toBe(true);
+  });
+
+  it("flags next_node_key pointing at a non-existent node", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        template_name: "order_shipped",
+        language: "en_US",
+        next_node_key: "ghost",
+      }),
+    );
+    expect(
+      issues.some(
+        (i) =>
+          i.node_key === "t" &&
+          i.field === "next_node_key" &&
+          i.message.includes("ghost"),
+      ),
+    ).toBe(true);
+  });
+
+  it("contributes its next_node_key to reachability", () => {
+    const set = reachableFromEntry(
+      "s",
+      nodesWith({
+        template_name: "order_shipped",
+        language: "en_US",
+        next_node_key: "h",
+      }),
+    );
+    expect(set).toEqual(new Set(["s", "t", "h"]));
+  });
+});
+
+describe("validateFlowForActivation — wait_followup", () => {
+  const baseFlow = { ...validFlow, entry_node_id: "s" };
+  const nodesWith = (waitConfig: Record<string, unknown>) => [
+    { node_key: "s", node_type: "start", config: { next_node_key: "w" } },
+    { node_key: "w", node_type: "wait_followup", config: waitConfig },
+    { node_key: "h", node_type: "handoff", config: {} },
+  ];
+
+  it("passes on a fully-populated wait_followup node", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        wait_minutes: 5,
+        followup_text: "Still there? Happy to help!",
+        next_node_key: "h",
+      }),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("flags wait_minutes of 0", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ wait_minutes: 0, followup_text: "hi", next_node_key: "h" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "w" && i.field === "wait_minutes"),
+    ).toBe(true);
+  });
+
+  it("flags wait_minutes below the 5 minute minimum", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ wait_minutes: 4, followup_text: "hi", next_node_key: "h" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "w" && i.field === "wait_minutes"),
+    ).toBe(true);
+  });
+
+  it("flags wait_minutes of 1381 or more (over the 23h cap)", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ wait_minutes: 1381, followup_text: "hi", next_node_key: "h" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "w" && i.field === "wait_minutes"),
+    ).toBe(true);
+  });
+
+  it("flags missing wait_minutes", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ followup_text: "hi", next_node_key: "h" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "w" && i.field === "wait_minutes"),
+    ).toBe(true);
+  });
+
+  it("flags missing followup_text", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ wait_minutes: 5, next_node_key: "h" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "w" && i.field === "followup_text"),
+    ).toBe(true);
+  });
+
+  it("flags next_node_key pointing at a non-existent node", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ wait_minutes: 5, followup_text: "hi", next_node_key: "ghost" }),
+    );
+    expect(
+      issues.some(
+        (i) =>
+          i.node_key === "w" &&
+          i.field === "next_node_key" &&
+          i.message.includes("ghost"),
+      ),
+    ).toBe(true);
+  });
+
+  it("contributes its next_node_key to reachability", () => {
+    const set = reachableFromEntry(
+      "s",
+      nodesWith({ wait_minutes: 5, followup_text: "hi", next_node_key: "h" }),
+    );
+    expect(set).toEqual(new Set(["s", "w", "h"]));
+  });
+});
+
+describe("validateFlowForActivation — ai_agent", () => {
+  const baseFlow = { ...validFlow, entry_node_id: "s" };
+  const nodesWith = (aiConfig: Record<string, unknown>) => [
+    { node_key: "s", node_type: "start", config: { next_node_key: "a" } },
+    { node_key: "a", node_type: "ai_agent", config: aiConfig },
+    { node_key: "h", node_type: "handoff", config: {} },
+  ];
+
+  it("passes on a fully-populated ai_agent node", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        prompt: "Help the customer pick a plan.",
+        use_knowledge_base: true,
+        next_node_key: "h",
+      }),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("flags an empty prompt", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ prompt: "", next_node_key: "h" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "a" && i.field === "prompt"),
+    ).toBe(true);
+  });
+
+  it("flags a whitespace-only prompt", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ prompt: "   ", next_node_key: "h" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "a" && i.field === "prompt"),
+    ).toBe(true);
+  });
+
+  it("flags a missing next_node_key", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ prompt: "Help out.", next_node_key: "" }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "a" && i.field === "next_node_key"),
+    ).toBe(true);
+  });
+
+  it("flags next_node_key pointing at a non-existent node", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ prompt: "Help out.", next_node_key: "ghost" }),
+    );
+    expect(
+      issues.some(
+        (i) =>
+          i.node_key === "a" &&
+          i.field === "next_node_key" &&
+          i.message.includes("ghost"),
+      ),
+    ).toBe(true);
+  });
+
+  it("contributes its next_node_key to reachability", () => {
+    const set = reachableFromEntry(
+      "s",
+      nodesWith({ prompt: "Help out.", next_node_key: "h" }),
+    );
+    expect(set).toEqual(new Set(["s", "a", "h"]));
+  });
+
+  it("passes with 'stay in charge' fully configured", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        prompt: "Help out.",
+        next_node_key: "h",
+        followup_wait_minutes: 5,
+      }),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("ignores followup_wait_minutes entirely when 'stay in charge' is off", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ prompt: "Help out.", next_node_key: "h" }),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("flags followup_wait_minutes out of range when 'stay in charge' is on", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        prompt: "Help out.",
+        next_node_key: "h",
+        followup_wait_minutes: 1381,
+      }),
+    );
+    expect(
+      issues.some(
+        (i) => i.node_key === "a" && i.field === "followup_wait_minutes",
+      ),
+    ).toBe(true);
+  });
+
+  it("flags followup_wait_minutes below the 5 minute minimum", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        prompt: "Help out.",
+        next_node_key: "h",
+        followup_wait_minutes: 4,
+      }),
+    );
+    expect(
+      issues.some(
+        (i) => i.node_key === "a" && i.field === "followup_wait_minutes",
+      ),
+    ).toBe(true);
+  });
+});
+
 describe("reachableFromEntry", () => {
   it("walks the graph from the entry", () => {
     const set = reachableFromEntry("start", validNodes);

@@ -90,6 +90,7 @@ describe("defaultConfigFor", () => {
     "collect_input",
     "condition",
     "set_tag",
+    "ai_agent",
     "handoff",
     "end",
   ];
@@ -130,5 +131,14 @@ describe("defaultConfigFor", () => {
 
   it("end's default is an empty object (terminal — no config)", () => {
     expect(defaultConfigFor("end")).toEqual({});
+  });
+
+  it("ai_agent defaults to using the knowledge base with an empty prompt", () => {
+    const cfg = defaultConfigFor("ai_agent") as {
+      prompt?: string;
+      use_knowledge_base?: boolean;
+    };
+    expect(cfg.prompt).toBe("");
+    expect(cfg.use_knowledge_base).toBe(true);
   });
 });

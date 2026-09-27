@@ -6,7 +6,15 @@
 // whether the account is on OpenAI or Anthropic.
 // ============================================================
 
-export type AiProvider = 'openai' | 'anthropic'
+export type AiProvider = 'openai' | 'anthropic' | 'deepseek' | 'openrouter'
+
+/** Every supported provider, for validation and UI iteration. */
+export const AI_PROVIDERS: readonly AiProvider[] = [
+  'openai',
+  'anthropic',
+  'deepseek',
+  'openrouter',
+]
 
 /**
  * Account AI setup, decrypted and ready to use. Produced by

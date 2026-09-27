@@ -97,6 +97,27 @@ export interface SendMediaNodeConfig {
   next_node_key: string;
 }
 
+/**
+ * Sends an approved WhatsApp template message, then auto-advances.
+ * Mirrors Automations' `SendTemplateStepConfig` — same Meta call, same
+ * `message_templates` picker — brought into Flows so a run can
+ * re-engage a customer outside Meta's 24-hour customer-service
+ * window, where a normal `send_message` would be rejected.
+ */
+export interface SendTemplateNodeConfig {
+  template_name: string;
+  /** Meta locale code, e.g. "en_US". */
+  language: string;
+  /**
+   * Reserved for a future variables editor (positional {{1}}, {{2}}, …
+   * params) — accepted on the config for forward compat but ignored
+   * by the v1 builder/engine, same pattern as `collect_input.validation`.
+   */
+  variables?: Record<string, string>;
+  /** Auto-advance target after the send lands at Meta. */
+  next_node_key: string;
+}
+
 export interface HandoffNodeConfig {
   /** Optional internal note written to flow_run_events.payload.note. */
   note?: string;
@@ -173,6 +194,101 @@ export interface SetTagNodeConfig {
   next_node_key: string;
 }
 
+/**
+ * Lets the account's configured AI (Settings → AI — same provider/key/
+ * knowledge base used by the standalone auto-reply bot and the Inbox
+ * "Draft with AI" button) handle this one step of the conversation.
+ *
+ * Bounded by design: the model can only reply (grounded in the
+ * account's knowledge base when `use_knowledge_base` is true) or hand
+ * off to a human — the same reply-or-handoff contract `generateReply`
+ * already implements for auto-reply. No per-node API key/provider, no
+ * arbitrary tool-calling.
+ */
+export interface AiAgentNodeConfig {
+  /**
+   * Node-specific instructions, appended to the account's base
+   * business-context system prompt so replies stay on-brand while
+   * doing this step's specific job (e.g. "help the customer pick a
+   * plan; don't quote prices").
+   */
+  prompt: string;
+  /**
+   * Ground replies in the account's knowledge base, same retrieval
+   * auto-reply uses. Defaults to true when unset.
+   */
+  use_knowledge_base?: boolean;
+  /** Node to advance to after a successful AI reply. */
+  next_node_key: string;
+  /**
+   * 0 or unset — today's behaviour: advance to `next_node_key`
+   * immediately after one reply. 1–1380 — "stay in charge": reuses
+   * the exact same timed-resume mechanism as `wait_followup`
+   * (`flow_pending_executions`/`scheduleFollowup`) so a reply within
+   * the window grounds another real LLM turn instead of the flow
+   * hard-advancing past whatever the customer was still discussing.
+   * Silence past the window has the AI generate its own follow-up
+   * (same prompt/knowledge base, nudged to re-engage — see
+   * `generateAiAgentMessage` in engine.ts) rather than sending a
+   * fixed string, then advances, same as `wait_followup`.
+   */
+  followup_wait_minutes?: number;
+}
+
+/**
+ * Pauses the run for up to 23 hours waiting on the customer's next
+ * reply. No reply within the window → sends `followup_text` (a plain
+ * message, never a template — the 1380-minute (23h) cap keeps this
+ * inside Meta's 24-hour customer-service window) then advances. A
+ * reply arrives first → the pending callback is cancelled and the run
+ * advances immediately, no interpretation of what they said (that's a
+ * downstream node's job).
+ *
+ * Backed by `flow_pending_executions` — see the runner's
+ * `scheduleFollowup` / cron pickup in `engine.ts` and
+ * `src/app/api/flows/cron/route.ts`.
+ */
+export interface WaitFollowupNodeConfig {
+  /** 1–1380 (23h) — enforced by validate.ts. Minutes rather than
+   *  hours so a short "nudge after 5 minutes" is expressible without
+   *  a decimal, and so this is actually testable locally without
+   *  waiting a full hour for the timer to fire. */
+  wait_minutes: number;
+  /** Sent only if the timer fires before the customer replies. */
+  followup_text: string;
+  /** Node to advance to either way (reply-back or follow-up-sent). */
+  next_node_key: string;
+}
+
+/**
+ * A scheduled callback row's `action` column — what the cron does
+ * when a `flow_pending_executions` row comes due. Discriminated by
+ * `kind` so the `wait_followup` node and the `ai_agent` "stay in
+ * context" option share this same table/cron without touching each
+ * other's handling.
+ */
+export type FlowPendingAction =
+  | {
+      kind: "followup_message";
+      text: string;
+      next_node_key: string;
+    }
+  | {
+      kind: "ai_reengage";
+      next_node_key: string;
+    };
+
+export interface FlowPendingExecutionRow {
+  id: string;
+  flow_run_id: string;
+  account_id: string;
+  node_key: string;
+  action: FlowPendingAction;
+  run_at: string;
+  status: "pending" | "done" | "cancelled" | "failed";
+  created_at: string;
+}
+
 // Terminal nodes carry no config — they just stop the run.
 export type EndNodeConfig = Record<string, never>;
 
@@ -190,9 +306,12 @@ export type FlowNodeConfig =
   | { node_type: "send_buttons"; config: SendButtonsNodeConfig }
   | { node_type: "send_list"; config: SendListNodeConfig }
   | { node_type: "send_media"; config: SendMediaNodeConfig }
+  | { node_type: "send_template"; config: SendTemplateNodeConfig }
+  | { node_type: "wait_followup"; config: WaitFollowupNodeConfig }
   | { node_type: "collect_input"; config: CollectInputNodeConfig }
   | { node_type: "condition"; config: ConditionNodeConfig }
   | { node_type: "set_tag"; config: SetTagNodeConfig }
+  | { node_type: "ai_agent"; config: AiAgentNodeConfig }
   | { node_type: "handoff"; config: HandoffNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 

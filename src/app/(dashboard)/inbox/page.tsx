@@ -13,6 +13,10 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
+import { ContactPanelBar } from "@/components/inbox/contact-panel-bar";
+import { QuickSendDialog } from "@/components/inbox/quick-send-dialog";
+import { DealForm } from "@/components/pipelines/deal-form";
+import { useDashboardFullscreen } from "@/hooks/use-dashboard-fullscreen";
 import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -89,6 +93,40 @@ function InboxPageInner() {
       return next;
     });
   }, []);
+
+  // Full-screen mode: collapses the app's own left nav to an icon-only
+  // rail (see `useDashboardFullscreen`) so the thread can use the width it
+  // gives back. Unlike `contactPanelOpen` above, deliberately not
+  // persisted — this is a per-session reading mode, not a lasting
+  // layout preference — and it resets on unmount so navigating away
+  // from Inbox never strands another page with a collapsed sidebar and
+  // no visible way to expand it again.
+  const { fullscreen, setFullscreen } = useDashboardFullscreen();
+  const handleToggleFullscreen = useCallback(() => {
+    setFullscreen((prev) => !prev);
+  }, [setFullscreen]);
+  useEffect(() => {
+    return () => setFullscreen(false);
+  }, [setFullscreen]);
+
+  // Add-deal: one shared form, two entry points (the contact panel's
+  // Deals section, and the thread header — the latter added specifically
+  // so logging a deal doesn't require reopening a minimized/closed
+  // panel first). `dealsRefreshToken` tells ContactSidebar's own,
+  // independent deal fetch to re-run after a save made via the header.
+  const [dealFormOpen, setDealFormOpen] = useState(false);
+  const [dealsRefreshToken, setDealsRefreshToken] = useState(0);
+  const handleAddDeal = useCallback(() => setDealFormOpen(true), []);
+  const handleDealSaved = useCallback(() => {
+    setDealsRefreshToken((n) => n + 1);
+  }, []);
+
+  // Quick send: message a phone number that may not be a saved contact
+  // yet (dialog owns the phone/template UI; the find-or-create-contact
+  // + send happens server-side). `handleQuickSendCreated` below —
+  // defined after `handleSelectConversation`, which it composes with.
+  const [quickSendOpen, setQuickSendOpen] = useState(false);
+  const handleQuickSend = useCallback(() => setQuickSendOpen(true), []);
 
   // Fire the deep-link auto-select exactly once per URL — subsequent
   // list refreshes (realtime, manual refetch) must not snap the user
@@ -488,6 +526,24 @@ function InboxPageInner() {
     [activeConversation?.id, router]
   );
 
+  // Quick send just created a brand-new conversation server-side. The
+  // realtime INSERT for it (see `handleConversationEvent` above) can
+  // easily land before this fires — the server creates the row, THEN
+  // waits on the Meta call this response is gated behind — so prepend
+  // dedup-safely (same guard `handleConversationEvent` uses) rather
+  // than assuming it isn't in `conversations` yet. `handleSelectConversation`'s
+  // own early-return guard can't trigger for a brand-new id, so
+  // composing the two is safe.
+  const handleQuickSendCreated = useCallback(
+    (conv: Conversation) => {
+      setConversations((prev) =>
+        prev.some((c) => c.id === conv.id) ? prev : [conv, ...prev],
+      );
+      handleSelectConversation(conv);
+    },
+    [handleSelectConversation],
+  );
+
   // Mobile "back" — deselect the conversation so the list pane comes
   // back. Also clears the ?c= param so a refresh lands on the list
   // instead of re-opening the thread the user just backed out of.
@@ -597,10 +653,13 @@ function InboxPageInner() {
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
             resyncToken={resyncToken}
+            onQuickSend={handleQuickSend}
           />
         </div>
 
-        {/* Center panel: Message thread.
+        {/* Center panel: Message thread [+ the minimized contact panel's
+            pull-tab bar, stacked below it on lg+ once the panel is
+            collapsed — see the right panel's comment below].
             Hidden on mobile when no conversation is selected so the
             list can occupy the full width. Always visible on lg+
             (shows its own empty-state if no thread is picked yet).
@@ -612,37 +671,73 @@ function InboxPageInner() {
             on the right. Issue #165. */}
         <div
           className={cn(
-            "flex h-full min-w-0 flex-1 lg:flex",
+            "flex h-full min-w-0 flex-1 flex-col gap-3 lg:flex",
             hasActiveConv ? "flex" : "hidden lg:flex",
           )}
         >
-          <MessageThread
-            conversation={activeConversation}
-            contact={activeContact}
-            messages={messages}
-            onMessagesLoaded={handleMessagesLoaded}
-            onNewMessage={handleNewMessage}
-            onUpdateMessage={handleUpdateMessage}
-            onStatusChange={handleStatusChange}
-            onAssignChange={handleAssignChange}
-            onBack={handleCloseConversation}
-            resyncToken={resyncToken}
-            onRefresh={handleManualRefresh}
-            contactPanelOpen={contactPanelOpen}
-            onToggleContactPanel={handleToggleContactPanel}
-          />
+          <div className="flex min-h-0 flex-1">
+            <MessageThread
+              conversation={activeConversation}
+              contact={activeContact}
+              messages={messages}
+              onMessagesLoaded={handleMessagesLoaded}
+              onNewMessage={handleNewMessage}
+              onUpdateMessage={handleUpdateMessage}
+              onStatusChange={handleStatusChange}
+              onAssignChange={handleAssignChange}
+              onBack={handleCloseConversation}
+              resyncToken={resyncToken}
+              onRefresh={handleManualRefresh}
+              fullscreen={fullscreen}
+              onToggleFullscreen={handleToggleFullscreen}
+              onAddDeal={handleAddDeal}
+            />
+          </div>
+
+          {/* Collapsed contact panel — desktop only. Mirrors the full
+              panel's own `hidden lg:block` below so the pull-tab never
+              shows on mobile, where the panel never renders as a
+              permanent pane anyway. */}
+          {!contactPanelOpen && (
+            <div className="hidden lg:block">
+              <ContactPanelBar
+                contact={activeContact}
+                onExpand={handleToggleContactPanel}
+              />
+            </div>
+          )}
         </div>
 
         {/* Right panel: Contact sidebar — desktop only, and only when the
-            agent hasn't collapsed it via the thread-header toggle (#258).
-            On mobile it's always hidden (the `lg:block` below), so the
-            toggle — which is itself desktop-only — never affects it. */}
+            agent hasn't minimized it via the panel's own collapse button
+            (#258). Collapsing tucks it into the `ContactPanelBar` above
+            instead of unmounting it outright — "Pull out" there restores
+            this. On mobile it's always hidden (the `lg:block` below), so
+            the toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && (
           <div className="hidden lg:block">
-            <ContactSidebar contact={activeContact} />
+            <ContactSidebar
+              contact={activeContact}
+              onCollapse={handleToggleContactPanel}
+              onAddDeal={handleAddDeal}
+              refreshToken={dealsRefreshToken}
+            />
           </div>
         )}
       </div>
+
+      <DealForm
+        open={dealFormOpen}
+        onOpenChange={setDealFormOpen}
+        lockedContact={activeContact ?? undefined}
+        onSaved={handleDealSaved}
+      />
+
+      <QuickSendDialog
+        open={quickSendOpen}
+        onOpenChange={setQuickSendOpen}
+        onSent={handleQuickSendCreated}
+      />
     </div>
   );
 }

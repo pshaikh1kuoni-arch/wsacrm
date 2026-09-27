@@ -150,14 +150,14 @@
       "clearAll": "모두 지우기",
       "noConversations": "대화를 찾을 수 없습니다",
       "noMessagesYet": "아직 메시지가 없습니다",
-      "unknown": "알 수 없음"
+      "unknown": "알 수 없음",
+      "newMessage": "새 메시지"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
-      "hideContactPanel": "연락처 패널 숨기기",
-      "showContactPanel": "연락처 패널 표시",
-      "hideContact": "연락처 숨기기",
-      "showContact": "연락처 표시",
+      "enterFullscreen": "전체 화면으로 보기",
+      "exitFullscreen": "전체 화면 종료",
+      "addDeal": "딜 추가",
       "refresh": "새로고침",
       "refreshConversation": "대화 새로고침",
       "status": "상태",
@@ -295,6 +295,17 @@
       "cancel": "취소",
       "send": "템플릿 보내기"
     },
+    "quickSend": {
+      "title": "메시지 보내기",
+      "subtitle": "먼저 연락처를 저장할 필요는 없습니다 — 연락처에 자동으로 추가됩니다.",
+      "phoneLabel": "전화번호",
+      "phonePlaceholder": "+14155550123",
+      "phoneNeedsCountryCode": "국가 코드를 포함하세요 — 번호는 +로 시작해야 합니다 (예: +14155550123)",
+      "continue": "계속",
+      "cancel": "취소",
+      "toastSent": "템플릿 \"{name}\" 전송됨",
+      "toastFailed": "전송 실패: {reason}"
+    },
     "sidebar": {
       "contactInfo": "연락처 정보",
       "tags": "태그",
@@ -302,7 +313,10 @@
       "deals": "딜",
       "noTags": "태그 없음",
       "noDeals": "딜 없음",
-      "addNotePlaceholder": "메모 추가..."
+      "addNotePlaceholder": "메모 추가...",
+      "collapseContactPanel": "연락처 패널 접기",
+      "pullOutContactPanel": "펼치기",
+      "addDeal": "딜 추가"
     },
     "aiBanner": {
       "pausedTitle": "이 대화에서 AI 어시스턴트가 일시 중지됨",
@@ -565,6 +579,8 @@
       "contact": "연락처",
       "selectContact": "연락처 선택",
       "linkToConversation": "대화에 연결",
+      "pipeline": "파이프라인",
+      "lockedContactHint": "이 대화에서 자동으로 연결되었습니다 — 연락처를 선택할 필요가 없습니다.",
       "value": "금액",
       "currency": "통화",
       "expectedCloseDate": "예상 마감일",
@@ -1152,6 +1168,7 @@
       "deleteNode": "노드 삭제",
       "canvasView": "캔버스",
       "listView": "목록",
+      "legend": "범례",
       "noNodeSelected": "선택된 노드가 없습니다",
       "noNodeDesc": "캔버스에서 노드를 선택해 설정을 편집하세요.",
       "editorView": "편집기 보기",
@@ -1199,6 +1216,12 @@
         "removeTag": "태그 제거",
         "tagUuidPlaceholder": "태그 UUID",
         "thenAdvanceTo": "이후 다음 진행",
+        "aiInstructions": "이 단계에 대한 지침",
+        "aiInstructionsHint": "AI가 여기서 무엇을 해야 하나요? 예: \"고객이 요금제를 선택하도록 도와주세요. 가격은 언급하지 마세요.\" 계정의 일반 AI 지침과 결합됩니다.",
+        "aiUseKnowledgeBase": "지식 베이스 사용",
+        "aiUseKnowledgeBaseHint": "AI 자동 응답과 동일하게 계정의 지식 베이스를 기반으로 답변합니다.",
+        "aiStayInCharge": "응답 후에도 계속 담당",
+        "aiStayInChargeHint": "고객이 대기 시간 내에 다시 응답하면 같은 AI 에이전트가 계속 대화를 이어갑니다 — 별도의 노드가 필요 없습니다. 응답이 없으면 AI가 직접 짧은 후속 메시지를 작성해서 보낸 후 평소처럼 진행합니다.",
         "mediaTypeLabel": "미디어 유형",
         "imageLabel": "이미지 (PNG, JPEG, WebP)",
         "videoLabel": "동영상 (MP4, 3GP)",
@@ -1211,6 +1234,16 @@
         "filenameLabel": "고객에게 표시될 파일명 (문서 전용)",
         "filenamePlaceholder": "invoice.pdf",
         "advanceAfterSending": "전송 후 다음 진행",
+        "templatePickerLabel": "템플릿",
+        "templatePickPlaceholder": "템플릿 선택…",
+        "templateNameLabel": "템플릿 이름",
+        "templateLanguageLabel": "언어 코드",
+        "templateNoneSynced": "아직 동기화된 승인 템플릿이 없습니다 — 이름과 언어를 직접 입력하세요.",
+        "templateUnknownOption": "{name} ({lang}) — 동기화된 목록에 없음",
+        "advanceAfterTemplate": "전송 후 다음 진행",
+        "waitMinutesLabel": "대기 시간 (분)",
+        "waitMinutesWarning": "최소 5분, 최대 1380분(23시간)입니다. 5분 미만이면 자주 반복 실행될 경우 WhatsApp의 속도 제한에 걸릴 위험이 있습니다. 고객의 마지막 응답 후 24시간이 지나면 WhatsApp은 일반 후속 메시지를 차단하니, 더 긴 지연이 필요하면 템플릿 노드를 사용하세요.",
+        "followupTextLabel": "후속 메시지 (고객이 응답하지 않을 때만 전송됨)",
         "pickNextNode": "다음 노드를 선택하세요…",
         "none": "— 없음 —",
         "removeSection": "섹션 제거",
@@ -1245,6 +1278,14 @@
           "label": "미디어 보내기",
           "blurb": "이미지, 동영상, 문서를 보냅니다"
         },
+        "send_template": {
+          "label": "템플릿 보내기",
+          "blurb": "승인된 WhatsApp 템플릿 메시지를 보냅니다"
+        },
+        "wait_followup": {
+          "label": "대기 및 후속 조치",
+          "blurb": "답장을 기다리며 일시 중지하고, 고객이 응답하지 않으면 후속 메시지를 보냅니다"
+        },
         "collect_input": {
           "label": "입력 수집",
           "blurb": "질문을 하고 응답을 저장합니다"
@@ -1256,6 +1297,10 @@
         "set_tag": {
           "label": "연락처 태그 지정",
           "blurb": "연락처 태그를 추가하거나 제거합니다"
+        },
+        "ai_agent": {
+          "label": "AI 에이전트",
+          "blurb": "고객의 답장을 기다린 후 AI가 응답하거나 인계합니다"
         },
         "handoff": {
           "label": "상담원에게 인계",
@@ -1270,7 +1315,9 @@
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
       "summary": "오류 {errorCount}건, 경고 {warningCount}건",
-      "jumpToNode": "{key} 노드로 이동"
+      "jumpToNode": "{key} 노드로 이동",
+      "expand": "문제 표시",
+      "collapse": "문제 숨기기"
     },
     "editorState": {
       "saved": "저장되었습니다.",
@@ -1309,6 +1356,8 @@
       "activate": "활성화",
       "fixIssues": "활성화하기 전에 아래 문제를 해결하세요",
       "save": "저장",
+      "enterFullscreen": "전체 화면으로 보기",
+      "exitFullscreen": "전체 화면 종료",
       "descriptionPlaceholder": "짧은 설명을 추가하세요 (내부용 — 고객에게는 보이지 않습니다)",
       "descriptionLabel": "플로우 설명"
     }
@@ -1828,7 +1877,7 @@
     },
     "aiConfig": {
       "title": "에이전트 설정",
-      "description": "직접 발급받은 OpenAI 또는 Anthropic 키를 사용하세요. wacrm은 회원님의 키로 공급자에 직접 요청하므로 좌석당 AI 비용이 없고 데이터도 온전히 회원님의 것입니다. 인박스의 AI 답장 초안, 자동 응답 봇, 플레이그라운드에 사용됩니다.",
+      "description": "직접 발급받은 OpenAI, Anthropic, DeepSeek 또는 OpenRouter 키를 사용하세요. wacrm은 회원님의 키로 공급자에 직접 요청하므로 좌석당 AI 비용이 없고 데이터도 온전히 회원님의 것입니다. 인박스의 AI 답장 초안, 자동 응답 봇, 플레이그라운드에 사용됩니다.",
       "adminOnlyConfig": "관리자와 소유자만 AI 설정을 변경할 수 있습니다.",
       "loadFailed": "AI 설정을 불러오지 못했습니다",
       "providerAndKey": "공급자 & 키",

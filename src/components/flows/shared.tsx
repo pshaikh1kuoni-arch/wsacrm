@@ -18,13 +18,16 @@
 
 import {
   Flag,
+  FileText,
   GitFork,
+  Hourglass,
   Inbox,
   ListChecks,
   ListPlus,
   MessageCircle,
   Paperclip,
   PlayCircle,
+  Sparkles,
   Tag,
   UserPlus,
   Workflow,
@@ -46,9 +49,12 @@ export type NodeType =
   | 'send_buttons'
   | 'send_list'
   | 'send_media'
+  | 'send_template'
+  | 'wait_followup'
   | 'collect_input'
   | 'condition'
   | 'set_tag'
+  | 'ai_agent'
   | 'handoff'
   | 'end';
 
@@ -127,6 +133,18 @@ export const NODE_META: Record<
     color: 'text-cyan-400',
     category: 'messaging',
   },
+  send_template: {
+    slugSeed: 'Send template',
+    icon: FileText,
+    color: 'text-orange-400',
+    category: 'messaging',
+  },
+  wait_followup: {
+    slugSeed: 'Wait & follow up',
+    icon: Hourglass,
+    color: 'text-blue-400',
+    category: 'logic',
+  },
   collect_input: {
     slugSeed: 'Collect input',
     icon: Inbox,
@@ -144,6 +162,12 @@ export const NODE_META: Record<
     icon: Tag,
     color: 'text-pink-400',
     category: 'logic',
+  },
+  ai_agent: {
+    slugSeed: 'AI Agent',
+    icon: Sparkles,
+    color: 'text-violet-400',
+    category: 'messaging',
   },
   handoff: {
     slugSeed: 'Handoff to agent',
@@ -192,9 +216,12 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   send_buttons: { l: 0.62, c: 0.16, h: 254 }, // cobalt
   send_list: { l: 0.62, c: 0.15, h: 277 }, // indigo
   send_media: { l: 0.65, c: 0.12, h: 210 }, // sky
+  send_template: { l: 0.68, c: 0.15, h: 45 }, // orange — an approved, pre-written message
+  wait_followup: { l: 0.64, c: 0.14, h: 235 }, // blue-violet — pauses, then nudges
   collect_input: { l: 0.65, c: 0.1, h: 185 }, // teal — capture
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
+  ai_agent: { l: 0.64, c: 0.18, h: 320 }, // violet-magenta — AI, distinct from send_message's violet
   handoff: { l: 0.65, c: 0.17, h: 16 }, // rose — hands off
   end: { l: 0.55, c: 0.01, h: 260 }, // neutral grey — terminal
 };
@@ -209,6 +236,18 @@ export interface NodeColors {
   /** Hue for the uppercase type label, kept readable in BOTH modes. */
   text: string;
 }
+
+// ============================================================
+// Text painted directly on canvas overlays (node cards, floating
+// legend/validation chrome) reads washed out with plain
+// --muted-foreground against bg-card-2/bg-background. Same cross-mode
+// blend approach as nodeColors().text below — color-mix toward
+// --foreground — just applied to the neutral muted tone instead of a
+// per-type hue. Not a new token: both --muted-foreground and
+// --foreground already exist in globals.css for light and dark.
+// ============================================================
+export const CANVAS_MUTED_TEXT =
+  'color-mix(in oklch, var(--muted-foreground), var(--foreground) 38%)';
 
 export function nodeColors(type: NodeType): NodeColors {
   const t = NODE_HUE[type];
@@ -359,6 +398,23 @@ export function summarizeNode(
         ? `${label}: ${truncate(name, 30)} · ${truncate(caption, 40)}`
         : `${label}: ${truncate(name, 60)}`;
     }
+    case 'send_template': {
+      const name = typeof cfg.template_name === 'string' ? cfg.template_name : '';
+      const language = typeof cfg.language === 'string' ? cfg.language : '';
+      return name ? (language ? `${name} (${language})` : name) : null;
+    }
+    case 'wait_followup': {
+      const minutes = typeof cfg.wait_minutes === 'number' ? cfg.wait_minutes : null;
+      const text = typeof cfg.followup_text === 'string' ? cfg.followup_text : '';
+      if (minutes === null && !text) return null;
+      const minuteStr =
+        minutes !== null
+          ? minutes >= 60 && minutes % 60 === 0
+            ? `${minutes / 60}h`
+            : `${minutes}m`
+          : '?m';
+      return text ? `${minuteStr} → ${truncate(text, 60)}` : `${minuteStr} → (no follow-up text)`;
+    }
     case 'collect_input': {
       const prompt = typeof cfg.prompt_text === 'string' ? cfg.prompt_text : '';
       const varKey = typeof cfg.var_key === 'string' ? cfg.var_key : '';
@@ -409,6 +465,10 @@ export function summarizeNode(
       return tagId
         ? t ? t('tagPicked', { mode, tag: tagId.slice(0, 8) }) : `${mode} tag ${tagId.slice(0, 8)}…`
         : t ? t('tagNone', { mode }) : `${mode} tag (none picked)`;
+    }
+    case 'ai_agent': {
+      const prompt = typeof cfg.prompt === 'string' ? cfg.prompt : '';
+      return prompt.length > 0 ? truncate(prompt) : null;
     }
     case 'handoff': {
       const note = typeof cfg.note === 'string' ? cfg.note : '';

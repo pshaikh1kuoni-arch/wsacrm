@@ -485,7 +485,6 @@ export default function PipelinesPage() {
         onOpenChange={setDealFormOpen}
         deal={editingDeal}
         pipelineId={selectedPipelineId}
-        stages={stages}
         defaultStageId={defaultStageId}
         onSaved={refreshDeals}
       />

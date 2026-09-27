@@ -86,8 +86,24 @@ function makeSupabaseMock() {
       }
     }
 
+    // `.single()`/`.maybeSingle()` resolve to one row (or null) — real
+    // Supabase behavior, matched by `selectResult()`/`insertResult()`
+    // above. A bare `await` with no such terminal (e.g. `findOrCreateConversation`'s
+    // `.order().limit(1)` existing-row lookup, and its race-backstop
+    // re-query) instead resolves to an ARRAY of rows, same as real
+    // Supabase without `.single()` — `selectResultList()` below mirrors
+    // that shape for the one table (`conversations`) a bare-array
+    // terminal is actually exercised against here.
     const terminal = () =>
       Promise.resolve(didInsert ? insertResult() : selectResult())
+
+    const selectResultList = () => {
+      if (table === 'conversations') {
+        const row = createdConversation ?? existingConversation
+        return { data: row ? [row] : [], error: null }
+      }
+      return selectResult()
+    }
 
     const b: Record<string, unknown> = {}
     const chain = () => b
@@ -111,7 +127,7 @@ function makeSupabaseMock() {
     b.single = vi.fn(terminal)
     b.maybeSingle = vi.fn(terminal)
     b.then = (resolve: (v: unknown) => unknown) =>
-      resolve(didInsert ? insertResult() : selectResult())
+      resolve(didInsert ? insertResult() : selectResultList())
     return b
   }
 

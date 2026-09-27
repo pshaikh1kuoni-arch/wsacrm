@@ -15,6 +15,7 @@ import {
   DollarSign,
   StickyNote,
   Plus,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,9 +25,31 @@ import { contactHandle } from "@/lib/whatsapp/wa-identity";
 
 interface ContactSidebarProps {
   contact: Contact | null;
+  /**
+   * Renders a small collapse control in the panel's own header when
+   * provided. The page owns the open/minimized state; this just asks it
+   * to flip to minimized (see `ContactPanelBar`, the collapsed form this
+   * panel tucks into).
+   */
+  onCollapse?: () => void;
+  /**
+   * Opens the page-level `DealForm` (also reachable from the thread
+   * header, so a deal can be logged whether this panel is open,
+   * minimized, or hidden entirely) with this contact locked in.
+   */
+  onAddDeal?: () => void;
+  /** Bumped by the page after a deal is saved elsewhere (the header's
+   *  entry point uses the same shared form), so this panel's own deal
+   *  list — fetched independently below — picks up the change. */
+  refreshToken?: number;
 }
 
-export function ContactSidebar({ contact }: ContactSidebarProps) {
+export function ContactSidebar({
+  contact,
+  onCollapse,
+  onAddDeal,
+  refreshToken,
+}: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
 
@@ -74,12 +97,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     }
   }, [contact]);
 
-  // Load on contact change. setContactData/setTags run inside async
-  // Supabase callbacks, not synchronously in the effect body.
+  // Load on contact change, and again whenever `refreshToken` is bumped
+  // (a deal saved via the thread header's entry point, not this panel's
+  // own). setContactData/setTags run inside async Supabase callbacks,
+  // not synchronously in the effect body.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContactData();
-  }, [fetchContactData]);
+  }, [fetchContactData, refreshToken]);
 
   const handleCopyPhone = useCallback(async () => {
     // Copies whatever the row displays — a BSUID-only contact has no
@@ -136,6 +161,22 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
   return (
     <div className="flex h-full w-70 flex-col overflow-hidden rounded-2xl bg-card shadow-card">
+      {onCollapse && (
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {tSidebar("contactInfo")}
+          </span>
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label={tSidebar("collapseContactPanel")}
+            title={tSidebar("collapseContactPanel")}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       <ScrollArea className="flex-1">
         <div className="p-4">
           {/* Contact Info */}
@@ -218,9 +259,23 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
           {/* Active Deals */}
           <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <DollarSign className="h-3 w-3" />
-              {tSidebar("deals")}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <DollarSign className="h-3 w-3" />
+                {tSidebar("deals")}
+              </div>
+              {/* Opens the same Sheet the Pipelines page uses, with this
+                  contact locked in — no leaving the conversation, and no
+                  contact to pick (the name/phone dropdown mix-up this
+                  sidesteps entirely). */}
+              <button
+                type="button"
+                onClick={onAddDeal}
+                className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80"
+              >
+                <Plus className="h-3 w-3" />
+                {tSidebar("addDeal")}
+              </button>
             </div>
             <div className="mt-2 space-y-2">
               {deals.length === 0 ? (

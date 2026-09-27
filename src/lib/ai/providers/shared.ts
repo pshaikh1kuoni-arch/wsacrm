@@ -1,4 +1,5 @@
-import { AiError, type AiUsage, type ChatMessage } from '../types'
+import { AiError, type AiUsage, type ChatMessage, type ProviderResult } from '../types'
+import { MAX_OUTPUT_TOKENS } from '../defaults'
 
 // ============================================================
 // Bits shared by the OpenAI + Anthropic adapters.
@@ -106,4 +107,76 @@ export function mergeConsecutive(messages: ChatMessage[]): ChatMessage[] {
     }
   }
   return out
+}
+
+interface OpenAiCompatibleResponse {
+  choices?: { message?: { content?: string } }[]
+  usage?: {
+    prompt_tokens?: number
+    completion_tokens?: number
+    total_tokens?: number
+  }
+}
+
+/**
+ * Call a Chat Completions endpoint that mirrors OpenAI's request/response
+ * shape (DeepSeek, OpenRouter, and most other OpenAI-compatible
+ * providers). Unlike `openai.ts` — which targets OpenAI's own newer
+ * `max_completion_tokens` param — this uses the more widely-supported
+ * legacy `max_tokens`, since compatible providers don't reliably accept
+ * the renamed one.
+ */
+export async function generateOpenAiCompatible(args: {
+  url: string
+  providerLabel: string
+  apiKey: string
+  model: string
+  systemPrompt: string
+  messages: ChatMessage[]
+  timeoutMs: number
+  extraHeaders?: Record<string, string>
+}): Promise<ProviderResult> {
+  const { url, providerLabel, apiKey, model, systemPrompt, messages, timeoutMs, extraHeaders } =
+    args
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        ...extraHeaders,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...mergeConsecutive(messages),
+        ],
+        max_tokens: MAX_OUTPUT_TOKENS,
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+  } catch (err) {
+    throw toNetworkError(err)
+  }
+
+  if (!res.ok) {
+    throw await providerHttpError(providerLabel, res)
+  }
+
+  const data = (await res.json().catch(() => null)) as OpenAiCompatibleResponse | null
+  const text = data?.choices?.[0]?.message?.content
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    throw new AiError(`${providerLabel} returned an empty response.`, {
+      code: 'empty_response',
+    })
+  }
+  const usage = normalizeUsage({
+    prompt: data?.usage?.prompt_tokens,
+    completion: data?.usage?.completion_tokens,
+    total: data?.usage?.total_tokens,
+  })
+  return { text, usage }
 }

@@ -166,6 +166,10 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
         filename: "",
         next_node_key: "",
       };
+    case "send_template":
+      return { template_name: "", language: "en_US", next_node_key: "" };
+    case "wait_followup":
+      return { wait_minutes: 120, followup_text: "", next_node_key: "" };
     case "collect_input":
       return {
         prompt_text: "",
@@ -183,6 +187,8 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       };
     case "set_tag":
       return { mode: "add", tag_id: "", next_node_key: "" };
+    case "ai_agent":
+      return { prompt: "", use_knowledge_base: true, next_node_key: "" };
     case "handoff":
       return { note: "" };
     case "end":

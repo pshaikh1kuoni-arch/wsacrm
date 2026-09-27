@@ -150,14 +150,14 @@
       "clearAll": "Limpiar todo",
       "noConversations": "No se encontraron conversaciones",
       "noMessagesYet": "Aún no hay mensajes",
-      "unknown": "Desconocido"
+      "unknown": "Desconocido",
+      "newMessage": "Nuevo mensaje"
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
-      "hideContactPanel": "Ocultar panel del contacto",
-      "showContactPanel": "Mostrar panel del contacto",
-      "hideContact": "Ocultar contacto",
-      "showContact": "Mostrar contacto",
+      "enterFullscreen": "Entrar en pantalla completa",
+      "exitFullscreen": "Salir de pantalla completa",
+      "addDeal": "Agregar negocio",
       "refresh": "Actualizar",
       "refreshConversation": "Actualizar conversación",
       "status": "Estado",
@@ -295,6 +295,17 @@
       "cancel": "Cancelar",
       "send": "Enviar plantilla"
     },
+    "quickSend": {
+      "title": "Enviar un mensaje",
+      "subtitle": "No es necesario guardar un contacto primero: lo agregaremos a Contactos automáticamente.",
+      "phoneLabel": "Número de teléfono",
+      "phonePlaceholder": "+14155550123",
+      "phoneNeedsCountryCode": "Incluye el código de país — el número debe empezar con + (ej. +14155550123)",
+      "continue": "Continuar",
+      "cancel": "Cancelar",
+      "toastSent": "Plantilla \"{name}\" enviada",
+      "toastFailed": "Error al enviar: {reason}"
+    },
     "sidebar": {
       "contactInfo": "Información del contacto",
       "tags": "Etiquetas",
@@ -302,7 +313,10 @@
       "deals": "Negocios",
       "noTags": "Sin etiquetas",
       "noDeals": "Sin negocios",
-      "addNotePlaceholder": "Agregar una nota..."
+      "addNotePlaceholder": "Agregar una nota...",
+      "collapseContactPanel": "Contraer panel del contacto",
+      "pullOutContactPanel": "Sacar",
+      "addDeal": "Agregar negocio"
     },
     "aiBanner": {
       "pausedTitle": "El asistente de IA está en pausa aquí",
@@ -565,6 +579,8 @@
       "contact": "Contacto",
       "selectContact": "Selecciona un contacto",
       "linkToConversation": "Vincular a una conversación",
+      "pipeline": "Pipeline",
+      "lockedContactHint": "Vinculado automáticamente desde esta conversación: no hay que elegir un contacto.",
       "value": "Valor",
       "currency": "Moneda",
       "expectedCloseDate": "Fecha estimada de cierre",
@@ -1152,6 +1168,7 @@
       "deleteNode": "Eliminar nodo",
       "canvasView": "Lienzo",
       "listView": "Lista",
+      "legend": "Leyenda",
       "noNodeSelected": "Ningún nodo seleccionado",
       "noNodeDesc": "Selecciona un nodo en el lienzo para editar su configuración.",
       "editorView": "Vista del editor",
@@ -1199,6 +1216,12 @@
         "removeTag": "Quitar etiqueta",
         "tagUuidPlaceholder": "UUID de la etiqueta",
         "thenAdvanceTo": "Luego avanzar a",
+        "aiInstructions": "Instrucciones para este paso",
+        "aiInstructionsHint": "¿Qué debe hacer la IA aquí? Ej.: \"ayuda al cliente a elegir un plan; no menciones precios.\" Se combina con las instrucciones generales de IA de tu cuenta.",
+        "aiUseKnowledgeBase": "Usar base de conocimiento",
+        "aiUseKnowledgeBaseHint": "Basa las respuestas en la base de conocimiento de tu cuenta, igual que la respuesta automática con IA.",
+        "aiStayInCharge": "Seguir a cargo después de responder",
+        "aiStayInChargeHint": "Si el cliente responde de nuevo dentro de la ventana de tiempo, este mismo agente de IA sigue respondiendo — no se necesita otro nodo. Si no hay respuesta, la IA escribe y envía su propio mensaje de seguimiento breve, y luego avanza como siempre.",
         "mediaTypeLabel": "Tipo de archivo",
         "imageLabel": "Imagen (PNG, JPEG, WebP)",
         "videoLabel": "Video (MP4, 3GP)",
@@ -1211,6 +1234,16 @@
         "filenameLabel": "Nombre de archivo que ve el cliente (solo documentos)",
         "filenamePlaceholder": "factura.pdf",
         "advanceAfterSending": "Después de enviar, avanzar a",
+        "templatePickerLabel": "Plantilla",
+        "templatePickPlaceholder": "Elige una plantilla…",
+        "templateNameLabel": "Nombre de la plantilla",
+        "templateLanguageLabel": "Código de idioma",
+        "templateNoneSynced": "Aún no hay plantillas aprobadas sincronizadas — introduce el nombre y el idioma manualmente.",
+        "templateUnknownOption": "{name} ({lang}) — no está en la lista sincronizada",
+        "advanceAfterTemplate": "Después de enviar, avanzar a",
+        "waitMinutesLabel": "Esperar hasta (minutos)",
+        "waitMinutesWarning": "Mínimo 5 minutos, máximo 1380 minutos (23 horas). Menos de 5 minutos arriesga superar los límites de frecuencia de WhatsApp si esto se repite mucho. Pasadas 24 horas, WhatsApp bloquea un mensaje normal de seguimiento desde la última respuesta del cliente — usa un nodo de Plantilla para un retraso mayor.",
+        "followupTextLabel": "Mensaje de seguimiento (se envía solo si el cliente no responde)",
         "pickNextNode": "Elige el siguiente nodo…",
         "none": "— Ninguno —",
         "removeSection": "Quitar sección",
@@ -1245,6 +1278,14 @@
           "label": "Enviar archivo",
           "blurb": "Envía una imagen, video o documento"
         },
+        "send_template": {
+          "label": "Enviar plantilla",
+          "blurb": "Envía un mensaje de plantilla aprobado de WhatsApp"
+        },
+        "wait_followup": {
+          "label": "Esperar y hacer seguimiento",
+          "blurb": "Pausa esperando una respuesta; envía un recordatorio si el cliente no contesta"
+        },
         "collect_input": {
           "label": "Capturar respuesta",
           "blurb": "Hace una pregunta y guarda la respuesta"
@@ -1256,6 +1297,10 @@
         "set_tag": {
           "label": "Etiquetar contacto",
           "blurb": "Agrega o quita una etiqueta del contacto"
+        },
+        "ai_agent": {
+          "label": "Agente IA",
+          "blurb": "Espera la respuesta del cliente y deja que la IA responda o transfiera"
         },
         "handoff": {
           "label": "Transferir a agente",
@@ -1270,7 +1315,9 @@
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",
       "summary": "{errorCount} {errorCount, plural, =1 {error} other {errores}}, {warningCount} {warningCount, plural, =1 {advertencia} other {advertencias}}",
-      "jumpToNode": "Ir al nodo {key}"
+      "jumpToNode": "Ir al nodo {key}",
+      "expand": "Mostrar problemas",
+      "collapse": "Ocultar problemas"
     },
     "editorState": {
       "saved": "Guardado.",
@@ -1309,6 +1356,8 @@
       "activate": "Activar",
       "fixIssues": "Corrige los problemas de abajo antes de activar",
       "save": "Guardar",
+      "enterFullscreen": "Entrar en pantalla completa",
+      "exitFullscreen": "Salir de pantalla completa",
       "descriptionPlaceholder": "Agrega una breve descripción (interna; los clientes no la ven)",
       "descriptionLabel": "Descripción del flujo"
     }
@@ -1816,7 +1865,7 @@
     },
     "aiConfig": {
       "title": "Configuración del agente",
-      "description": "Usa tu propia clave de OpenAI o Anthropic. wacrm llama al proveedor directamente con tu clave: sin cargos de IA por usuario, y tus datos siguen siendo tuyos. Esto impulsa las respuestas redactadas con IA en la bandeja de entrada, el bot de respuesta automática y el Playground.",
+      "description": "Usa tu propia clave de OpenAI, Anthropic, DeepSeek u OpenRouter. wacrm llama al proveedor directamente con tu clave: sin cargos de IA por usuario, y tus datos siguen siendo tuyos. Esto impulsa las respuestas redactadas con IA en la bandeja de entrada, el bot de respuesta automática y el Playground.",
       "adminOnlyConfig": "Solo los administradores y propietarios pueden cambiar la configuración de IA.",
       "loadFailed": "Error al cargar la configuración de IA",
       "providerAndKey": "Proveedor y clave",

@@ -10,6 +10,7 @@ import type {
   Conversation,
   Deal,
   DealStatus,
+  Pipeline,
   PipelineStage,
   Profile,
 } from "@/types";
@@ -38,10 +39,24 @@ interface DealFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   deal?: Deal | null;
-  pipelineId: string;
-  stages: PipelineStage[];
+  /**
+   * Initial pipeline selection for a fresh deal (e.g. "whichever board
+   * you're currently viewing"). Ignored when editing (uses `deal.pipeline_id`
+   * instead) and optional — falls back to the account's first pipeline,
+   * fetched below, when omitted. The form now owns pipeline/stage fetching
+   * itself (a `Pipeline` picker, since an account can have more than one)
+   * rather than requiring the caller to load and hand down `stages`.
+   */
+  pipelineId?: string;
   defaultStageId?: string;
   onSaved: () => void;
+  /**
+   * Locks the contact field to this contact and hides the picker
+   * entirely — used when the form is opened from that contact's own
+   * context (their Inbox conversation), where there's no ambiguity to
+   * resolve and no need for the name/phone contact dropdown at all.
+   */
+  lockedContact?: Contact;
 }
 
 export function DealForm({
@@ -49,9 +64,9 @@ export function DealForm({
   onOpenChange,
   deal,
   pipelineId,
-  stages,
   defaultStageId,
   onSaved,
+  lockedContact,
 }: DealFormProps) {
   const t = useTranslations("Pipelines.form");
   const supabase = createClient();
@@ -61,6 +76,7 @@ export function DealForm({
   const [value, setValue] = useState("");
   const [currency, setCurrency] = useState(defaultCurrency);
   const [contactId, setContactId] = useState("");
+  const [selectedPipelineId, setSelectedPipelineId] = useState("");
   const [stageId, setStageId] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
   const [expectedCloseDate, setExpectedCloseDate] = useState("");
@@ -68,6 +84,8 @@ export function DealForm({
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [stages, setStages] = useState<PipelineStage[]>([]);
   const [linkedConversation, setLinkedConversation] =
     useState<Conversation | null>(null);
 
@@ -89,7 +107,8 @@ export function DealForm({
       setCurrency(deal.currency || defaultCurrency);
       // contact_id is nullable when the contact has been deleted
       // (migration 004: ON DELETE SET NULL). "" means "no selection".
-      setContactId(deal.contact_id ?? "");
+      setContactId(lockedContact?.id ?? deal.contact_id ?? "");
+      setSelectedPipelineId(deal.pipeline_id);
       setStageId(deal.stage_id);
       setAssignedTo(deal.assigned_to ?? "");
       setExpectedCloseDate(deal.expected_close_date ?? "");
@@ -98,38 +117,87 @@ export function DealForm({
       setTitle("");
       setValue("");
       setCurrency(defaultCurrency);
-      setContactId("");
-      setStageId(defaultStageId || stages[0]?.id || "");
+      setContactId(lockedContact?.id ?? "");
+      // Falls back to the account's first pipeline once the pipelines
+      // fetch below resolves, if still empty — see that effect.
+      setSelectedPipelineId(pipelineId || "");
+      // Stage similarly backfills to the newly-selected pipeline's first
+      // stage once its stages effect resolves, if this doesn't match.
+      setStageId(defaultStageId || "");
       setAssignedTo("");
       setExpectedCloseDate("");
       setNotes("");
     }
-  }, [open, deal, defaultStageId, stages, defaultCurrency]);
+  }, [open, deal, defaultStageId, defaultCurrency, pipelineId, lockedContact]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Load supporting data once the sheet is open
+  // Load supporting data once the sheet is open. Pipelines are fetched
+  // here too (not just stages) since an account can have more than one —
+  // the form now owns that picker rather than requiring the caller to
+  // resolve "which pipeline" ahead of time.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     (async () => {
-      const [c, p] = await Promise.all([
+      const [c, p, pl] = await Promise.all([
         supabase.from("contacts").select("*").order("name"),
         supabase.from("profiles").select("*").order("full_name"),
+        supabase.from("pipelines").select("*").order("created_at"),
       ]);
       if (cancelled) return;
       setContacts((c.data ?? []) as Contact[]);
       setProfiles((p.data ?? []) as Profile[]);
+      const pipelineList = (pl.data ?? []) as Pipeline[];
+      setPipelines(pipelineList);
+      // Only backfills when nothing's selected yet (a fresh "new deal"
+      // with no `pipelineId` hint) — never overrides an explicit
+      // selection, editing an existing deal, or the caller's hint.
+      setSelectedPipelineId((prev) => prev || pipelineList[0]?.id || "");
     })();
     return () => {
       cancelled = true;
     };
   }, [open, supabase]);
 
+  // Stages for whichever pipeline is currently selected — reactive to
+  // the new Pipeline picker below, not a static prop, since switching
+  // pipelines must reload the stages that belong to it.
+  useEffect(() => {
+    if (!open || !selectedPipelineId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStages([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("pipeline_stages")
+        .select("*")
+        .eq("pipeline_id", selectedPipelineId)
+        .order("position");
+      if (cancelled) return;
+      const stageList = (data ?? []) as PipelineStage[];
+      setStages(stageList);
+      // Keep the current stage if it still belongs to this pipeline
+      // (the common case: editing, or a `defaultStageId` hint that
+      // matches); otherwise fall back to the new pipeline's first stage.
+      setStageId((prev) =>
+        stageList.some((s) => s.id === prev) ? prev : (stageList[0]?.id ?? ""),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedPipelineId, supabase]);
+
   // Fetch linked conversation for the selected contact (newest open one).
+  // Skipped when `lockedContact` is set — that link exists to jump *to*
+  // the conversation a deal came from, which is meaningless when the
+  // form was opened *from* that exact conversation already.
   // Clearing on no-selection is sync with prop state; the populated
   // case runs setLinkedConversation inside the async fetch callback.
   useEffect(() => {
-    if (!open || !contactId) {
+    if (!open || !contactId || lockedContact) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLinkedConversation(null);
       return;
@@ -149,7 +217,7 @@ export function DealForm({
     return () => {
       cancelled = true;
     };
-  }, [open, contactId, supabase]);
+  }, [open, contactId, lockedContact, supabase]);
 
   async function handleSave() {
     if (!title.trim() || !contactId || !stageId) {
@@ -163,7 +231,7 @@ export function DealForm({
       value: parseFloat(value) || 0,
       currency,
       contact_id: contactId,
-      pipeline_id: pipelineId,
+      pipeline_id: selectedPipelineId,
       stage_id: stageId,
       assigned_to: assignedTo || null,
       notes: notes.trim() || null,
@@ -249,7 +317,7 @@ export function DealForm({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="bg-popover border-border text-popover-foreground sm:max-w-lg w-full p-0"
+        className="bg-popover text-popover-foreground sm:max-w-lg w-full p-0"
       >
         <div className="flex h-full flex-col">
           <SheetHeader className="border-b border-border/50 p-4">
@@ -271,28 +339,70 @@ export function DealForm({
 
             <div className="grid gap-2">
               <Label className="text-muted-foreground">{t("contact")}</Label>
+              {lockedContact ? (
+                <>
+                  <div className="flex items-center gap-2.5 rounded-lg bg-primary/10 px-3 py-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+                      {(lockedContact.name || lockedContact.phone)
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {lockedContact.name || lockedContact.phone}
+                      </p>
+                      {lockedContact.name && (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {lockedContact.phone}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("lockedContactHint")}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <select
+                    value={contactId}
+                    onChange={(e) => setContactId(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="">{t("selectContact")}</option>
+                    {contacts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name || c.phone}
+                      </option>
+                    ))}
+                  </select>
+
+                  {linkedConversation && (
+                    <Link
+                      href="/inbox"
+                      className="mt-1 inline-flex items-center gap-1.5 self-start rounded-md bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      {t("linkToConversation")}
+                    </Link>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">{t("pipeline")}</Label>
               <select
-                value={contactId}
-                onChange={(e) => setContactId(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                value={selectedPipelineId}
+                onChange={(e) => setSelectedPipelineId(e.target.value)}
+                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary"
               >
-                <option value="">{t("selectContact")}</option>
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name || c.phone}
+                {pipelines.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
                   </option>
                 ))}
               </select>
-
-              {linkedConversation && (
-                <Link
-                  href="/inbox"
-                  className="mt-1 inline-flex items-center gap-1.5 self-start rounded-md bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
-                >
-                  <MessageSquare className="h-3 w-3" />
-                  {t("linkToConversation")}
-                </Link>
-              )}
             </div>
 
             <div className="grid grid-cols-[1fr_110px] gap-3">

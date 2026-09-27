@@ -175,6 +175,14 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
         templateName: input.templateName,
         language: input.language,
         params: input.params,
+        // Without the row, sendTemplateMessage falls back to the
+        // legacy body-only path and omits the header entirely — Meta
+        // then rejects ANY template with a media header (or a URL
+        // button with a variable) with #132012 "Parameter format does
+        // not match format in the created template", even though the
+        // body itself was correct. Passing the row lets it build the
+        // full header/body/button components via buildSendComponents.
+        template: templateRow ?? undefined,
       })
       return r.messageId
     }

@@ -31,7 +31,7 @@ describe("deriveCanvasEdges — single-outgoing node types", () => {
     });
   });
 
-  it("derives a `next` edge from send_media, set_tag, collect_input, start", () => {
+  it("derives a `next` edge from send_media, send_template, wait_followup, set_tag, ai_agent, collect_input, start", () => {
     const edges = deriveCanvasEdges(
       nodes(
         { node_key: "s", node_type: "start", config: { next_node_key: "m" } },
@@ -41,13 +41,36 @@ describe("deriveCanvasEdges — single-outgoing node types", () => {
           config: {
             media_type: "image",
             media_url: "https://x/y.png",
+            next_node_key: "st",
+          },
+        },
+        {
+          node_key: "st",
+          node_type: "send_template",
+          config: {
+            template_name: "order_shipped",
+            language: "en_US",
+            next_node_key: "w",
+          },
+        },
+        {
+          node_key: "w",
+          node_type: "wait_followup",
+          config: {
+            wait_minutes: 5,
+            followup_text: "still there?",
             next_node_key: "t",
           },
         },
         {
           node_key: "t",
           node_type: "set_tag",
-          config: { mode: "add", tag_id: "u", next_node_key: "ci" },
+          config: { mode: "add", tag_id: "u", next_node_key: "ai" },
+        },
+        {
+          node_key: "ai",
+          node_type: "ai_agent",
+          config: { prompt: "help", next_node_key: "ci" },
         },
         {
           node_key: "ci",
@@ -61,11 +84,14 @@ describe("deriveCanvasEdges — single-outgoing node types", () => {
         { node_key: "e", node_type: "end", config: {} },
       ),
     );
-    expect(edges).toHaveLength(4);
+    expect(edges).toHaveLength(7);
     expect(edges.map((e) => `${e.source}->${e.target}`)).toEqual([
       "s->m",
-      "m->t",
-      "t->ci",
+      "m->st",
+      "st->w",
+      "w->t",
+      "t->ai",
+      "ai->ci",
       "ci->e",
     ]);
   });
@@ -305,11 +331,20 @@ describe("outgoingSlots", () => {
       each({ node_key: "x", node_type: "send_media", config: {} }),
     ).toEqual(["next"]);
     expect(
+      each({ node_key: "x", node_type: "send_template", config: {} }),
+    ).toEqual(["next"]);
+    expect(
+      each({ node_key: "x", node_type: "wait_followup", config: {} }),
+    ).toEqual(["next"]);
+    expect(
       each({ node_key: "x", node_type: "collect_input", config: {} }),
     ).toEqual(["next"]);
     expect(each({ node_key: "x", node_type: "set_tag", config: {} })).toEqual([
       "next",
     ]);
+    expect(
+      each({ node_key: "x", node_type: "ai_agent", config: {} }),
+    ).toEqual(["next"]);
   });
 
   it("returns true/false slots for condition", () => {

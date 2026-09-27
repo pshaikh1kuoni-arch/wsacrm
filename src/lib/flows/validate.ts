@@ -301,6 +301,100 @@ function validateNode(
       break;
     }
 
+    case "send_template": {
+      const cfg = node.config as {
+        template_name?: string;
+        language?: string;
+        next_node_key?: string;
+      };
+      if (!cfg.template_name?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "template_name",
+          message: "Send-template node needs an approved template selected.",
+        });
+      }
+      if (!cfg.language?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "language",
+          message: "Send-template node needs a template language.",
+        });
+      }
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: "Send-template node must point to a next node.",
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Send-template points to non-existent node "${cfg.next_node_key}".`,
+        });
+      }
+      break;
+    }
+
+    case "wait_followup": {
+      const cfg = node.config as {
+        wait_minutes?: number;
+        followup_text?: string;
+        next_node_key?: string;
+      };
+      if (
+        typeof cfg.wait_minutes !== "number" ||
+        !Number.isFinite(cfg.wait_minutes) ||
+        cfg.wait_minutes < 5 ||
+        cfg.wait_minutes > 1380
+      ) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "wait_minutes",
+          message:
+            "Wait & follow-up needs a wait time between 5 and 1380 minutes (23 hours) — under 5 minutes risks hitting WhatsApp's rate limits if the customer keeps triggering it, and past 24 hours WhatsApp blocks a normal message since the customer's last reply.",
+        });
+      }
+      if (!cfg.followup_text?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "followup_text",
+          message: "Wait & follow-up needs the message to send if the customer stays quiet.",
+        });
+      }
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: "Wait & follow-up node must point to a next node.",
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Wait & follow-up points to non-existent node "${cfg.next_node_key}".`,
+        });
+      }
+      break;
+    }
+
     case "send_buttons": {
       const cfg = node.config as {
         text?: string;
@@ -701,6 +795,61 @@ function validateNode(
       break;
     }
 
+    case "ai_agent": {
+      const cfg = node.config as {
+        prompt?: string;
+        next_node_key?: string;
+        followup_wait_minutes?: number;
+      };
+      if (!cfg.prompt || !cfg.prompt.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "prompt",
+          message: "AI Agent needs instructions for what it should do.",
+        });
+      }
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: "AI Agent must point to a next node.",
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `AI Agent points to non-existent node "${cfg.next_node_key}".`,
+        });
+      }
+      // "Stay in charge" is opt-in — only validated when turned on
+      // (followup_wait_minutes > 0). Left off, behavior is unchanged
+      // from before this option existed.
+      if (cfg.followup_wait_minutes) {
+        if (
+          typeof cfg.followup_wait_minutes !== "number" ||
+          !Number.isFinite(cfg.followup_wait_minutes) ||
+          cfg.followup_wait_minutes < 5 ||
+          cfg.followup_wait_minutes > 1380
+        ) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: "followup_wait_minutes",
+            message:
+              "\"Stay in charge\" needs a wait time between 5 and 1380 minutes (23 hours) — under 5 minutes risks hitting WhatsApp's rate limits if the customer keeps triggering it, and past 24 hours WhatsApp blocks a normal message since the customer's last reply.",
+          });
+        }
+      }
+      break;
+    }
+
     case "handoff":
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate
@@ -750,8 +899,11 @@ function outgoingEdges(node: NodeInput): string[] {
     case "start":
     case "send_message":
     case "send_media":
+    case "send_template":
+    case "wait_followup":
     case "collect_input":
-    case "set_tag": {
+    case "set_tag":
+    case "ai_agent": {
       const cfg = node.config as { next_node_key?: string };
       return cfg.next_node_key ? [cfg.next_node_key] : [];
     }

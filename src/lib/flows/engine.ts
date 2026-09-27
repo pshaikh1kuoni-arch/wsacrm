@@ -39,15 +39,33 @@ import {
   engineSendMedia,
   engineSendText,
 } from "./meta-send";
+// Reused as-is from the automations engine — same Meta template call,
+// same `message_templates` table. Automations already reuses Flows'
+// interactive senders the other way (see automations/meta-send.ts's
+// header comment), so this cross-import follows existing precedent
+// rather than duplicating the Meta template-send logic here.
+import { engineSendTemplate } from "@/lib/automations/meta-send";
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { loadAiConfig } from "@/lib/ai/config";
+import { buildConversationContext } from "@/lib/ai/context";
+import { retrieveKnowledge } from "@/lib/ai/knowledge";
+import { generateReply } from "@/lib/ai/generate";
+import { buildSystemPrompt } from "@/lib/ai/defaults";
+import { buildHandoffSummary } from "@/lib/ai/handoff";
+import { logAiUsage } from "@/lib/ai/usage";
+import { latestUserMessage } from "@/lib/ai/query";
 import {
+  type AiAgentNodeConfig,
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
   type DispatchInboundInput,
   type DispatchInboundResult,
   type FlowNodeRow,
+  type FlowPendingAction,
+  type FlowPendingExecutionRow,
   type FlowRow,
   type FlowRunRow,
   type ParsedInbound,
@@ -55,9 +73,11 @@ import {
   type SendListNodeConfig,
   type SendMediaNodeConfig,
   type SendMessageNodeConfig,
+  type SendTemplateNodeConfig,
   type SetTagNodeConfig,
   type StartNodeConfig,
   type KeywordTriggerConfig,
+  type WaitFollowupNodeConfig,
 } from "./types";
 
 // ============================================================
@@ -139,14 +159,23 @@ export function isAutoAdvancing(node_type: string): boolean {
     node_type === "start" ||
     node_type === "send_message" ||
     node_type === "send_media" ||
+    node_type === "send_template" ||
     node_type === "condition" ||
     node_type === "set_tag"
   );
 }
 
-/** Nodes that send a prompt and suspend awaiting a customer reply. */
+/**
+ * Nodes that send a prompt and suspend awaiting a customer reply.
+ * `ai_agent` sends nothing itself (see its branch in
+ * `advanceFromNodeKey`) — it suspends silently and only calls the LLM
+ * once the customer's next message grounds the reply in something
+ * they actually said, rather than firing on stale context the instant
+ * the flow reaches it.
+ */
 export function isSuspending(node_type: string): boolean {
   return (
+    node_type === "ai_agent" ||
     node_type === "send_buttons" ||
     node_type === "send_list" ||
     node_type === "collect_input"
@@ -156,6 +185,18 @@ export function isSuspending(node_type: string): boolean {
 /** Nodes that end the run. */
 export function isTerminal(node_type: string): boolean {
   return node_type === "handoff" || node_type === "end";
+}
+
+/**
+ * Nodes that suspend on a TIMER rather than purely on customer input —
+ * neither of the other two categories fits: unlike `isAutoAdvancing`,
+ * the run doesn't move on this request; unlike `isSuspending`, it
+ * doesn't wait indefinitely for a reply — a `flow_pending_executions`
+ * row races a reply against the clock, whichever comes first advances
+ * the run (see `scheduleFollowup` / the cron's `resumeFlowPendingExecution`).
+ */
+export function isTimedSuspending(node_type: string): boolean {
+  return node_type === "wait_followup";
 }
 
 /**
@@ -501,6 +542,228 @@ async function executeHandoff(
 }
 
 /**
+ * The `ai_agent` node's handoff path — reached when AI isn't
+ * configured for the account, the account hit its AI rate limit, or
+ * the model itself decided it can't help (the same reply-or-handoff
+ * contract `generateReply`/`HANDOFF_SENTINEL` already implements for
+ * the standalone auto-reply bot). Mirrors `executeHandoff` above,
+ * routing to the account's configured "Hand off to" queue
+ * (`assignTo`, from `loadAiConfig().handoffAgentId`) rather than a
+ * per-node assignee — an `ai_agent` node has no assignee field of its
+ * own by design.
+ */
+async function executeAiAgentHandoff(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  reason: string,
+  assignTo?: string | null,
+  note?: string,
+): Promise<void> {
+  const convUpdate: Record<string, unknown> = {
+    status: "pending",
+    updated_at: new Date().toISOString(),
+  };
+  if (assignTo) convUpdate.assigned_agent_id = assignTo;
+  if (run.conversation_id) {
+    await db
+      .from("conversations")
+      .update(convUpdate)
+      .eq("id", run.conversation_id);
+  }
+  await logEvent(db, run.id, "handoff", node.node_key, {
+    note: note ?? null,
+    reason,
+    assigned_to: assignTo ?? null,
+  });
+  await endRun(db, run.id, "handed_off", reason);
+}
+
+type AiAgentGenResult =
+  | { ok: true; text: string }
+  | { ok: false; reason: "ai_not_configured" | "ai_rate_limited" }
+  | {
+      ok: false;
+      reason: "ai_agent_handoff";
+      assignTo?: string | null;
+      note?: string;
+    };
+
+/**
+ * Shared AI-generation path for the `ai_agent` node — used both for a
+ * live turn (the customer just spoke) and for the "stay in charge"
+ * follow-up (the customer went quiet). Same account config, same
+ * node prompt, same reply-or-handoff contract; `mode` only decides
+ * whether a synthetic nudge turn gets appended so the model writes a
+ * fresh re-engagement message instead of continuing its last reply
+ * (the transcript otherwise ends on our own `assistant` turn, which
+ * isn't a valid "generate the next message" prompt on its own).
+ */
+async function generateAiAgentMessage(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  mode: "reply" | "followup",
+): Promise<AiAgentGenResult> {
+  const cfg = node.config as unknown as AiAgentNodeConfig;
+  const aiConfig = await loadAiConfig(db, run.account_id);
+  if (!aiConfig) return { ok: false, reason: "ai_not_configured" };
+  const acctLimit = checkRateLimit(
+    `ai-autoreply:${run.account_id}`,
+    RATE_LIMITS.aiAutoReplyAccount,
+  );
+  if (!acctLimit.success) return { ok: false, reason: "ai_rate_limited" };
+
+  const messages = await buildConversationContext(db, run.conversation_id!);
+  if (mode === "followup") {
+    messages.push({
+      role: "user",
+      content:
+        "[System note: the customer has gone quiet for a while. Write a short, natural follow-up message continuing this conversation and checking back in. Do not mention that this note exists or that you are automated.]",
+    });
+  }
+  const knowledge =
+    cfg.use_knowledge_base === false
+      ? undefined
+      : await retrieveKnowledge(
+          db,
+          run.account_id,
+          aiConfig,
+          latestUserMessage(messages),
+        );
+  const systemPrompt = buildSystemPrompt({
+    userPrompt: [aiConfig.systemPrompt, cfg.prompt]
+      .filter((s): s is string => Boolean(s && s.trim()))
+      .join("\n\n"),
+    mode: "auto_reply",
+    knowledge,
+  });
+  const { text, handoff, usage } = await generateReply({
+    config: aiConfig,
+    systemPrompt,
+    messages,
+  });
+  void logAiUsage(db, {
+    accountId: run.account_id,
+    conversationId: run.conversation_id!,
+    mode: "flow_agent",
+    provider: aiConfig.provider,
+    model: aiConfig.model,
+    usage,
+  });
+  if (handoff || !text) {
+    return {
+      ok: false,
+      reason: "ai_agent_handoff",
+      assignTo: aiConfig.handoffAgentId,
+      note: buildHandoffSummary({ messages, replyCount: 0 }),
+    };
+  }
+  return { ok: true, text };
+}
+
+/**
+ * The `ai_agent` node's actual turn — called from
+ * `handleReplyForActiveRun` once the customer has replied to whatever
+ * came before it (the node itself only suspends when the run first
+ * reaches it, see the `ai_agent` branch in `advanceFromNodeKey`), so
+ * `buildConversationContext` below always includes what they just
+ * said as the latest turn.
+ *
+ * Reuses the account's already-configured AI (Settings → AI — same
+ * provider/key/knowledge base as the standalone auto-reply bot and
+ * the Inbox "Draft with AI" button) and the same bounded reply-or-
+ * handoff contract `generateReply`/HANDOFF_SENTINEL already
+ * implements. On a successful reply, continues the flow from the
+ * node's `next_node_key` via `advanceFromNodeKey` — an AI reply is
+ * just one more auto-advancing step once it lands.
+ */
+async function runAiAgentTurn(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  nodes: Map<string, FlowNodeRow>,
+): Promise<DispatchInboundResult> {
+  const cfg = node.config as unknown as AiAgentNodeConfig;
+  // A reply always means "they're back" — clear any scheduled
+  // re-engage callback from a previous turn's "stay in charge" wait
+  // before doing anything else, whether this turn ends in a reply,
+  // a handoff, or an error. Safe no-op when nothing is pending.
+  await cancelPendingExecutions(db, run.id);
+  try {
+    const result = await generateAiAgentMessage(db, run, node, "reply");
+    if (!result.ok) {
+      if (result.reason === "ai_agent_handoff") {
+        await executeAiAgentHandoff(
+          db,
+          run,
+          node,
+          result.reason,
+          result.assignTo,
+          result.note,
+        );
+      } else {
+        await executeAiAgentHandoff(db, run, node, result.reason);
+      }
+      return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
+    }
+    const { whatsapp_message_id } = await engineSendText({
+      accountId: run.account_id,
+      userId: run.user_id,
+      conversationId: run.conversation_id!,
+      contactId: run.contact_id!,
+      text: result.text,
+      aiGenerated: true,
+    });
+    await logEvent(db, run.id, "message_sent", node.node_key, {
+      node_type: "ai_agent",
+      whatsapp_message_id,
+    });
+  } catch (err) {
+    await logEvent(db, run.id, "error", node.node_key, {
+      reason: "ai_agent_failed",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    await endRun(db, run.id, "failed", "ai_agent_failed");
+    return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+  }
+
+  if (cfg.followup_wait_minutes && cfg.followup_wait_minutes > 0) {
+    // "Stay in charge": don't advance yet. current_node_key is
+    // already parked on this ai_agent node (it's been here since the
+    // first reply), so there's nothing to move — just schedule the
+    // re-engage callback. A reply before it fires re-enters this
+    // function (cancelling the callback above); silence instead lets
+    // the cron call `generateAiAgentMessage` again in "followup" mode
+    // via `resumeFlowPendingExecution`, so the nudge is AI-written
+    // from the real conversation, not a fixed string.
+    try {
+      await scheduleFollowup(
+        db,
+        run,
+        node.node_key,
+        {
+          kind: "ai_reengage",
+          next_node_key: cfg.next_node_key,
+        },
+        cfg.followup_wait_minutes,
+      );
+    } catch (err) {
+      await logEvent(db, run.id, "error", node.node_key, {
+        reason: "ai_agent_followup_schedule_failed",
+        detail: err instanceof Error ? err.message : String(err),
+      });
+      await endRun(db, run.id, "failed", "ai_agent_followup_schedule_failed");
+      return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+    }
+    return { consumed: true, flow_run_id: run.id, outcome: "advanced" };
+  }
+
+  const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
+  return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+}
+
+/**
  * Resolve a condition node's subject value from DB / run state, then
  * call the pure `evaluateConditionPredicate`. Splits out so the
  * predicate itself stays unit-testable without a Supabase mock.
@@ -696,6 +959,67 @@ async function advanceFromNodeKey(
       currentKey = cfg.next_node_key;
       continue;
     }
+    if (node.node_type === "send_template") {
+      const cfg = node.config as unknown as SendTemplateNodeConfig;
+      try {
+        const { whatsapp_message_id } = await engineSendTemplate({
+          accountId: run.account_id,
+          userId: run.user_id,
+          conversationId: run.conversation_id!,
+          contactId: run.contact_id!,
+          templateName: cfg.template_name,
+          language: cfg.language,
+        });
+        await logEvent(db, run.id, "message_sent", node.node_key, {
+          node_type: "send_template",
+          whatsapp_message_id,
+        });
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_template_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_template_failed");
+        return { outcome: "completed" };
+      }
+      currentKey = cfg.next_node_key;
+      continue;
+    }
+    if (node.node_type === "wait_followup") {
+      const cfg = node.config as unknown as WaitFollowupNodeConfig;
+      try {
+        await scheduleFollowup(
+          db,
+          run,
+          node.node_key,
+          {
+            kind: "followup_message",
+            text: cfg.followup_text,
+            next_node_key: cfg.next_node_key,
+          },
+          cfg.wait_minutes,
+        );
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "wait_followup_schedule_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "wait_followup_schedule_failed");
+        return { outcome: "completed" };
+      }
+      const advanced = await advanceCurrentNodeKey(
+        db,
+        run.id,
+        run.current_node_key,
+        node.node_key,
+      );
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "lost_race_during_advance",
+        });
+      }
+      return { outcome: "advanced" };
+    }
     if (node.node_type === "collect_input") {
       // Send the prompt and suspend. Customer's next TEXT reply will
       // wake us up via handleReplyForActiveRun's collect_input branch.
@@ -798,6 +1122,32 @@ async function advanceFromNodeKey(
       }
       currentKey = cfg.next_node_key;
       continue;
+    }
+    if (node.node_type === "ai_agent") {
+      // Suspend only — deliberately does NOT call the LLM here. Firing
+      // immediately (the way set_tag/send_message auto-advance) meant
+      // the model answered using whatever was already in the
+      // conversation, one full turn before the customer had actually
+      // said anything new at this point in the flow — it would reply
+      // to a question they hadn't asked yet (issue found in testing:
+      // a "Classic Mug" button tap → price message → the AI agent
+      // immediately also answered a discount/payment question that
+      // came from EARLIER in the thread). Parking here and running the
+      // LLM only when the customer's next message arrives —
+      // `runAiAgentTurn`, called from `handleReplyForActiveRun` below
+      // — means the reply is always grounded in what they just said.
+      const advanced = await advanceCurrentNodeKey(
+        db,
+        run.id,
+        run.current_node_key,
+        node.node_key,
+      );
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "lost_race_during_advance",
+        });
+      }
+      return { outcome: "advanced" };
     }
     if (node.node_type === "send_buttons") {
       // Same failure contract as send_message / send_media /
@@ -915,6 +1265,161 @@ async function advanceCurrentNodeKey(
 }
 
 // ============================================================
+// Timed-resume mechanism — shared by `wait_followup` (and, later, the
+// `ai_agent` "stay in context" option). A `flow_pending_executions`
+// row races a reply against a clock: `cancelPendingExecutions` is
+// called from the reply path the instant the customer answers back;
+// `resumeFlowPendingExecution` is called by the cron
+// (`/api/flows/cron`) when the clock wins instead.
+// ============================================================
+
+async function scheduleFollowup(
+  db: AdminClient,
+  run: FlowRunRow,
+  nodeKey: string,
+  action: FlowPendingAction,
+  waitMinutes: number,
+): Promise<void> {
+  const runAt = new Date(Date.now() + waitMinutes * 60 * 1000).toISOString();
+  const { error } = await db.from("flow_pending_executions").insert({
+    flow_run_id: run.id,
+    account_id: run.account_id,
+    node_key: nodeKey,
+    action,
+    run_at: runAt,
+    status: "pending",
+  });
+  if (error) throw new Error(`schedule_followup_failed: ${error.message}`);
+}
+
+/**
+ * Cancel any outstanding scheduled callback for a run. Called the
+ * instant a reply lands on a node that has one pending (currently
+ * only `wait_followup`) — the customer answering back means the
+ * scheduled nudge is moot, whichever fires first should be the only
+ * one that fires.
+ */
+async function cancelPendingExecutions(
+  db: AdminClient,
+  runId: string,
+): Promise<void> {
+  await db
+    .from("flow_pending_executions")
+    .update({ status: "cancelled" })
+    .eq("flow_run_id", runId)
+    .eq("status", "pending");
+}
+
+async function markPendingExecution(
+  db: AdminClient,
+  id: string,
+  status: "done" | "cancelled" | "failed",
+): Promise<void> {
+  await db.from("flow_pending_executions").update({ status }).eq("id", id);
+}
+
+/**
+ * Cron entry point (`/api/flows/cron`) for a due `flow_pending_executions`
+ * row. Re-checks the run is still active AND still parked at the exact
+ * node the row was scheduled from before acting — the cheapest possible
+ * defense against the race where a reply arrives in the gap between
+ * "row became due" and "cron actually gets to it": if the run already
+ * moved on, this is a stale callback and gets cancelled rather than
+ * firing a follow-up on a topic the customer has already left behind.
+ */
+export async function resumeFlowPendingExecution(
+  row: FlowPendingExecutionRow,
+): Promise<void> {
+  const db = supabaseAdmin();
+  const { data: runData } = await db
+    .from("flow_runs")
+    .select("*")
+    .eq("id", row.flow_run_id)
+    .maybeSingle();
+  const run = (runData as FlowRunRow | null) ?? null;
+  if (!run || run.status !== "active" || run.current_node_key !== row.node_key) {
+    await markPendingExecution(db, row.id, "cancelled");
+    return;
+  }
+
+  const nodes = await loadAllNodes(db, run.flow_id);
+
+  if (row.action.kind === "followup_message") {
+    try {
+      const { whatsapp_message_id } = await engineSendText({
+        accountId: run.account_id,
+        userId: run.user_id,
+        conversationId: run.conversation_id!,
+        contactId: run.contact_id!,
+        text: interpolateVars(row.action.text, run.vars),
+      });
+      await logEvent(db, run.id, "message_sent", row.node_key, {
+        node_type: "wait_followup",
+        reason: "followup_sent",
+        whatsapp_message_id,
+      });
+    } catch (err) {
+      await logEvent(db, run.id, "error", row.node_key, {
+        reason: "wait_followup_send_failed",
+        detail: err instanceof Error ? err.message : String(err),
+      });
+      await endRun(db, run.id, "failed", "wait_followup_send_failed");
+      await markPendingExecution(db, row.id, "failed");
+      return;
+    }
+    await advanceFromNodeKey(db, run, row.action.next_node_key, nodes);
+    await markPendingExecution(db, row.id, "done");
+  } else if (row.action.kind === "ai_reengage") {
+    const action = row.action;
+    const node = nodes.get(row.node_key);
+    try {
+      if (node) {
+        const result = await generateAiAgentMessage(db, run, node, "followup");
+        if (!result.ok) {
+          if (result.reason === "ai_agent_handoff") {
+            await executeAiAgentHandoff(
+              db,
+              run,
+              node,
+              result.reason,
+              result.assignTo,
+              result.note,
+            );
+          } else {
+            await executeAiAgentHandoff(db, run, node, result.reason);
+          }
+          await markPendingExecution(db, row.id, "done");
+          return;
+        }
+        const { whatsapp_message_id } = await engineSendText({
+          accountId: run.account_id,
+          userId: run.user_id,
+          conversationId: run.conversation_id!,
+          contactId: run.contact_id!,
+          text: result.text,
+          aiGenerated: true,
+        });
+        await logEvent(db, run.id, "message_sent", row.node_key, {
+          node_type: "ai_agent",
+          reason: "followup_sent",
+          whatsapp_message_id,
+        });
+      }
+    } catch (err) {
+      await logEvent(db, run.id, "error", row.node_key, {
+        reason: "ai_agent_followup_send_failed",
+        detail: err instanceof Error ? err.message : String(err),
+      });
+      await endRun(db, run.id, "failed", "ai_agent_followup_send_failed");
+      await markPendingExecution(db, row.id, "failed");
+      return;
+    }
+    await advanceFromNodeKey(db, run, action.next_node_key, nodes);
+    await markPendingExecution(db, row.id, "done");
+  }
+}
+
+// ============================================================
 // Public entry point — the webhook calls this on every inbound.
 // ============================================================
 
@@ -1008,6 +1513,25 @@ async function handleReplyForActiveRun(
   if (!currentNode) {
     await endRun(db, run.id, "failed", "current_node_not_found");
     return { consumed: true, flow_run_id: run.id, outcome: "no_match" };
+  }
+
+  // ai_agent takes over here rather than joining the matched-reply
+  // logic below — any reply (button tap or free text) is valid input
+  // for the model to react to, there's no "didn't match, fall back"
+  // case the way send_buttons/collect_input have.
+  if (currentNode.node_type === "ai_agent") {
+    return await runAiAgentTurn(db, run, currentNode, nodes);
+  }
+
+  // wait_followup also takes over here — any reply means "they're
+  // back," full stop. It doesn't try to interpret what they said
+  // (that's a downstream node's job); it just cancels the scheduled
+  // follow-up so the cron doesn't also fire, and advances.
+  if (currentNode.node_type === "wait_followup") {
+    await cancelPendingExecutions(db, run.id);
+    const cfg = currentNode.config as unknown as WaitFollowupNodeConfig;
+    const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
+    return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
   }
 
   // Two ways a reply can advance:

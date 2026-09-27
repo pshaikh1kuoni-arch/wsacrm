@@ -9,7 +9,7 @@ import {
 } from "@/lib/inbox/conversations";
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus, Tag } from "@/types";
-import { Search, ChevronDown, X } from "lucide-react";
+import { Search, ChevronDown, Plus, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,9 @@ interface ConversationListProps {
    * or the tab was throttled. Optional so existing callers keep working.
    */
   resyncToken?: number;
+  /** Opens the quick-send dialog (message a phone number that may not
+   *  be a saved contact yet). Optional so existing callers keep working. */
+  onQuickSend?: () => void;
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
@@ -52,6 +55,7 @@ export function ConversationList({
   conversations,
   onConversationsLoaded,
   resyncToken = 0,
+  onQuickSend,
 }: ConversationListProps) {
   const t = useTranslations("Inbox.conversationList");
   
@@ -226,7 +230,8 @@ export function ConversationList({
     <div className="flex h-full w-full flex-col overflow-hidden bg-card lg:w-80 lg:rounded-2xl lg:shadow-card">
       {/* Search + Filter */}
       <div className="space-y-2 border-b border-border p-3">
-        <div className="relative">
+        <div className="flex gap-2">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -234,6 +239,18 @@ export function ConversationList({
             placeholder={t("searchPlaceholder")}
             className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
           />
+        </div>
+        {onQuickSend && (
+          <button
+            type="button"
+            onClick={onQuickSend}
+            aria-label={t("newMessage")}
+            title={t("newMessage")}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary-hover"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
         </div>
 
         <div className="flex flex-wrap items-center gap-1">

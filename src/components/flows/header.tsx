@@ -29,6 +29,8 @@ import {
   CircleDot,
   History,
   Loader2,
+  Maximize2,
+  Minimize2,
   PauseCircle,
   PlayCircle,
   Save,
@@ -43,7 +45,16 @@ import {
   type BuilderState,
 } from "./flow-editor-state";
 
-export function EditorHeader() {
+interface EditorHeaderProps {
+  /** Wired to the shell's `useDashboardFullscreen` driver (see
+   *  `FlowEditorShell`) — mirrors how `MessageThread` receives the same
+   *  pair from Inbox. Optional so the button only renders when it's
+   *  wired up. */
+  fullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+}
+
+export function EditorHeader({ fullscreen, onToggleFullscreen }: EditorHeaderProps) {
   const router = useRouter();
   const t = useTranslations("Flows.header");
   const {
@@ -157,6 +168,31 @@ export function EditorHeader() {
             )}
             {t("save")}
           </Button>
+
+          {/* Full-screen toggle — desktop only. Collapses the app's own
+              left nav to an icon-only rail so the canvas can use the
+              width it gives back. Same control as Inbox's thread
+              header; hidden on mobile, which never shows the labeled
+              nav as a permanent panel anyway. */}
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              aria-label={fullscreen ? t("exitFullscreen") : t("enterFullscreen")}
+              title={fullscreen ? t("exitFullscreen") : t("enterFullscreen")}
+              aria-pressed={fullscreen}
+              className={cn(
+                "hidden h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground lg:inline-flex",
+                fullscreen ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              {fullscreen ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 

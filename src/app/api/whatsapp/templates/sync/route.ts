@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   ForbiddenError,
   UnauthorizedError,
@@ -127,6 +128,84 @@ function extractSampleValues(
   return sv
 }
 
+/** Matches the account-scoped path convention from `buildMediaPath` in
+ * `@/lib/storage/upload-media` (not imported directly — that module
+ * pulls in the browser Supabase client, which has no place in a route
+ * handler). Kept in sync manually; both are small and rarely change. */
+function safeStorageBasename(name: string): string {
+  return (
+    name
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .slice(0, 40) || 'file'
+  )
+}
+
+const REHOST_CONTENT_TYPE_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'video/mp4': 'mp4',
+  'application/pdf': 'pdf',
+}
+
+/**
+ * Meta's template GET response only ever gives a `header_handle` —
+ * its own temporary, signed CDN preview link (the `oe=` query param is
+ * an expiry). It's fine for showing a preview in Settings, but Meta's
+ * own send pipeline refuses to fetch it back at send time ("Media
+ * upload error ... 403 Forbidden") once it's aged out — which can be
+ * within hours. Using it as `header_media_url` (the link WE hand back
+ * to Meta on every send) therefore works today and breaks silently
+ * later.
+ *
+ * Fix: download the image once, right here during sync while the
+ * temporary link is still fresh, and re-host it in our own
+ * account-scoped `chat-media` bucket (same bucket + path convention
+ * the manual header-upload UI already uses). That URL doesn't expire.
+ *
+ * Best-effort — on any failure, returns the original temporary link
+ * so sync still leaves the template sendable *right now* rather than
+ * blocking the whole sync on one bad template; the next sync gets
+ * another chance to re-host it properly.
+ */
+async function rehostMetaMediaLink(
+  supabase: SupabaseClient,
+  accountId: string,
+  templateName: string,
+  metaUrl: string,
+): Promise<string> {
+  try {
+    const res = await fetch(metaUrl)
+    if (!res.ok) return metaUrl
+    const contentType = res.headers.get('content-type')?.split(';')[0]?.trim() ?? ''
+    const ext = REHOST_CONTENT_TYPE_EXT[contentType] ?? 'bin'
+    const bytes = await res.arrayBuffer()
+
+    const path = `account-${accountId}/${Date.now()}-${safeStorageBasename(templateName)}.${ext}`
+    const { error: upErr } = await supabase.storage
+      .from('chat-media')
+      .upload(path, bytes, { contentType, upsert: false })
+    if (upErr) {
+      console.error(
+        `[templates/sync] re-host upload failed for ${templateName}:`,
+        upErr.message,
+      )
+      return metaUrl
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('chat-media').getPublicUrl(path)
+    return publicUrl
+  } catch (e) {
+    console.error(
+      `[templates/sync] re-host fetch failed for ${templateName}:`,
+      e instanceof Error ? e.message : e,
+    )
+    return metaUrl
+  }
+}
+
 export async function POST() {
   try {
     // Syncing rewrites the account-wide template catalog, which is
@@ -216,6 +295,44 @@ export async function POST() {
         headerFormat === 'DOCUMENT'
           ? headerFormat.toLowerCase()
           : null
+      const headerHandle = header?.example?.header_handle?.[0] ?? null
+
+      const { data: existing, error: lookupErr } = await supabase
+        .from('message_templates')
+        .select('id, header_media_url')
+        .eq('account_id', accountId)
+        .eq('name', t.name)
+        .eq('language', t.language)
+        .maybeSingle()
+
+      if (lookupErr) {
+        console.error(
+          `[templates/sync] lookup failed for ${t.name} (${t.language}):`,
+          lookupErr.message,
+        )
+        errors.push({
+          name: t.name,
+          language: t.language,
+          message: lookupErr.message,
+        })
+        continue
+      }
+
+      // A media header needs `header_media_url` to actually be sendable
+      // (see template-send-builder.ts) — Meta's template GET response
+      // only ever gives us `header_handle` (its own temporary preview
+      // link), never a `header_media_url`, so a template synced in from
+      // Meta (rather than submitted through the submit route) always
+      // landed with header_media_url unset and failed at send time.
+      // Only act when nothing better is already on file — never
+      // clobber a permanent URL the user set via Edit on a later
+      // re-sync. Re-host rather than just copying the link, since
+      // Meta's temporary link expires (see rehostMetaMediaLink above).
+      const headerMediaUrl =
+        existing?.header_media_url ??
+        (headerType && headerType !== 'text' && headerHandle
+          ? await rehostMetaMediaLink(supabase, accountId, t.name, headerHandle)
+          : null)
 
       const row = {
         // Account tenancy + user audit, same split as the submit
@@ -228,7 +345,8 @@ export async function POST() {
         language: t.language,
         header_type: headerType,
         header_content: header?.text ?? null,
-        header_handle: header?.example?.header_handle?.[0] ?? null,
+        header_handle: headerHandle,
+        header_media_url: headerMediaUrl,
         body_text: body?.text ?? '',
         footer_text: footer?.text ?? null,
         buttons: parsedButtons.length ? parsedButtons : null,
@@ -239,29 +357,16 @@ export async function POST() {
         updated_at: new Date().toISOString(),
       }
 
-      const { data: existing, error: lookupErr } = await supabase
-        .from('message_templates')
-        .select('id')
-        .eq('account_id', accountId)
-        .eq('name', t.name)
-        .eq('language', t.language)
-        .maybeSingle()
-
-      if (lookupErr) {
-        errors.push({
-          name: t.name,
-          language: t.language,
-          message: lookupErr.message,
-        })
-        continue
-      }
-
       if (existing?.id) {
         const { error: updErr } = await supabase
           .from('message_templates')
           .update(row)
           .eq('id', existing.id)
         if (updErr) {
+          console.error(
+            `[templates/sync] update failed for ${t.name} (${t.language}), row ${existing.id}:`,
+            updErr.message,
+          )
           errors.push({
             name: t.name,
             language: t.language,
@@ -275,6 +380,10 @@ export async function POST() {
           .from('message_templates')
           .insert(row)
         if (insErr) {
+          console.error(
+            `[templates/sync] insert failed for ${t.name} (${t.language}):`,
+            insErr.message,
+          )
           errors.push({
             name: t.name,
             language: t.language,

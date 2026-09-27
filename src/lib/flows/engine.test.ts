@@ -85,6 +85,10 @@ vi.mock("./meta-send", () => ({
   engineSendInteractiveList: h.sendList,
 }));
 
+vi.mock("@/lib/automations/meta-send", () => ({
+  engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: "wamid.3" })),
+}));
+
 import {
   dispatchInboundToFlows,
   matchReplyId,
@@ -92,6 +96,7 @@ import {
   isAutoAdvancing,
   isSuspending,
   isTerminal,
+  isTimedSuspending,
   evaluateConditionPredicate,
 } from "./engine";
 import type {
@@ -236,12 +241,14 @@ describe("matchesKeywordTrigger", () => {
 });
 
 describe("node classification helpers", () => {
-  it("isAutoAdvancing covers start + send_message + send_media + condition + set_tag", () => {
+  it("isAutoAdvancing covers start + send_message + send_media + send_template + condition + set_tag", () => {
     expect(isAutoAdvancing("start")).toBe(true);
     expect(isAutoAdvancing("send_message")).toBe(true);
     expect(isAutoAdvancing("send_media")).toBe(true);
+    expect(isAutoAdvancing("send_template")).toBe(true);
     expect(isAutoAdvancing("condition")).toBe(true);
     expect(isAutoAdvancing("set_tag")).toBe(true);
+    expect(isAutoAdvancing("ai_agent")).toBe(false);
     expect(isAutoAdvancing("send_buttons")).toBe(false);
     expect(isAutoAdvancing("send_list")).toBe(false);
     expect(isAutoAdvancing("collect_input")).toBe(false);
@@ -249,10 +256,11 @@ describe("node classification helpers", () => {
     expect(isAutoAdvancing("end")).toBe(false);
   });
 
-  it("isSuspending covers the input-requiring nodes", () => {
+  it("isSuspending covers the input-requiring nodes, including ai_agent", () => {
     expect(isSuspending("send_buttons")).toBe(true);
     expect(isSuspending("send_list")).toBe(true);
     expect(isSuspending("collect_input")).toBe(true);
+    expect(isSuspending("ai_agent")).toBe(true);
     expect(isSuspending("start")).toBe(false);
     expect(isSuspending("send_message")).toBe(false);
     expect(isSuspending("condition")).toBe(false);
@@ -267,24 +275,40 @@ describe("node classification helpers", () => {
     expect(isTerminal("start")).toBe(false);
     expect(isTerminal("send_buttons")).toBe(false);
     expect(isTerminal("condition")).toBe(false);
+    expect(isTerminal("ai_agent")).toBe(false);
   });
 
-  it("the three classifications are mutually exclusive for known node types", () => {
+  it("isTimedSuspending covers only wait_followup", () => {
+    expect(isTimedSuspending("wait_followup")).toBe(true);
+    expect(isTimedSuspending("send_buttons")).toBe(false);
+    expect(isTimedSuspending("ai_agent")).toBe(false);
+    expect(isTimedSuspending("send_message")).toBe(false);
+  });
+
+  it("the four classifications are mutually exclusive for known node types", () => {
     const types = [
       "start",
       "send_message",
       "send_buttons",
       "send_list",
       "send_media",
+      "send_template",
+      "wait_followup",
       "collect_input",
       "condition",
       "set_tag",
+      "ai_agent",
       "handoff",
       "end",
     ];
     for (const t of types) {
-      const flags = [isAutoAdvancing(t), isSuspending(t), isTerminal(t)];
-      // Exactly one of the three should be true for every known node.
+      const flags = [
+        isAutoAdvancing(t),
+        isSuspending(t),
+        isTerminal(t),
+        isTimedSuspending(t),
+      ];
+      // Exactly one of the four should be true for every known node.
       expect(flags.filter(Boolean).length).toBe(1);
     }
   });

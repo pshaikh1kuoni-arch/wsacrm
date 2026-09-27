@@ -2,6 +2,50 @@ import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { resolveFallbackPolicy } from '@/lib/flows/fallback'
+import { resumeFlowPendingExecution } from '@/lib/flows/engine'
+import type { FlowPendingExecutionRow } from '@/lib/flows/types'
+
+/**
+ * Drain due `flow_pending_executions` rows — the `wait_followup` node's
+ * scheduled callbacks (and, later, the `ai_agent` "stay in context"
+ * option's). Same claim-then-resume shape as
+ * `/api/automations/cron`: an optimistic `pending` → `running` UPDATE
+ * serves as a best-effort lock so overlapping invocations don't
+ * double-process a row.
+ */
+async function drainDuePendingExecutions(
+  admin: ReturnType<typeof supabaseAdmin>,
+): Promise<number> {
+  const { data: due, error } = await admin
+    .from('flow_pending_executions')
+    .select('*')
+    .eq('status', 'pending')
+    .lte('run_at', new Date().toISOString())
+    .order('run_at', { ascending: true })
+    .limit(50)
+
+  if (error) {
+    console.error('[flows-cron] pending-execution scan failed:', error.message)
+    return 0
+  }
+  if (!due || due.length === 0) return 0
+
+  let processed = 0
+  for (const row of due) {
+    const { data: claim } = await admin
+      .from('flow_pending_executions')
+      .update({ status: 'running' })
+      .eq('id', row.id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
+    if (!claim) continue
+
+    await resumeFlowPendingExecution(row as unknown as FlowPendingExecutionRow)
+    processed++
+  }
+  return processed
+}
 
 /**
  * Sweep abandoned active flow runs.
@@ -48,6 +92,12 @@ export async function GET(request: Request) {
   const admin = supabaseAdmin()
   const now = new Date()
 
+  // Run before the timeout sweep below: a wait_followup callback due
+  // right at a run's timeout cutoff should get its chance to send and
+  // advance (which refreshes last_advanced_at) rather than losing the
+  // race to the blunter stale-run sweep.
+  const pendingProcessed = await drainDuePendingExecutions(admin)
+
   // Pull all currently-active runs along with their parent flow's
   // fallback_policy. Joined in one query — the small set of active
   // runs per tenant keeps this cheap.
@@ -62,7 +112,7 @@ export async function GET(request: Request) {
     console.error('[flows-cron] active-run scan failed:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
-  if (!runs?.length) return NextResponse.json({ swept: 0 })
+  if (!runs?.length) return NextResponse.json({ swept: 0, pendingProcessed })
 
   type Row = {
     id: string
@@ -108,5 +158,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ swept })
+  return NextResponse.json({ swept, pendingProcessed })
 }

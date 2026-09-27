@@ -45,10 +45,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
 import { slugify, type BuilderNode } from "../shared";
-import { NextNodeRow, NodeKeySelect, TextRow } from "./fields";
+import { NextNodeRow, NodeKeySelect, TextRow, WarningNote } from "./fields";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -131,6 +133,28 @@ export function NodeConfigForm({
         />
       );
 
+    case "send_template":
+      return (
+        <SendTemplateForm
+          cfg={cfg as SendTemplateCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
+      );
+
+    case "wait_followup":
+      return (
+        <WaitFollowupForm
+          cfg={cfg as WaitFollowupCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
+      );
+
     case "collect_input":
       return (
         <>
@@ -189,6 +213,17 @@ export function NodeConfigForm({
       return (
         <SetTagForm
           cfg={cfg as SetTagCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
+      );
+
+    case "ai_agent":
+      return (
+        <AiAgentForm
+          cfg={cfg as AiAgentCfg}
           allNodes={allNodes}
           currentKey={node.node_key}
           onUpdateConfig={onUpdateConfig}
@@ -861,6 +896,299 @@ function useUserTags(): UserTag[] {
     };
   }, []);
   return tags;
+}
+
+// ============================================================
+// send_template
+// ============================================================
+
+interface SendTemplateCfg {
+  template_name?: string;
+  language?: string;
+  next_node_key?: string;
+}
+
+interface ApprovedTemplate {
+  name: string;
+  language: string;
+}
+
+function SendTemplateForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+  t,
+}: {
+  cfg: SendTemplateCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const templates = useApprovedTemplates();
+  const templateName = cfg.template_name ?? "";
+  const language = cfg.language ?? "";
+  const toValue = (name: string, lang: string) => `${name}::${lang}`;
+  // Radix's Select decides controlled-vs-uncontrolled from whether `value`
+  // is defined on the FIRST render — passing `undefined` while nothing is
+  // picked yet, then a real string once one is, trips its "switched from
+  // uncontrolled to controlled" warning. `NodeKeySelect` (./fields.tsx)
+  // avoids this with a stable non-undefined sentinel; mirrored here.
+  const NONE = "__none__";
+  const current = templateName ? toValue(templateName, language) : NONE;
+  const hasMatch = templates.some((tpl) => toValue(tpl.name, tpl.language) === current);
+
+  return (
+    <>
+      {templates.length === 0 ? (
+        <>
+          <p className="text-[11px] text-muted-foreground">
+            {t("templateNoneSynced")}
+          </p>
+          <TextRow
+            label={t("templateNameLabel")}
+            value={templateName}
+            onChange={(v) => onUpdateConfig({ template_name: v })}
+          />
+          <TextRow
+            label={t("templateLanguageLabel")}
+            value={language}
+            onChange={(v) => onUpdateConfig({ language: v })}
+          />
+        </>
+      ) : (
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            {t("templatePickerLabel")}
+          </label>
+          <Select
+            value={current}
+            onValueChange={(v) => {
+              if (!v || v === NONE) return;
+              const [name, lang] = v.split("::");
+              onUpdateConfig({ template_name: name ?? "", language: lang ?? "" });
+            }}
+          >
+            <SelectTrigger className="bg-muted">
+              <SelectValue placeholder={t("templatePickPlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>{t("none")}</SelectItem>
+              {templates.map((tpl) => (
+                <SelectItem
+                  key={toValue(tpl.name, tpl.language)}
+                  value={toValue(tpl.name, tpl.language)}
+                >
+                  {tpl.name} ({tpl.language})
+                </SelectItem>
+              ))}
+              {templateName && !hasMatch && (
+                <SelectItem value={current}>
+                  {t("templateUnknownOption", { name: templateName, lang: language || "?" })}
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(v) => onUpdateConfig({ next_node_key: v })}
+        label={t("advanceAfterTemplate")}
+      />
+    </>
+  );
+}
+
+/**
+ * Approved WhatsApp templates for the picker above. Same source table
+ * and `status = 'APPROVED'` filter as the Automations builder's
+ * template picker — queried directly (no REST endpoint exists for
+ * this list yet) since RLS already scopes `message_templates` to the
+ * caller's account.
+ */
+function useApprovedTemplates(): ApprovedTemplate[] {
+  const [templates, setTemplates] = useState<ApprovedTemplate[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    void (async () => {
+      const { data } = await supabase
+        .from("message_templates")
+        .select("name, language")
+        .eq("status", "APPROVED")
+        .order("name");
+      if (!cancelled) setTemplates((data as ApprovedTemplate[] | null) ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return templates;
+}
+
+// ============================================================
+// wait_followup
+// ============================================================
+
+interface WaitFollowupCfg {
+  wait_minutes?: number;
+  followup_text?: string;
+  next_node_key?: string;
+}
+
+function WaitFollowupForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+  t,
+}: {
+  cfg: WaitFollowupCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <>
+      <div>
+        <label className="mb-1 block text-xs text-muted-foreground">
+          {t("waitMinutesLabel")}
+        </label>
+        <Input
+          type="number"
+          min={5}
+          max={1380}
+          value={cfg.wait_minutes ?? 120}
+          onChange={(e) => {
+            const raw = Number(e.target.value);
+            onUpdateConfig({
+              wait_minutes: Number.isFinite(raw) ? raw : 0,
+            });
+          }}
+          className="bg-muted w-28"
+        />
+      </div>
+      <WarningNote>{t("waitMinutesWarning")}</WarningNote>
+      <TextRow
+        label={t("followupTextLabel")}
+        value={cfg.followup_text ?? ""}
+        onChange={(v) => onUpdateConfig({ followup_text: v })}
+        rows={3}
+      />
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(v) => onUpdateConfig({ next_node_key: v })}
+        label={t("thenAdvanceTo")}
+      />
+    </>
+  );
+}
+
+// ============================================================
+// ai_agent
+// ============================================================
+
+interface AiAgentCfg {
+  prompt?: string;
+  use_knowledge_base?: boolean;
+  next_node_key?: string;
+  followup_wait_minutes?: number;
+}
+
+function AiAgentForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+  t,
+}: {
+  cfg: AiAgentCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const stayInCharge = !!cfg.followup_wait_minutes;
+  return (
+    <>
+      <TextRow
+        label={t("aiInstructions")}
+        value={cfg.prompt ?? ""}
+        onChange={(v) => onUpdateConfig({ prompt: v })}
+        rows={4}
+      />
+      <p className="-mt-2 text-[11px] text-muted-foreground">
+        {t("aiInstructionsHint")}
+      </p>
+      <div className="flex items-center justify-between gap-4 rounded-lg bg-muted p-3">
+        <div>
+          <p className="text-xs font-medium text-foreground">
+            {t("aiUseKnowledgeBase")}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {t("aiUseKnowledgeBaseHint")}
+          </p>
+        </div>
+        <Switch
+          checked={cfg.use_knowledge_base ?? true}
+          onCheckedChange={(v) => onUpdateConfig({ use_knowledge_base: v })}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-4 rounded-lg bg-muted p-3">
+        <div>
+          <p className="text-xs font-medium text-foreground">
+            {t("aiStayInCharge")}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {t("aiStayInChargeHint")}
+          </p>
+        </div>
+        <Switch
+          checked={stayInCharge}
+          onCheckedChange={(v) =>
+            onUpdateConfig({ followup_wait_minutes: v ? 5 : 0 })
+          }
+        />
+      </div>
+      {stayInCharge && (
+        <>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">
+              {t("waitMinutesLabel")}
+            </label>
+            <Input
+              type="number"
+              min={5}
+              max={1380}
+              value={cfg.followup_wait_minutes ?? 5}
+              onChange={(e) => {
+                const raw = Number(e.target.value);
+                onUpdateConfig({
+                  followup_wait_minutes: Number.isFinite(raw) ? raw : 0,
+                });
+              }}
+              className="bg-muted w-28"
+            />
+          </div>
+          <WarningNote>{t("waitMinutesWarning")}</WarningNote>
+        </>
+      )}
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(v) => onUpdateConfig({ next_node_key: v })}
+        label={t("thenAdvanceTo")}
+      />
+    </>
+  );
 }
 
 // ============================================================

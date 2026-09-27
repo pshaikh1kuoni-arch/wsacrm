@@ -70,10 +70,16 @@ export interface ResolvedTemplate {
    */
   malformed: boolean;
   /**
-   * The language code to send to Meta: the caller's when they named
-   * one, otherwise the matched row's, otherwise `en_US`. Callers that
-   * pinned `en_US` unconditionally could not send an `en` template at
-   * all — Meta rejects the pair as a missing translation.
+   * The language code to send to Meta: the matched row's language when
+   * one was found (regardless of what the caller originally asked
+   * for — `en_US` requested, `en` on file, `en` is what Meta actually
+   * approved), otherwise the caller's request, otherwise `en_US`.
+   * Sending the caller's raw request when a row was matched via the
+   * base-language fallback is exactly how `en_US` requests used to
+   * reach Meta for an account that only has `en` synced — Meta
+   * rejects that pair as a missing translation (issue: template send
+   * fails with 132001 immediately after a template that's approved
+   * under `en` is restored/synced).
    */
   language: string;
 }
@@ -143,10 +149,16 @@ export async function resolveTemplateRow(
     return { row: null, malformed: true, language: fallbackLanguage };
   }
 
+  // `chosen` was matched by exact language OR by base-language fallback
+  // (`en_US` request → `en` row). In the fallback case `requestedLanguage`
+  // is NOT what Meta approved — sending it verbatim is exactly the
+  // "pinned en_US, account only has en" case this function exists to
+  // avoid (see the doc comment above). The row we actually matched is
+  // always the right answer once one was found.
   return {
     row: chosen,
     malformed: false,
-    language: requestedLanguage || chosen.language || 'en_US',
+    language: chosen.language || requestedLanguage || 'en_US',
   };
 }
 

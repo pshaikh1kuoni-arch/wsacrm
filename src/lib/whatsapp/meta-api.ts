@@ -750,6 +750,12 @@ export interface DeleteMessageTemplateArgs {
   accessToken: string
   name: string
   /**
+   * The row's `language` — used only to double-check a 404 (see
+   * below). Not sent to Meta's delete call itself, which is scoped by
+   * `hsm_id` instead.
+   */
+  language?: string
+  /**
    * Without `hsm_id`, Meta deletes EVERY language variant of the
    * template with this `name`. Pass the row's `meta_template_id`
    * to scope to a single variant.
@@ -765,7 +771,7 @@ export interface DeleteMessageTemplateArgs {
 export async function deleteMessageTemplate(
   args: DeleteMessageTemplateArgs
 ): Promise<void> {
-  const { wabaId, accessToken, name, metaTemplateId } = args
+  const { wabaId, accessToken, name, language, metaTemplateId } = args
   const params = new URLSearchParams({ name })
   if (metaTemplateId) params.set('hsm_id', metaTemplateId)
   const url = `${META_API_BASE}/${wabaId}/message_templates?${params.toString()}`
@@ -773,11 +779,58 @@ export async function deleteMessageTemplate(
     method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` },
   })
-  // Treat a 404 as a no-op — the template is already gone on Meta's
-  // side, and we still want the local row removed.
-  if (response.status === 404) return
+
+  if (response.status === 404) {
+    // A 404 here is ambiguous when we sent an hsm_id: it means "nothing
+    // matches this name + this exact template id" — true both when the
+    // template is genuinely gone AND when our stored id is just stale
+    // (e.g. the template was edited or recreated directly in Meta
+    // Business Manager after we captured its id, so Meta now has the
+    // same name under a different id). Only in the first case is it
+    // safe to also drop the local row. With no hsm_id there's nothing
+    // stale to be wrong about, so a 404 is unambiguous — no-op as before.
+    if (
+      metaTemplateId &&
+      (await templateStillExistsOnMeta({ wabaId, accessToken, name, language }))
+    ) {
+      throw new Error(
+        `"${name}" no longer matches the template id saved locally, but a template with that name still exists on Meta — it was likely edited or recreated directly in Meta Business Manager. Run "Sync from Meta" to refresh it, then try deleting again.`,
+      )
+    }
+    return
+  }
   if (!response.ok) {
     await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+}
+
+/**
+ * Best-effort check for whether a template named `name` is still
+ * live on Meta, used only to disambiguate a 404 on delete (see above).
+ * On any failure to determine this, returns `false` — i.e. falls back
+ * to the previous "trust the 404" behaviour rather than blocking a
+ * delete we can't actually verify either way.
+ */
+async function templateStillExistsOnMeta(args: {
+  wabaId: string
+  accessToken: string
+  name: string
+  language?: string
+}): Promise<boolean> {
+  const { wabaId, accessToken, name, language } = args
+  const params = new URLSearchParams({ name, fields: 'name,language' })
+  const url = `${META_API_BASE}/${wabaId}/message_templates?${params.toString()}`
+  try {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) return false
+    const body: { data?: { name: string; language?: string }[] } =
+      await response.json()
+    const matches = body.data ?? []
+    return language ? matches.some((m) => m.language === language) : matches.length > 0
+  } catch {
+    return false
   }
 }
 

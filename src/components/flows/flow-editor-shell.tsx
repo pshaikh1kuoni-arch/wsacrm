@@ -4,14 +4,16 @@
  * View-switcher + chrome for the flow editor.
  *
  * Lays the editor out as one app-like column that fills the dashboard
- * content area (toolbar → mode row → stage → validation bar), matching
+ * content area (toolbar → mode row → stage → validation), matching
  * the Flow Builder design handoff:
- *   - A segmented Canvas / List control on the left of the mode row.
- *   - A node-type legend on the right so the canvas's per-type colors
- *     are decodable at a glance.
+ *   - A node-type legend button (popover) on the left of the mode row,
+ *     so the canvas's per-type colors are decodable at a glance without
+ *     spending permanent vertical space on a full row of labels.
+ *   - A segmented Canvas / List control next to it.
  *   - The active view is mounted inside a rounded "stage" that owns its
  *     own scroll/overflow, so the canvas can fill available height and
- *     the list scrolls internally.
+ *     the list scrolls internally. In canvas view, validation floats
+ *     over the stage instead of taking its own row below it.
  *
  * Why a separate component:
  *   - The page itself stays trivially small (loading + error + this).
@@ -24,18 +26,19 @@
  * feedback was that the list shape made flows "hard to understand".
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { GitFork, List } from "lucide-react";
 
 import { FlowBuilder } from "./flow-builder";
 import { FlowCanvas } from "./flow-canvas";
 import { FlowEditorProvider } from "./flow-editor-state";
 import { EditorHeader } from "./header";
+import { NodeTypeLegend } from "./node-type-legend";
 import { ValidationPanel } from "./validation-panel";
-import { NODE_META, nodeColors, type NodeType } from "./shared";
 import { cn } from "@/lib/utils";
 import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
 import { useTranslations } from "next-intl";
+import { useDashboardFullscreen } from "@/hooks/use-dashboard-fullscreen";
 
 /**
  * Below this viewport width we force list view and hide the toggle.
@@ -48,11 +51,6 @@ const MOBILE_BREAKPOINT = "(max-width: 767px)";
 type View = "canvas" | "list";
 
 const STORAGE_KEY = "wacrm.flowEditor.view";
-
-// Legend covers every node type, derived from NODE_META so a new type
-// can't silently go undocumented. NODE_META's key order already reads
-// the way a flow flows: start → talk → capture → branch → mutate → end.
-const LEGEND_TYPES = Object.keys(NODE_META) as NodeType[];
 
 interface Props {
   initialFlow: FlowRow;
@@ -93,54 +91,77 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
     }
   };
 
+  // Full-screen mode: collapses the dashboard's own left nav to an
+  // icon-only rail (see `useDashboardFullscreen`) so the canvas can use
+  // the width it gives back — same mechanism Inbox drives from its own
+  // thread header. Deliberately not persisted and reset on unmount, for
+  // the same reason Inbox's driver resets: leaving `/flows/[id]` should
+  // never strand another page with a collapsed sidebar.
+  const { fullscreen, setFullscreen } = useDashboardFullscreen();
+  const handleToggleFullscreen = useCallback(() => {
+    setFullscreen((prev) => !prev);
+  }, [setFullscreen]);
+  useEffect(() => {
+    return () => setFullscreen(false);
+  }, [setFullscreen]);
+
   return (
     <FlowEditorProvider initialFlow={initialFlow} initialNodes={initialNodes}>
       <div className="flex h-full min-h-0 flex-col">
-        <EditorHeader />
+        {/* ---- header card: toolbar + mode row share one floating
+            panel, matching the stage below instead of sitting bare
+            on the page background. `pb-5` only kicks in on mobile,
+            where the mode row (which otherwise supplies its own
+            bottom padding via `py-3.5`) is omitted entirely. */}
+        <div
+          className={cn(
+            "mx-6 rounded-2xl bg-card shadow-card",
+            isMobile && "pb-5",
+          )}
+        >
+          <EditorHeader
+            fullscreen={fullscreen}
+            onToggleFullscreen={handleToggleFullscreen}
+          />
 
-        {/* ---- mode row: view toggle + node-type legend ----
-            Omitted entirely on mobile (canvas is unavailable there and
-            the legend is lg-only), so there's no empty band above the
-            stage on small screens. */}
-        {!isMobile && (
-          <div className="flex items-center gap-4 px-6 py-3.5">
-            <div
-              role="group"
-              aria-label={t("editorView")}
-              className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-0.5"
-            >
-              <SegButton
-                active={effectiveView === "canvas"}
-                onClick={() => choose("canvas")}
-                icon={<GitFork className="h-3.5 w-3.5" />}
-                label={t("canvasView")}
-              />
-              <SegButton
-                active={effectiveView === "list"}
-                onClick={() => choose("list")}
-                icon={<List className="h-3.5 w-3.5" />}
-                label={t("listView")}
-              />
+          {/* ---- mode row: node-type legend + view toggle ----
+              Omitted entirely on mobile (canvas is unavailable there),
+              so there's no empty band above the stage on small screens. */}
+          {!isMobile && (
+            <div className="flex items-center gap-3 px-6 py-3.5">
+              <NodeTypeLegend />
+              <div
+                role="group"
+                aria-label={t("editorView")}
+                className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-0.5"
+              >
+                <SegButton
+                  active={effectiveView === "canvas"}
+                  onClick={() => choose("canvas")}
+                  icon={<GitFork className="h-3.5 w-3.5" />}
+                  label={t("canvasView")}
+                />
+                <SegButton
+                  active={effectiveView === "list"}
+                  onClick={() => choose("list")}
+                  icon={<List className="h-3.5 w-3.5" />}
+                  label={t("listView")}
+                />
+              </div>
             </div>
-            <div className="ml-auto hidden flex-wrap items-center gap-x-3.5 gap-y-1.5 lg:flex">
-              {LEGEND_TYPES.map((t_type) => (
-                <span
-                  key={t_type}
-                  className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground"
-                >
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: nodeColors(t_type).solid }}
-                  />
-                  {t(`nodes.${t_type}.label`)}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* ---- stage: the active view, owning its own overflow ---- */}
-        <div className="relative mx-6 min-h-0 flex-1 overflow-hidden rounded-2xl bg-card-2 shadow-card">
+        {/* ---- stage: the active view, owning its own overflow ----
+            Canvas view floats the validation panel over the stage
+            (bottom-left, offset clear of react-flow's own zoom
+            Controls at its default bottom-left position) so a long
+            flow's warnings never grow the layout or push the canvas
+            up. List view keeps the panel as a plain block below.
+            `mt-4` is the real gap between this card and the header
+            card above it — no shared border, matching the app's
+            floating-panel pattern. */}
+        <div className="relative mx-6 mt-4 min-h-0 flex-1 overflow-hidden rounded-2xl bg-card-2 shadow-card">
           {effectiveView === "canvas" ? (
             <FlowCanvas />
           ) : (
@@ -148,12 +169,18 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
               <FlowBuilder />
             </div>
           )}
+          {effectiveView === "canvas" && (
+            <div className="absolute bottom-[15px] left-[58px] z-10 max-w-[calc(100%-90px)]">
+              <ValidationPanel floating />
+            </div>
+          )}
         </div>
 
-        {/* ---- validation / activate-readiness bar ---- */}
-        <div className="px-6 pb-5 pt-3">
-          <ValidationPanel />
-        </div>
+        {effectiveView === "list" && (
+          <div className="px-6 pb-5 pt-3">
+            <ValidationPanel />
+          </div>
+        )}
       </div>
     </FlowEditorProvider>
   );
