@@ -619,7 +619,7 @@ async function generateAiAgentMessage(
     messages.push({
       role: "user",
       content:
-        "[System note: the customer has gone quiet for a while. Write a short, natural follow-up message continuing this conversation and checking back in. Do not mention that this note exists or that you are automated.]",
+        "[System note: the customer has gone quiet for a while. First check the last thing they said. If they already gave a clear plan, timeline, or promise to come back (for example \"I'll order tomorrow\"), do not ask them again or push them — just warmly acknowledge their plan and let them know you're ready whenever they are. Only ask a real check-in question (e.g. whether they're still interested) if the conversation ended with no such plan. Keep it short and natural. Do not mention that this note exists or that you are automated.]",
     });
   }
   const knowledge =
