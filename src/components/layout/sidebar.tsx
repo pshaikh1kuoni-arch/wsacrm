@@ -203,18 +203,23 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             fullscreen && "lg:justify-center lg:px-0",
           )}
         >
-          <Link href="/dashboard" className="flex items-center gap-2" title={fullscreen ? t("title") : undefined}>
+          <Link href="/dashboard" className="flex items-center" title={fullscreen ? t("title") : undefined}>
             <Image
-              src="/brand/wagenie-icon.png"
-              alt=""
-              width={32}
-              height={32}
-              className="h-8 w-8 shrink-0"
+              src="/brand/wagenie-logo.png"
+              alt="WAGenie"
+              width={172}
+              height={31}
+              className={cn("h-7 w-auto lg:h-9", fullscreen && "lg:hidden")}
               priority
             />
-            <span className={cn("text-sm font-semibold text-foreground", fullscreen && "lg:hidden")}>
-              {t("title")}
-            </span>
+            <Image
+              src="/brand/wagenie-mark.png"
+              alt="WAGenie"
+              width={144}
+              height={144}
+              className={cn("hidden h-9 w-9", fullscreen && "lg:block")}
+              priority
+            />
           </Link>
           <button
             type="button"
