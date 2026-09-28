@@ -1260,7 +1260,14 @@
         "addCard": "Adicionar cartão",
         "cardHeaderLabel": "Cabeçalho do cartão {n}",
         "cardBodyLabel": "Texto do cartão (opcional)",
-        "cardButtonUrlPlaceholder": "https://…"
+        "cardButtonUrlPlaceholder": "https://…",
+        "buildFromScratch": "Criar do zero",
+        "loadSavedCarousel": "Carregar carrossel salvo",
+        "savedCarouselsEmpty": "Ainda não há carrosséis salvos. Crie um em Configurações → Respostas rápidas.",
+        "loadedFromQuickReply": "Carregado da Resposta rápida — {title}",
+        "changeSource": "Alterar",
+        "loadCarouselHint": "Ao escolher um, o texto e os cartões são copiados para este nó — tudo continua editável abaixo.",
+        "carouselCardsMeta": "{count} cartões · {buttonType}"
       },
       "categories": {
         "messaging": "Mensagens",

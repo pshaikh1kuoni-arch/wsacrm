@@ -14,15 +14,30 @@ placement, phase breakdown) is decided and signed off. Nothing here should
 be re-litigated without a new, explicit reason — implementation starts from
 here.
 
-**⚠️ Do not `git commit` or `git push` any of this work until the user
-explicitly says so.** This repo auto-deploys to Vercel production on every
-push, and the user does not want a production deploy per phase — only once,
-after all 5 phases are done, as Phase 5's live-verification step. Keep
-committing local/uncommitted between sessions; a future session reading
-this file should NOT push just because a phase says "Done" below. Wait for
-an explicit go-ahead.
+**✅ Pushed 2026-09-28.** Commit `cdd31c9` on `origin/main`
+(`f72cdea..cdd31c9`), pushed with the user's explicit go-ahead after
+Phases 1–4. Vercel auto-deploys on push, so this is live (or about to
+be). The blanket "don't push" rule above is now moot for this work —
+it did its job across Phases 1–4. Any *further* changes from here
+(Phase 5 fixes, follow-up work) should go back to asking before
+pushing, same reasoning as before (this repo auto-deploys on every
+push) — don't treat this one approval as standing permission.
 
-**Implementation: IN PROGRESS (Phase 4 of 5 done).**
+**⚠️ Required manual step, not yet confirmed done: the Supabase
+migration.** `supabase/migrations/048_flow_send_carousel_node_type.sql`
+must be run in the Supabase SQL editor — found *during* Phase 5 prep,
+not before: `flow_nodes.node_type` has a Postgres CHECK constraint that
+didn't know about `'send_carousel'`. Without running it, saving any
+Flow with a Send Carousel node 500s at the database layer regardless of
+how correct the application code is. This was a real gap in Phase 4's
+own verification (which only ran `tsc`/`vitest`/`eslint`/`next dev` —
+none of which touch a real Postgres instance) — a lesson for any future
+DB-touching node-type addition: check `supabase/migrations/` for a
+matching CHECK-constraint pattern before considering the phase done,
+not after.
+
+**Implementation: IN PROGRESS (Phase 4 of 5 done, Phase 5 partially —
+see above).**
 
 | Phase | Status |
 |---|---|
@@ -30,7 +45,7 @@ an explicit go-ahead.
 | 2. Send + receive API | **Done** |
 | 3. Builder UI | **Done** |
 | 4. Flows integration | **Done** |
-| 5. QA + polish | Not started |
+| 5. QA + polish | In progress — pushed; Supabase migration + live click-through still needed |
 
 Mark a row `In progress` / `Done` as it happens. When a phase finishes,
 also add a one-line note under that phase's section below (files actually

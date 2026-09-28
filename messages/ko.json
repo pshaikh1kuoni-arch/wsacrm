@@ -1260,7 +1260,14 @@
         "addCard": "카드 추가",
         "cardHeaderLabel": "카드 {n} 헤더",
         "cardBodyLabel": "카드 텍스트 (선택)",
-        "cardButtonUrlPlaceholder": "https://…"
+        "cardButtonUrlPlaceholder": "https://…",
+        "buildFromScratch": "처음부터 만들기",
+        "loadSavedCarousel": "저장된 캐러셀 불러오기",
+        "savedCarouselsEmpty": "저장된 캐러셀이 아직 없습니다. 설정 → 빠른 답장에서 만들어 보세요.",
+        "loadedFromQuickReply": "빠른 답장에서 불러옴 — {title}",
+        "changeSource": "변경",
+        "loadCarouselHint": "선택하면 본문과 카드가 이 노드로 복사됩니다 — 아래에서 계속 편집할 수 있습니다.",
+        "carouselCardsMeta": "카드 {count}개 · {buttonType}"
       },
       "categories": {
         "messaging": "메시징",

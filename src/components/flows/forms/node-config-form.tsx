@@ -31,7 +31,9 @@ import {
   Plus,
   Trash2,
   Upload,
+  Video,
   X,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -49,6 +51,8 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
+import type { InteractiveCarouselPayload } from "@/lib/whatsapp/interactive";
+import type { QuickReply } from "@/types";
 import { slugify, type BuilderNode } from "../shared";
 import { NextNodeRow, NodeKeySelect, TextRow, WarningNote } from "./fields";
 
@@ -125,6 +129,10 @@ export function NodeConfigForm({
     case "send_carousel":
       return (
         <SendCarouselForm
+          // Remounts fresh (mode/loadedFrom/selectedIndex) when the user
+          // switches to a different Send Carousel node in the same flow —
+          // without this key, React reuses the instance across nodes.
+          key={node.node_key}
           cfg={cfg as SendCarouselCfg}
           allNodes={allNodes}
           currentKey={node.node_key}
@@ -1245,6 +1253,28 @@ function blankCarouselCard(
   };
 }
 
+// One-time copy from a saved carousel Quick Reply into this node's config
+// shape. Flattens `header.{type,url}` -> `header_type`/`header_url`, and
+// renames `button_id` -> `reply_id` (same webhook-echo role, different key
+// name between the two payload shapes). `next_node_key` has no Quick Reply
+// equivalent — left blank for the user to fill in, same as a fresh card.
+function carouselPayloadToCards(payload: InteractiveCarouselPayload) {
+  return {
+    body: payload.body,
+    button_mode: payload.button_mode,
+    cards: payload.cards.map((c) => ({
+      header_type: c.header.type,
+      header_url: c.header.url,
+      body: c.body ?? "",
+      button_label: c.button_label,
+      ...(payload.button_mode === "url"
+        ? { button_url: c.button_url ?? "" }
+        : { reply_id: c.button_id ?? "", next_node_key: "" }),
+    })),
+    ...(payload.button_mode === "url" ? { next_node_key: "" } : {}),
+  };
+}
+
 function SendCarouselForm({
   cfg,
   allNodes,
@@ -1263,6 +1293,8 @@ function SendCarouselForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [mode, setMode] = useState<"build" | "load">("build");
+  const [loadedFrom, setLoadedFrom] = useState<string | null>(null);
 
   const cards = cfg.cards ?? [];
   const buttonMode = cfg.button_mode ?? "url";
@@ -1334,10 +1366,61 @@ function SendCarouselForm({
     [cards, t],
   );
 
+  const tabButtonClass = (active: boolean) =>
+    cn(
+      "flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+      active
+        ? "border-primary bg-primary/10 text-primary"
+        : "border-border bg-muted text-muted-foreground hover:text-foreground",
+    );
+
+  const tabs = (
+    <div className="flex gap-2">
+      <button type="button" onClick={() => setMode("build")} className={tabButtonClass(mode === "build")}>
+        {t("buildFromScratch")}
+      </button>
+      <button type="button" onClick={() => setMode("load")} className={tabButtonClass(mode === "load")}>
+        {t("loadSavedCarousel")}
+      </button>
+    </div>
+  );
+
+  if (mode === "load") {
+    return (
+      <>
+        {tabs}
+        <SavedCarouselPicker
+          t={t}
+          onPick={(payload, title) => {
+            onUpdateConfig(carouselPayloadToCards(payload));
+            setLoadedFrom(title);
+            setMode("build");
+          }}
+        />
+      </>
+    );
+  }
+
   if (!selected) return null;
 
   return (
     <>
+      {tabs}
+      {loadedFrom && (
+        <div className="flex items-center gap-2 rounded-md border border-primary bg-primary/10 px-2.5 py-2 text-xs text-primary">
+          <Zap className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">
+            {t("loadedFromQuickReply", { title: loadedFrom })}
+          </span>
+          <button
+            type="button"
+            onClick={() => setMode("load")}
+            className="shrink-0 font-semibold underline decoration-primary/50 underline-offset-2"
+          >
+            {t("changeSource")}
+          </button>
+        </div>
+      )}
       <TextRow
         label={t("bodyText")}
         value={cfg.body ?? ""}
@@ -1540,6 +1623,96 @@ function SendCarouselForm({
         </div>
       </div>
     </>
+  );
+}
+
+// Lists the account's saved carousel-kind Quick Replies so a Send
+// Carousel node can be pre-filled instead of built from scratch. Reuses
+// the same fetch-all, filter-client-side approach as the inbox's
+// QuickReplyPicker (quick-reply-picker.tsx) — no server-side filter
+// param exists, and the list is small enough that it doesn't need one.
+function SavedCarouselPicker({
+  t,
+  onPick,
+}: {
+  t: ReturnType<typeof useTranslations>;
+  onPick: (payload: InteractiveCarouselPayload, title: string) => void;
+}) {
+  const [items, setItems] = useState<QuickReply[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/quick-replies", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok) {
+          setItems((data.quick_replies as QuickReply[]) ?? []);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const carousels = items.filter(
+    (qr): qr is QuickReply & { interactive_payload: InteractiveCarouselPayload } =>
+      qr.kind === "interactive" && qr.interactive_payload?.kind === "carousel",
+  );
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (carousels.length === 0) {
+    return (
+      <p className="py-6 text-center text-xs text-muted-foreground">{t("savedCarouselsEmpty")}</p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {carousels.map((qr) => {
+        const payload = qr.interactive_payload;
+        const firstCard = payload.cards[0];
+        return (
+          <button
+            key={qr.id}
+            type="button"
+            onClick={() => onPick(payload, qr.title)}
+            className="flex items-center gap-2.5 rounded-md border border-border bg-muted/40 p-2.5 text-left transition-colors hover:border-primary/50 hover:bg-muted"
+          >
+            {firstCard?.header.type === "image" && firstCard.header.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={firstCard.header.url} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                <Video className="h-4 w-4" />
+              </div>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-foreground">{qr.title}</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {t("carouselCardsMeta", {
+                  count: payload.cards.length,
+                  buttonType: payload.button_mode === "url" ? t("websiteLink") : t("quickReply"),
+                })}
+              </span>
+            </span>
+            <Zap className="h-4 w-4 shrink-0 text-primary" />
+          </button>
+        );
+      })}
+      <p className="mt-1 text-[11px] text-muted-foreground">{t("loadCarouselHint")}</p>
+    </div>
   );
 }
 

@@ -1260,7 +1260,14 @@
         "addCard": "Agregar tarjeta",
         "cardHeaderLabel": "Encabezado de la tarjeta {n}",
         "cardBodyLabel": "Texto de la tarjeta (opcional)",
-        "cardButtonUrlPlaceholder": "https://…"
+        "cardButtonUrlPlaceholder": "https://…",
+        "buildFromScratch": "Crear desde cero",
+        "loadSavedCarousel": "Cargar carrusel guardado",
+        "savedCarouselsEmpty": "Todavía no hay carruseles guardados. Crea uno en Configuración → Respuestas rápidas.",
+        "loadedFromQuickReply": "Cargado desde la respuesta rápida — {title}",
+        "changeSource": "Cambiar",
+        "loadCarouselHint": "Al elegir uno se copian su texto y sus tarjetas en este nodo — todo sigue siendo editable abajo.",
+        "carouselCardsMeta": "{count} tarjetas · {buttonType}"
       },
       "categories": {
         "messaging": "Mensajería",

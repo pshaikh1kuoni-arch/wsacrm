@@ -1260,7 +1260,14 @@
         "addCard": "Add card",
         "cardHeaderLabel": "Card {n} header",
         "cardBodyLabel": "Card text (optional)",
-        "cardButtonUrlPlaceholder": "https://…"
+        "cardButtonUrlPlaceholder": "https://…",
+        "buildFromScratch": "Build from scratch",
+        "loadSavedCarousel": "Load saved carousel",
+        "savedCarouselsEmpty": "No saved carousels yet. Build one in Settings → Quick replies.",
+        "loadedFromQuickReply": "Loaded from Quick Reply — {title}",
+        "changeSource": "Change",
+        "loadCarouselHint": "Picking one copies its body and cards into this node — everything stays editable below.",
+        "carouselCardsMeta": "{count} cards · {buttonType}"
       },
       "categories": {
         "messaging": "Messaging",
