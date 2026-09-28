@@ -447,6 +447,43 @@ async function loadConversationOwnership(
   );
 }
 
+/**
+ * Has a human agent taken this conversation since the run started? Checked
+ * on every live reply AND every scheduled callback (wait_followup /
+ * ai_reengage) for an already-ACTIVE run — `findEntryFlow`'s ownership
+ * gate only guards the moment a run is *created*, so without this a flow
+ * that started (or a human takeover that happened) mid-run would keep
+ * talking, or a reminder timer already in flight would still land, right
+ * over an agent who just picked up the thread. Fails toward `true` (stop
+ * the flow) on a DB error, same direction as `loadConversationOwnership`.
+ */
+async function isHumanAssigned(
+  db: AdminClient,
+  conversationId: string,
+): Promise<boolean> {
+  const { data, error } = await db
+    .from("conversations")
+    .select("assigned_agent_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error || !data) return true;
+  return Boolean((data as { assigned_agent_id: string | null }).assigned_agent_id);
+}
+
+/**
+ * Stop an active run in its tracks because a human just took (or already
+ * has) the conversation — shared by the live-reply and scheduled-callback
+ * paths so both end the run and log the same way.
+ */
+async function endRunForHumanTakeover(
+  db: AdminClient,
+  run: FlowRunRow,
+  nodeKey: string | null,
+): Promise<void> {
+  await logEvent(db, run.id, "handoff", nodeKey, { reason: "human_assigned" });
+  await endRun(db, run.id, "handed_off", "human_assigned");
+}
+
 async function findEntryFlow(
   db: AdminClient,
   accountId: string,
@@ -1535,6 +1572,16 @@ export async function resumeFlowPendingExecution(
     return;
   }
 
+  // A human may have taken the conversation in the time between this
+  // callback being scheduled and the cron reaching it — don't let a
+  // reminder or AI re-engage message land on someone who's now actively
+  // handling the thread themselves.
+  if (run.conversation_id && (await isHumanAssigned(db, run.conversation_id))) {
+    await endRunForHumanTakeover(db, run, row.node_key);
+    await markPendingExecution(db, row.id, "cancelled");
+    return;
+  }
+
   const nodes = await loadAllNodes(db, run.flow_id);
 
   if (row.action.kind === "followup_message") {
@@ -1684,6 +1731,15 @@ async function handleReplyForActiveRun(
   message: ParsedInbound,
   nodes: Map<string, FlowNodeRow>,
 ): Promise<DispatchInboundResult> {
+  // A human agent owns this conversation now — the flow goes quiet
+  // immediately, whatever node it's on (AI or otherwise). Checked before
+  // anything else so a reprompt / ai_agent turn / advance can't slip out
+  // between this message and someone picking up the thread.
+  if (run.conversation_id && (await isHumanAssigned(db, run.conversation_id))) {
+    await endRunForHumanTakeover(db, run, run.current_node_key);
+    return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
+  }
+
   // Note: we intentionally do NOT persist the raw customer text. A
   // `collect_input` prompt that asks "what's your card number?" would
   // otherwise leave the PAN sitting in flow_run_events.payload forever,

@@ -19,6 +19,9 @@ const h = vi.hoisted(() => ({
     events: [] as Record<string, unknown>[],
     /** Every UPDATE, by table. */
     updates: [] as { table: string; row: Record<string, unknown> }[],
+    /** What isHumanAssigned sees. Default: unassigned — every existing
+     *  test here drives an active run and expects it to keep responding. */
+    conversation: { assigned_agent_id: null as string | null },
   },
   sendButtons: vi.fn<
     (
@@ -42,6 +45,7 @@ vi.mock("./admin-client", () => {
     if (table === "flow_runs") return h.state.activeRuns;
     if (table === "flows") return h.state.flows;
     if (table === "flow_nodes") return h.state.nodes;
+    if (table === "conversations") return [h.state.conversation];
     return [];
   }
 
@@ -97,6 +101,7 @@ vi.mock("@/lib/automations/meta-send", () => ({
 
 import {
   dispatchInboundToFlows,
+  resumeFlowPendingExecution,
   matchReplyId,
   matchesKeywordTrigger,
   isAutoAdvancing,
@@ -594,6 +599,7 @@ describe("send_buttons / send_list interpolate {{vars.*}} (#553)", () => {
     h.state.nodes = nodesEndingIn("choose");
     h.state.events = [];
     h.state.updates = [];
+    h.state.conversation = { assigned_agent_id: null };
   });
 
   it("send_buttons after collect_input renders body, header and button titles", async () => {
@@ -693,6 +699,78 @@ describe("send_buttons / send_list interpolate {{vars.*}} (#553)", () => {
           status: "failed",
           end_reason: "send_buttons_failed",
         }),
+      }),
+    );
+  });
+});
+
+describe("a human takeover silences an already-active flow", () => {
+  beforeEach(() => {
+    h.state.activeRuns = [{ ...RUN, current_node_key: "choose", vars: {} }];
+    h.state.flows = [FLOW];
+    h.state.nodes = nodesEndingIn("choose");
+    h.state.events = [];
+    h.state.updates = [];
+    h.state.conversation = { assigned_agent_id: "agent-1" };
+    h.sendButtons.mockClear();
+  });
+
+  it("ends the run instead of replying when a human is assigned", async () => {
+    const result = await dispatch(text("still there?"));
+
+    expect(result).toEqual({
+      consumed: true,
+      flow_run_id: "run-1",
+      outcome: "handed_off",
+    });
+    expect(h.sendButtons).not.toHaveBeenCalled();
+    expect(h.state.updates).toContainEqual(
+      expect.objectContaining({
+        table: "flow_runs",
+        row: expect.objectContaining({
+          status: "handed_off",
+          end_reason: "human_assigned",
+        }),
+      }),
+    );
+  });
+
+  it("keeps replying as normal when nobody is assigned", async () => {
+    h.state.conversation = { assigned_agent_id: null };
+
+    const result = await dispatch(text("huh?"));
+
+    expect(result).toMatchObject({ consumed: true, outcome: "fallback_fired" });
+    expect(h.sendButtons).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels a pending scheduled callback instead of sending it", async () => {
+    const row = {
+      id: "pend-1",
+      flow_run_id: "run-1",
+      account_id: "acct-1",
+      node_key: "choose",
+      action: { kind: "followup_message" as const, text: "Still around?", next_node_key: "done" },
+      run_at: "2026-01-01T00:05:00Z",
+      status: "pending" as const,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+
+    await resumeFlowPendingExecution(row);
+
+    expect(h.state.updates).toContainEqual(
+      expect.objectContaining({
+        table: "flow_runs",
+        row: expect.objectContaining({
+          status: "handed_off",
+          end_reason: "human_assigned",
+        }),
+      }),
+    );
+    expect(h.state.updates).toContainEqual(
+      expect.objectContaining({
+        table: "flow_pending_executions",
+        row: expect.objectContaining({ status: "cancelled" }),
       }),
     );
   });
