@@ -94,14 +94,23 @@ export async function engineSendInteractive(
       buttons: payload.buttons,
     })
   }
-  return engineSendInteractiveList({
-    ...common,
-    bodyText: payload.body,
-    buttonLabel: payload.button_label,
-    headerText: payload.header,
-    footerText: payload.footer,
-    sections: payload.sections,
-  })
+  if (payload.kind === 'list') {
+    return engineSendInteractiveList({
+      ...common,
+      bodyText: payload.body,
+      buttonLabel: payload.button_label,
+      headerText: payload.header,
+      footerText: payload.footer,
+      sections: payload.sections,
+    })
+  }
+  // Carousel ships in Flows only (see docs/carousel-messages-plan.md) —
+  // Automations' send_buttons/send_list steps never produce this kind
+  // today, but fail loudly instead of silently mis-sending as a list if
+  // that ever changes.
+  throw new Error(
+    'Carousel messages are not supported from Automations — build this in Flows instead.',
+  )
 }
 
 type SendInput =

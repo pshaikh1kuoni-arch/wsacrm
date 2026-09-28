@@ -289,6 +289,57 @@ export interface FlowPendingExecutionRow {
   created_at: string;
 }
 
+/**
+ * Sends an interactive carousel — 2–10 media cards, each with its own
+ * header/text/button. Session-only, same track as SendButtonsNodeConfig
+ * and SendListNodeConfig (no Meta template review). See
+ * `sendInteractiveCarousel` in meta-api.ts and
+ * docs/carousel-messages-plan.md for the full design.
+ *
+ * Deliberately one flat interface (not a discriminated sub-union) for
+ * the two button modes, matching this file's existing style — the
+ * fields actually used differ by `button_mode`, documented per field:
+ *
+ *   - `button_mode: 'url'` — each card's `button_url` opens a link
+ *     client-side; Meta never sends a webhook for that tap, so there is
+ *     nothing per-card to route on. The run auto-advances to the
+ *     node-level `next_node_key` right after the send lands, same
+ *     "fire and move on" shape as SendMediaNodeConfig/
+ *     SendTemplateNodeConfig.
+ *   - `button_mode: 'quick_reply'` — each card's tap DOES arrive via
+ *     webhook (as an ordinary `interactive.button_reply`, confirmed
+ *     against Meta's webhook reference — no carousel-specific shape,
+ *     no card_index needed). The run pauses and each card's own
+ *     `next_node_key` decides the route, exactly like
+ *     SendButtonsNodeConfig; the node-level `next_node_key` is unused.
+ */
+export interface SendCarouselNodeConfig {
+  /** Main message text shown above the cards (≤ 1024 chars). */
+  body: string;
+  /** Fixed across every card — Meta rejects mixing button types. */
+  button_mode: "url" | "quick_reply";
+  /** 2–10 cards; Meta cap enforced in meta-api validation. */
+  cards: Array<{
+    header_type: "image" | "video";
+    /** Public URL Meta will fetch. Uploaded via the builder's file picker. */
+    header_url: string;
+    /** Optional card text (≤ 160 chars, ≤ 2 line breaks per Meta). */
+    body?: string;
+    /** Visible label on the card's button (≤ 20 chars per Meta). */
+    button_label: string;
+    /** Set when `button_mode` is `'url'`. */
+    button_url?: string;
+    /** Stable id sent back by Meta when this card's button is tapped.
+     *  Set when `button_mode` is `'quick_reply'`. */
+    reply_id?: string;
+    /** node_key the runner advances to when this card's button is
+     *  tapped. Quick-reply mode only — see the interface doc above. */
+    next_node_key?: string;
+  }>;
+  /** Auto-advance target, url mode only — see the interface doc above. */
+  next_node_key?: string;
+}
+
 // Terminal nodes carry no config — they just stop the run.
 export type EndNodeConfig = Record<string, never>;
 
@@ -305,6 +356,7 @@ export type FlowNodeConfig =
   | { node_type: "send_message"; config: SendMessageNodeConfig }
   | { node_type: "send_buttons"; config: SendButtonsNodeConfig }
   | { node_type: "send_list"; config: SendListNodeConfig }
+  | { node_type: "send_carousel"; config: SendCarouselNodeConfig }
   | { node_type: "send_media"; config: SendMediaNodeConfig }
   | { node_type: "send_template"; config: SendTemplateNodeConfig }
   | { node_type: "wait_followup"; config: WaitFollowupNodeConfig }

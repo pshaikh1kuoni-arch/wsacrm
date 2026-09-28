@@ -141,6 +141,48 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
         break;
       }
 
+      case "send_carousel": {
+        const carouselCfg = cfg as {
+          button_mode?: string;
+          next_node_key?: string;
+          cards?: unknown;
+        };
+        if (carouselCfg.button_mode === "quick_reply") {
+          const cards = Array.isArray(carouselCfg.cards)
+            ? (carouselCfg.cards as Array<Record<string, unknown>>)
+            : [];
+          cards.forEach((card, i) => {
+            const replyId =
+              typeof card.reply_id === "string" ? card.reply_id : null;
+            const next =
+              typeof card.next_node_key === "string" ? card.next_node_key : null;
+            const label = typeof card.button_label === "string" ? card.button_label : null;
+            if (!replyId || !next || !knownKeys.has(next)) return;
+            edges.push({
+              id: `${node.node_key}--card:${replyId}--${next}`,
+              source: node.node_key,
+              target: next,
+              sourceHandle: `card:${replyId}`,
+              label: label ?? `Card ${i + 1}`,
+            });
+          });
+        } else {
+          // url mode — a single auto-advance edge, same shape as
+          // send_media/send_template, since a url button tap never
+          // fires a webhook to route on.
+          const next = carouselCfg.next_node_key;
+          if (next && knownKeys.has(next)) {
+            edges.push({
+              id: `${node.node_key}--next--${next}`,
+              source: node.node_key,
+              target: next,
+              sourceHandle: "next",
+            });
+          }
+        }
+        break;
+      }
+
       case "handoff":
       case "end":
         // Terminal nodes — no outgoing edges.
@@ -232,6 +274,23 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
       return slots;
     }
 
+    case "send_carousel": {
+      const carouselCfg = cfg as { button_mode?: string; cards?: unknown };
+      if (carouselCfg.button_mode !== "quick_reply") {
+        return [{ id: "next", label: "Next" }];
+      }
+      const cards = Array.isArray(carouselCfg.cards)
+        ? (carouselCfg.cards as Array<Record<string, unknown>>)
+        : [];
+      return cards
+        .filter((c) => typeof c.reply_id === "string" && c.reply_id)
+        .map((c, i) => {
+          const replyId = c.reply_id as string;
+          const label = typeof c.button_label === "string" ? c.button_label : null;
+          return { id: `card:${replyId}`, label: label ?? `Card ${i + 1}` };
+        });
+    }
+
     case "handoff":
     case "end":
       return [];
@@ -317,6 +376,25 @@ export function applyEdgeConnection(
         };
       });
       return matched ? { sections: next } : null;
+    }
+
+    case "send_carousel": {
+      const carouselCfg = node.config as { button_mode?: string; cards?: unknown };
+      if (carouselCfg.button_mode !== "quick_reply") {
+        if (sourceHandle !== "next") return null;
+        return { next_node_key: targetKey };
+      }
+      if (!sourceHandle.startsWith("card:")) return null;
+      const replyId = sourceHandle.slice("card:".length);
+      const cards = Array.isArray(carouselCfg.cards)
+        ? (carouselCfg.cards as Array<Record<string, unknown>>)
+        : [];
+      if (!cards.some((c) => c.reply_id === replyId)) return null;
+      return {
+        cards: cards.map((c) =>
+          c.reply_id === replyId ? { ...c, next_node_key: targetKey } : c,
+        ),
+      };
     }
 
     case "handoff":
@@ -414,6 +492,24 @@ function patchedConfigWithoutKey(
         };
       });
       return dirty ? { ...cfg, sections: next } : null;
+    }
+
+    case "send_carousel": {
+      const carouselCfg = cfg as { button_mode?: string; next_node_key?: string; cards?: unknown };
+      if (carouselCfg.button_mode !== "quick_reply") {
+        if (carouselCfg.next_node_key !== deletedKey) return null;
+        return { ...cfg, next_node_key: "" };
+      }
+      const cards = Array.isArray(carouselCfg.cards)
+        ? (carouselCfg.cards as Array<Record<string, unknown>>)
+        : [];
+      if (!cards.some((c) => c.next_node_key === deletedKey)) return null;
+      return {
+        ...cfg,
+        cards: cards.map((c) =>
+          c.next_node_key === deletedKey ? { ...c, next_node_key: "" } : c,
+        ),
+      };
     }
 
     case "handoff":

@@ -27,6 +27,7 @@ import {
   sendMediaMessage,
   sendInteractiveButtons,
   sendInteractiveList,
+  sendInteractiveCarousel,
   type MediaKind,
 } from '@/lib/whatsapp/meta-api';
 import {
@@ -382,15 +383,34 @@ export async function sendMessageToConversation(
         });
         return result.messageId;
       }
-      const result = await sendInteractiveList({
+      if (p.kind === 'list') {
+        const result = await sendInteractiveList({
+          phoneNumberId: config.phone_number_id,
+          accessToken,
+          to: phone,
+          bodyText: p.body,
+          buttonLabel: p.button_label,
+          headerText: p.header || undefined,
+          footerText: p.footer || undefined,
+          sections: p.sections,
+          contextMessageId,
+        });
+        return result.messageId;
+      }
+      const result = await sendInteractiveCarousel({
         phoneNumberId: config.phone_number_id,
         accessToken,
         to: phone,
         bodyText: p.body,
-        buttonLabel: p.button_label,
-        headerText: p.header || undefined,
-        footerText: p.footer || undefined,
-        sections: p.sections,
+        buttonMode: p.button_mode,
+        cards: p.cards.map((card) => ({
+          headerType: card.header.type,
+          headerUrl: card.header.url,
+          bodyText: card.body,
+          buttonLabel: card.button_label,
+          buttonUrl: card.button_url,
+          buttonId: card.button_id,
+        })),
         contextMessageId,
       });
       return result.messageId;

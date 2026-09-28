@@ -68,9 +68,44 @@ export interface InteractiveListPayload {
   sections: InteractiveListSection[]
 }
 
+export interface InteractiveCarouselCardHeader {
+  /** Cards only support media headers — no text/document/location. */
+  type: 'image' | 'video'
+  /** Public URL Meta will fetch. */
+  url: string
+}
+
+export interface InteractiveCarouselCard {
+  header: InteractiveCarouselCardHeader
+  /** Optional card text (≤ 160 chars, ≤ 2 line breaks per Meta). */
+  body?: string
+  /** Visible label on the card's button (≤ 20 chars per Meta). */
+  button_label: string
+  /** Set when the carousel's `button_mode` is `'url'`. */
+  button_url?: string
+  /** Set when `button_mode` is `'quick_reply'` — echoed back in the
+   *  webhook when tapped, same role as `InteractiveButton.id` above. */
+  button_id?: string
+}
+
+export interface InteractiveCarouselPayload {
+  kind: 'carousel'
+  /** Main message text shown above the cards (≤ 1024 chars). */
+  body: string
+  /**
+   * Meta requires every card in a carousel to use the same button type
+   * — modeling it once here (rather than per-card) makes mixing types
+   * structurally impossible instead of a validation rule to remember.
+   */
+  button_mode: 'url' | 'quick_reply'
+  /** 2–10 cards. */
+  cards: InteractiveCarouselCard[]
+}
+
 export type InteractiveMessagePayload =
   | InteractiveButtonsPayload
   | InteractiveListPayload
+  | InteractiveCarouselPayload
 
 export type InteractiveValidation =
   | { ok: true }
@@ -125,8 +160,13 @@ export function validateInteractivePayload(
       `Body text exceeds the ${INTERACTIVE_LIMITS.bodyMaxLength}-character limit.`,
     )
   }
-  const hf = validateHeaderFooter(p.header, p.footer)
-  if (!hf.ok) return hf
+  // Header/footer only exist on buttons/list — a carousel message has
+  // neither field in Meta's payload shape, so the check is scoped to
+  // the two kinds that do rather than read off the shared `p`.
+  if (p.kind === 'buttons' || p.kind === 'list') {
+    const hf = validateHeaderFooter(p.header, p.footer)
+    if (!hf.ok) return hf
+  }
 
   if (p.kind === 'buttons') {
     const buttons = (p as InteractiveButtonsPayload).buttons
@@ -223,7 +263,62 @@ export function validateInteractivePayload(
     return ok()
   }
 
-  return fail('Interactive message must be reply buttons or a list.')
+  if (p.kind === 'carousel') {
+    const carousel = p as InteractiveCarouselPayload
+    const cards = carousel.cards
+    if (!Array.isArray(cards) || cards.length < INTERACTIVE_LIMITS.minCarouselCards) {
+      return fail(`A carousel needs at least ${INTERACTIVE_LIMITS.minCarouselCards} cards.`)
+    }
+    if (cards.length > INTERACTIVE_LIMITS.maxCarouselCards) {
+      return fail(`A carousel allows at most ${INTERACTIVE_LIMITS.maxCarouselCards} cards.`)
+    }
+    if (carousel.button_mode !== 'url' && carousel.button_mode !== 'quick_reply') {
+      return fail('Choose a button type for the carousel.')
+    }
+    const seenButtonIds = new Set<string>()
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i]
+      const n = i + 1
+      if (!card || (card.header?.type !== 'image' && card.header?.type !== 'video')) {
+        return fail(`Card ${n} needs an image or video header.`)
+      }
+      if (typeof card.header.url !== 'string' || card.header.url.trim() === '') {
+        return fail(`Card ${n} is missing its header media.`)
+      }
+      if (
+        card.body &&
+        card.body.length > INTERACTIVE_LIMITS.carouselCardBodyMaxLength
+      ) {
+        return fail(
+          `Card ${n} text exceeds the ${INTERACTIVE_LIMITS.carouselCardBodyMaxLength}-character limit.`,
+        )
+      }
+      if (typeof card.button_label !== 'string' || card.button_label.trim() === '') {
+        return fail(`Card ${n} needs a button label.`)
+      }
+      if (card.button_label.length > INTERACTIVE_LIMITS.buttonTitleMaxLength) {
+        return fail(
+          `Card ${n} button label exceeds the ${INTERACTIVE_LIMITS.buttonTitleMaxLength}-character limit.`,
+        )
+      }
+      if (carousel.button_mode === 'url') {
+        if (typeof card.button_url !== 'string' || card.button_url.trim() === '') {
+          return fail(`Card ${n} needs a destination URL.`)
+        }
+      } else {
+        if (typeof card.button_id !== 'string' || card.button_id.trim() === '') {
+          return fail(`Card ${n} button is missing an id.`)
+        }
+        if (seenButtonIds.has(card.button_id)) {
+          return fail(`Duplicate card button id "${card.button_id}".`)
+        }
+        seenButtonIds.add(card.button_id)
+      }
+    }
+    return ok()
+  }
+
+  return fail('Interactive message must be reply buttons, a list, or a carousel.')
 }
 
 /**
@@ -235,5 +330,7 @@ export function interactivePayloadPreviewText(
 ): string {
   const body = payload.body?.trim()
   if (body) return body
-  return payload.kind === 'buttons' ? '[buttons]' : '[list]'
+  if (payload.kind === 'buttons') return '[buttons]'
+  if (payload.kind === 'list') return '[list]'
+  return '[carousel]'
 }

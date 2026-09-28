@@ -1250,7 +1250,17 @@
         "fileUploaded": "파일이 업로드되었습니다.",
         "uploadFailed": "업로드에 실패했습니다.",
         "fileTooLarge": "파일이 {size}MB입니다 — 제한은 16MB입니다.",
-        "defaultOptionTitle": "옵션"
+        "defaultOptionTitle": "옵션",
+        "cardButtonType": "카드 버튼 유형",
+        "websiteLink": "웹사이트 링크",
+        "quickReply": "빠른 답장",
+        "cardsCount": "카드 ({count}/{max})",
+        "cardN": "카드 {n}",
+        "removeCard": "카드 삭제",
+        "addCard": "카드 추가",
+        "cardHeaderLabel": "카드 {n} 헤더",
+        "cardBodyLabel": "카드 텍스트 (선택)",
+        "cardButtonUrlPlaceholder": "https://…"
       },
       "categories": {
         "messaging": "메시징",
@@ -1273,6 +1283,10 @@
         "send_list": {
           "label": "목록 보내기",
           "blurb": "탭 가능한 옵션 목록을 보냅니다"
+        },
+        "send_carousel": {
+          "label": "캐러셀 보내기",
+          "blurb": "스와이프 가능한 미디어 카드 스트립을 보냅니다"
         },
         "send_media": {
           "label": "미디어 보내기",
@@ -1340,6 +1354,9 @@
       "opContains": "포함함",
       "opExists": "존재함",
       "opMissing": "존재하지 않음",
+      "cards": "카드 {count}개",
+      "modeQuickReply": "빠른 답장",
+      "modeUrl": "링크",
       "modeAdd": "추가",
       "modeRemove": "제거",
       "tagPicked": "{tag} 태그 {mode}…",
@@ -2083,7 +2100,28 @@
     "rowTitlePlaceholder": "행 제목",
     "rowDescriptionPlaceholder": "설명 (선택)",
     "addRow": "행 추가",
-    "addSection": "섹션 추가"
+    "addSection": "섹션 추가",
+    "carousel": "캐러셀",
+    "cardsCount": "카드 ({count}/{max})",
+    "cardN": "카드 {n}",
+    "cardHeaderLabel": "카드 {n} 헤더",
+    "removeCard": "카드 삭제",
+    "addCard": "카드 추가",
+    "cardButtonType": "카드 버튼 유형",
+    "websiteLink": "웹사이트 링크",
+    "quickReply": "빠른 답장",
+    "imageLabel": "이미지",
+    "videoLabel": "동영상",
+    "uploadFile": "파일 업로드",
+    "uploading": "업로드 중…",
+    "fileUploaded": "파일이 업로드되었습니다.",
+    "uploadFailed": "업로드에 실패했습니다.",
+    "fileTooLarge": "파일 크기가 {size}MB입니다 — 제한은 16MB입니다.",
+    "removeFile": "파일 제거",
+    "cardBodyLabel": "카드 텍스트 (선택)",
+    "cardBodyPlaceholder": "이미지 아래에 표시되는 내용",
+    "cardButtonUrlLabel": "대상 URL",
+    "cardButtonUrlPlaceholder": "https://…"
   },
   "DashboardShell": {
     "loading": "불러오는 중..."

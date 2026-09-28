@@ -709,6 +709,7 @@ const ADD_NODE_TYPES: NodeType[] = [
   'start',
   'send_buttons',
   'send_list',
+  'send_carousel',
   'send_message',
   'send_media',
   'send_template',

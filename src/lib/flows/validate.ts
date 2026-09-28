@@ -626,6 +626,180 @@ function validateNode(
       break;
     }
 
+    case "send_carousel": {
+      const cfg = node.config as {
+        body?: string;
+        button_mode?: string;
+        next_node_key?: string;
+        cards?: Array<{
+          header_type?: string;
+          header_url?: string;
+          body?: string;
+          button_label?: string;
+          button_url?: string;
+          reply_id?: string;
+          next_node_key?: string;
+        }>;
+      };
+      if (!cfg.body?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "body",
+          message: "Send-carousel node needs an intro message.",
+        });
+      }
+      if (cfg.button_mode !== "url" && cfg.button_mode !== "quick_reply") {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "button_mode",
+          message: "Send-carousel needs a button type (website link or quick reply).",
+        });
+      }
+      const cards = cfg.cards ?? [];
+      if (cards.length < INTERACTIVE_LIMITS.minCarouselCards) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "cards",
+          message: `Send-carousel needs at least ${INTERACTIVE_LIMITS.minCarouselCards} cards.`,
+        });
+      }
+      if (cards.length > INTERACTIVE_LIMITS.maxCarouselCards) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "cards",
+          message: `Send-carousel allows at most ${INTERACTIVE_LIMITS.maxCarouselCards} cards.`,
+        });
+      }
+      const seenCardIds = new Set<string>();
+      cards.forEach((card, i) => {
+        const field = `cards.${i}`;
+        const n = i + 1;
+        if (card.header_type !== "image" && card.header_type !== "video") {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.header_type`,
+            message: `Card ${n} needs an image or video header.`,
+          });
+        }
+        if (!card.header_url?.trim()) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.header_url`,
+            message: `Card ${n} is missing its header media.`,
+          });
+        }
+        if (card.body && card.body.length > INTERACTIVE_LIMITS.carouselCardBodyMaxLength) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.body`,
+            message: `Card ${n} text exceeds ${INTERACTIVE_LIMITS.carouselCardBodyMaxLength} chars.`,
+          });
+        }
+        if (!card.button_label?.trim()) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.button_label`,
+            message: `Card ${n} needs a button label.`,
+          });
+        } else if (card.button_label.length > INTERACTIVE_LIMITS.buttonTitleMaxLength) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.button_label`,
+            message: `Card ${n} button label exceeds ${INTERACTIVE_LIMITS.buttonTitleMaxLength} chars.`,
+          });
+        }
+
+        if (cfg.button_mode === "quick_reply") {
+          if (!card.reply_id?.trim()) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${field}.reply_id`,
+              message: `Card ${n} button is missing a reply id.`,
+            });
+          } else if (seenCardIds.has(card.reply_id)) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${field}.reply_id`,
+              message: `Duplicate card reply id "${card.reply_id}".`,
+            });
+          }
+          if (card.reply_id) seenCardIds.add(card.reply_id);
+
+          if (!card.next_node_key) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${field}.next_node_key`,
+              message: `Card ${n} needs a next node.`,
+            });
+          } else if (!knownKeys.has(card.next_node_key)) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${field}.next_node_key`,
+              message: `Card ${n} points to non-existent node "${card.next_node_key}".`,
+            });
+          }
+        } else if (cfg.button_mode === "url" && !card.button_url?.trim()) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.button_url`,
+            message: `Card ${n} needs a destination URL.`,
+          });
+        }
+      });
+
+      // url mode auto-advances on a single node-level next_node_key,
+      // same shape as send_media/send_template — only checked in that
+      // mode, since quick_reply mode routes per-card above instead.
+      if (cfg.button_mode === "url") {
+        if (!cfg.next_node_key) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: "next_node_key",
+            message: "Send-carousel must point to a next node.",
+          });
+        } else if (!knownKeys.has(cfg.next_node_key)) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: "next_node_key",
+            message: `Send-carousel points to non-existent node "${cfg.next_node_key}".`,
+          });
+        }
+      }
+      break;
+    }
+
     case "collect_input": {
       const cfg = node.config as {
         prompt_text?: string;
@@ -936,6 +1110,19 @@ function outgoingEdges(node: NodeInput): string[] {
         }
       }
       return out;
+    }
+    case "send_carousel": {
+      const cfg = node.config as {
+        button_mode?: string;
+        next_node_key?: string;
+        cards?: Array<{ next_node_key?: string }>;
+      };
+      if (cfg.button_mode === "quick_reply") {
+        return (cfg.cards ?? [])
+          .map((c) => c.next_node_key)
+          .filter((k): k is string => !!k);
+      }
+      return cfg.next_node_key ? [cfg.next_node_key] : [];
     }
     case "handoff":
     case "end":

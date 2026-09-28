@@ -1,8 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import {
+  Image as ImageIcon,
+  Loader2,
+  Plus,
+  Trash2,
+  Upload,
+  Video,
+  X,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,13 +19,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { slugify } from "@/components/flows/shared";
 import { INTERACTIVE_LIMITS } from "@/lib/whatsapp/meta-api";
+import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
 import {
   validateInteractivePayload,
   type InteractiveButtonsPayload,
   type InteractiveListPayload,
+  type InteractiveCarouselPayload,
+  type InteractiveCarouselCard,
   type InteractiveMessagePayload,
 } from "@/lib/whatsapp/interactive";
 import { InteractivePreview } from "./interactive-preview";
+
+// Same bucket Flows' send_media node uploads to (see node-config-form.tsx)
+// — carousel cards are reusable content saved with a quick reply or a
+// flow node, not a one-off chat attachment, so they share that bucket's
+// semantics rather than the inbox composer's "chat-media" one.
+const CAROUSEL_MEDIA_BUCKET = "flow-media";
+const CAROUSEL_HEADER_ACCEPT: Record<"image" | "video", string> = {
+  image: "image/png,image/jpeg,image/webp",
+  video: "video/mp4,video/3gpp",
+};
 
 // ------------------------------------------------------------
 // Blank payload factories — used to seed a fresh builder and to
@@ -53,6 +75,29 @@ export function blankListPayload(): InteractiveListPayload {
   };
 }
 
+function blankCarouselCard(buttonMode: "url" | "quick_reply", id: string): InteractiveCarouselCard {
+  return {
+    header: { type: "image", url: "" },
+    body: "",
+    button_label: "",
+    ...(buttonMode === "url" ? { button_url: "" } : { button_id: id }),
+  };
+}
+
+export function blankCarouselPayload(): InteractiveCarouselPayload {
+  return {
+    kind: "carousel",
+    body: "",
+    button_mode: "url",
+    // Meta's minimum — matches how blankButtonsPayload/blankListPayload
+    // each seed exactly their kind's minimum (1 button, 1 row).
+    cards: [
+      blankCarouselCard("url", "card_1"),
+      blankCarouselCard("url", "card_2"),
+    ],
+  };
+}
+
 interface InteractiveBuilderProps {
   value: InteractiveMessagePayload;
   onChange: (payload: InteractiveMessagePayload) => void;
@@ -79,13 +124,20 @@ export function InteractiveBuilder({
   const setField = (patch: Partial<InteractiveMessagePayload>) =>
     onChange({ ...value, ...patch } as InteractiveMessagePayload);
 
-  const switchKind = (kind: "buttons" | "list") => {
+  const switchKind = (kind: "buttons" | "list" | "carousel") => {
     if (kind === value.kind) return;
-    const shared = { body: value.body, header: value.header, footer: value.footer };
+    // Carousel has no header/footer in Meta's payload shape (see
+    // interactive.ts), so there's nothing to carry over from it.
+    const shared =
+      value.kind === "carousel"
+        ? { body: value.body }
+        : { body: value.body, header: value.header, footer: value.footer };
     onChange(
       kind === "buttons"
         ? { ...blankButtonsPayload(), ...shared }
-        : { ...blankListPayload(), ...shared },
+        : kind === "list"
+          ? { ...blankListPayload(), ...shared }
+          : { ...blankCarouselPayload(), ...shared },
     );
   };
 
@@ -112,6 +164,11 @@ export function InteractiveBuilder({
               label={t("list")}
               onClick={() => switchKind("list")}
             />
+            <KindButton
+              active={value.kind === "carousel"}
+              label={t("carousel")}
+              onClick={() => switchKind("carousel")}
+            />
           </div>
 
           <Field label={t("body")} counter={`${value.body.length}/${INTERACTIVE_LIMITS.bodyMaxLength}`}>
@@ -124,35 +181,39 @@ export function InteractiveBuilder({
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Field
-              label={t("header")}
-              counter={`${(value.header ?? "").length}/${INTERACTIVE_LIMITS.headerTextMaxLength}`}
-            >
-              <Input
-                value={value.header ?? ""}
-                maxLength={INTERACTIVE_LIMITS.headerTextMaxLength}
-                onChange={(e) => setField({ header: e.target.value })}
-                className="bg-muted text-foreground"
-              />
-            </Field>
-            <Field
-              label={t("footer")}
-              counter={`${(value.footer ?? "").length}/${INTERACTIVE_LIMITS.footerMaxLength}`}
-            >
-              <Input
-                value={value.footer ?? ""}
-                maxLength={INTERACTIVE_LIMITS.footerMaxLength}
-                onChange={(e) => setField({ footer: e.target.value })}
-                className="bg-muted text-foreground"
-              />
-            </Field>
-          </div>
+          {value.kind !== "carousel" && (
+            <div className="grid grid-cols-2 gap-2">
+              <Field
+                label={t("header")}
+                counter={`${(value.header ?? "").length}/${INTERACTIVE_LIMITS.headerTextMaxLength}`}
+              >
+                <Input
+                  value={value.header ?? ""}
+                  maxLength={INTERACTIVE_LIMITS.headerTextMaxLength}
+                  onChange={(e) => setField({ header: e.target.value })}
+                  className="bg-muted text-foreground"
+                />
+              </Field>
+              <Field
+                label={t("footer")}
+                counter={`${(value.footer ?? "").length}/${INTERACTIVE_LIMITS.footerMaxLength}`}
+              >
+                <Input
+                  value={value.footer ?? ""}
+                  maxLength={INTERACTIVE_LIMITS.footerMaxLength}
+                  onChange={(e) => setField({ footer: e.target.value })}
+                  className="bg-muted text-foreground"
+                />
+              </Field>
+            </div>
+          )}
 
           {value.kind === "buttons" ? (
             <ButtonsEditor value={value} onChange={onChange} advanced={advanced} />
-          ) : (
+          ) : value.kind === "list" ? (
             <ListEditor value={value} onChange={onChange} advanced={advanced} />
+          ) : (
+            <CarouselEditor value={value} onChange={onChange} advanced={advanced} />
           )}
 
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -434,6 +495,293 @@ function ListEditor({
             {t("addSection")}
           </Button>
         )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Carousel editor
+// ------------------------------------------------------------
+
+function CarouselEditor({
+  value,
+  onChange,
+  advanced,
+}: {
+  value: InteractiveCarouselPayload;
+  onChange: (p: InteractiveMessagePayload) => void;
+  advanced: boolean;
+}) {
+  const t = useTranslations("Interactive");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [uploading, setUploading] = useState(false);
+
+  const cards = value.cards;
+  const selectedIdx = Math.min(selectedIndex, cards.length - 1);
+  const selected = cards[selectedIdx];
+
+  const updateCard = (idx: number, patch: Partial<InteractiveCarouselCard>) =>
+    onChange({
+      ...value,
+      cards: cards.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
+    });
+
+  const addCard = () => {
+    if (cards.length >= INTERACTIVE_LIMITS.maxCarouselCards) return;
+    const id = nextId(
+      cards.map((c) => c.button_id ?? ""),
+      "card_",
+    );
+    onChange({ ...value, cards: [...cards, blankCarouselCard(value.button_mode, id)] });
+    setSelectedIndex(cards.length);
+  };
+
+  const removeCard = (idx: number) => {
+    if (cards.length <= INTERACTIVE_LIMITS.minCarouselCards) return;
+    onChange({ ...value, cards: cards.filter((_, i) => i !== idx) });
+    setSelectedIndex((i) => Math.min(i, cards.length - 2));
+  };
+
+  // Meta requires the same button type on every card — modeled once
+  // here rather than per-card (see InteractiveCarouselPayload). Switching
+  // clears the field the new mode doesn't use and seeds a stable id per
+  // card for quick_reply, same pattern as ButtonsEditor's button ids.
+  const setButtonMode = (mode: "url" | "quick_reply") => {
+    if (mode === value.button_mode) return;
+    onChange({
+      ...value,
+      button_mode: mode,
+      cards: cards.map((c, i) =>
+        mode === "url"
+          ? { ...c, button_url: c.button_url ?? "", button_id: undefined }
+          : { ...c, button_id: c.button_id ?? `card_${i + 1}`, button_url: undefined },
+      ),
+    });
+  };
+
+  const handleFile = useCallback(
+    async (idx: number, file: File) => {
+      if (file.size > MEDIA_MAX_BYTES) {
+        toast.error(t("fileTooLarge", { size: (file.size / 1024 / 1024).toFixed(1) }));
+        return;
+      }
+      setUploading(true);
+      try {
+        // Same account-scoped bucket Flows' send_media node uploads to —
+        // see CAROUSEL_MEDIA_BUCKET above.
+        const { publicUrl } = await uploadAccountMedia(CAROUSEL_MEDIA_BUCKET, file);
+        updateCard(idx, { header: { type: cards[idx].header.type, url: publicUrl } });
+        toast.success(t("fileUploaded"));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("uploadFailed"));
+      } finally {
+        setUploading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateCard closes over `cards`/`value` fresh each render; re-created every render is fine here, this only needs to be stable within one render.
+    [cards, value, t],
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <label className="mb-2 block text-xs text-muted-foreground">
+          {t("cardsCount", { count: cards.length, max: INTERACTIVE_LIMITS.maxCarouselCards })}
+        </label>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {cards.map((card, i) => (
+            <div key={i} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedIndex(i)}
+                className={cn(
+                  "flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-md border text-[10px] font-medium",
+                  i === selectedIdx
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground",
+                )}
+              >
+                {card.header.type === "video" ? (
+                  <Video className="h-4 w-4" />
+                ) : (
+                  <ImageIcon className="h-4 w-4" />
+                )}
+                {t("cardN", { n: i + 1 })}
+              </button>
+              {cards.length > INTERACTIVE_LIMITS.minCarouselCards && (
+                <button
+                  type="button"
+                  onClick={() => removeCard(i)}
+                  aria-label={t("removeCard")}
+                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-red-400"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
+          ))}
+          {cards.length < INTERACTIVE_LIMITS.maxCarouselCards && (
+            <button
+              type="button"
+              onClick={addCard}
+              className="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="text-[10px] font-medium">{t("addCard")}</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs text-muted-foreground">{t("cardButtonType")}</label>
+        <div className="flex gap-2">
+          <KindButton
+            active={value.button_mode === "url"}
+            label={t("websiteLink")}
+            onClick={() => setButtonMode("url")}
+          />
+          <KindButton
+            active={value.button_mode === "quick_reply"}
+            label={t("quickReply")}
+            onClick={() => setButtonMode("quick_reply")}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/40 p-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium">{t("cardHeaderLabel", { n: selectedIdx + 1 })}</span>
+          <div className="flex gap-1.5">
+            <KindButton
+              active={selected.header.type === "image"}
+              label={t("imageLabel")}
+              onClick={() => updateCard(selectedIdx, { header: { type: "image", url: "" } })}
+            />
+            <KindButton
+              active={selected.header.type === "video"}
+              label={t("videoLabel")}
+              onClick={() => updateCard(selectedIdx, { header: { type: "video", url: "" } })}
+            />
+          </div>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={CAROUSEL_HEADER_ACCEPT[selected.header.type]}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(selectedIdx, file);
+            e.target.value = "";
+          }}
+        />
+        {selected.header.url ? (
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
+            {selected.header.type === "video" ? (
+              <video
+                src={selected.header.url}
+                className="h-10 w-10 shrink-0 rounded object-cover"
+                muted
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={selected.header.url}
+                alt=""
+                className="h-10 w-10 shrink-0 rounded object-cover"
+              />
+            )}
+            <a
+              href={selected.header.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-w-0 flex-1 truncate text-foreground hover:text-primary"
+            >
+              {selected.header.url.split("/").pop()}
+            </a>
+            <button
+              type="button"
+              onClick={() => updateCard(selectedIdx, { header: { ...selected.header, url: "" } })}
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={t("removeFile")}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card px-3 py-3 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {uploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Upload className="h-3.5 w-3.5" />
+            )}
+            {uploading ? t("uploading") : t("uploadFile")}
+          </button>
+        )}
+
+        <Field
+          label={t("cardBodyLabel")}
+          counter={`${(selected.body ?? "").length}/${INTERACTIVE_LIMITS.carouselCardBodyMaxLength}`}
+        >
+          <Textarea
+            value={selected.body ?? ""}
+            maxLength={INTERACTIVE_LIMITS.carouselCardBodyMaxLength}
+            onChange={(e) => updateCard(selectedIdx, { body: e.target.value })}
+            placeholder={t("cardBodyPlaceholder")}
+            className="min-h-14 bg-card text-foreground"
+          />
+        </Field>
+
+        <div className="flex items-end gap-2">
+          {advanced && value.button_mode === "quick_reply" && (
+            <div className="w-24 shrink-0">
+              <label className="mb-1 block text-xs text-muted-foreground">{t("idPlaceholder")}</label>
+              <Input
+                value={selected.button_id ?? ""}
+                onChange={(e) =>
+                  updateCard(selectedIdx, {
+                    button_id: slugify(e.target.value, `card_${selectedIdx + 1}`),
+                  })
+                }
+                className="bg-card font-mono text-xs"
+              />
+            </div>
+          )}
+          <div className="flex-1">
+            <Field
+              label={t("buttonLabelPlaceholder")}
+              counter={`${selected.button_label.length}/${INTERACTIVE_LIMITS.buttonTitleMaxLength}`}
+            >
+              <Input
+                value={selected.button_label}
+                maxLength={INTERACTIVE_LIMITS.buttonTitleMaxLength}
+                onChange={(e) => updateCard(selectedIdx, { button_label: e.target.value })}
+                placeholder={t("buttonLabelPlaceholder")}
+                className="bg-card"
+              />
+            </Field>
+          </div>
+        </div>
+
+        {value.button_mode === "url" && (
+          <Field label={t("cardButtonUrlLabel")}>
+            <Input
+              value={selected.button_url ?? ""}
+              onChange={(e) => updateCard(selectedIdx, { button_url: e.target.value })}
+              placeholder={t("cardButtonUrlPlaceholder")}
+              className="bg-card"
+            />
+          </Field>
+        )}
+      </div>
     </div>
   );
 }

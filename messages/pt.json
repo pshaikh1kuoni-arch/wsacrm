@@ -1250,7 +1250,17 @@
         "fileUploaded": "Arquivo enviado.",
         "uploadFailed": "Falha no upload.",
         "fileTooLarge": "O arquivo tem {size} MB — o limite é 16 MB.",
-        "defaultOptionTitle": "Opção"
+        "defaultOptionTitle": "Opção",
+        "cardButtonType": "Tipo de botão do cartão",
+        "websiteLink": "Link do site",
+        "quickReply": "Resposta rápida",
+        "cardsCount": "Cartões ({count}/{max})",
+        "cardN": "Cartão {n}",
+        "removeCard": "Remover cartão",
+        "addCard": "Adicionar cartão",
+        "cardHeaderLabel": "Cabeçalho do cartão {n}",
+        "cardBodyLabel": "Texto do cartão (opcional)",
+        "cardButtonUrlPlaceholder": "https://…"
       },
       "categories": {
         "messaging": "Mensagens",
@@ -1273,6 +1283,10 @@
         "send_list": {
           "label": "Enviar lista",
           "blurb": "Envia uma lista de opções tocáveis"
+        },
+        "send_carousel": {
+          "label": "Enviar carrossel",
+          "blurb": "Envia uma faixa deslizável de cartões de mídia"
         },
         "send_media": {
           "label": "Enviar mídia",
@@ -1340,6 +1354,9 @@
       "opContains": "contém",
       "opExists": "existe",
       "opMissing": "ausente",
+      "cards": "{count} {count, plural, =1 {cartão} other {cartões}}",
+      "modeQuickReply": "resposta rápida",
+      "modeUrl": "link",
       "modeAdd": "Adicionar",
       "modeRemove": "Remover",
       "tagPicked": "{mode} tag {tag}…",
@@ -2071,7 +2088,28 @@
     "rowTitlePlaceholder": "Título da linha",
     "rowDescriptionPlaceholder": "Descrição (opcional)",
     "addRow": "Adicionar linha",
-    "addSection": "Adicionar seção"
+    "addSection": "Adicionar seção",
+    "carousel": "Carrossel",
+    "cardsCount": "Cartões ({count}/{max})",
+    "cardN": "Cartão {n}",
+    "cardHeaderLabel": "Cabeçalho do cartão {n}",
+    "removeCard": "Remover cartão",
+    "addCard": "Adicionar cartão",
+    "cardButtonType": "Tipo de botão do cartão",
+    "websiteLink": "Link do site",
+    "quickReply": "Resposta rápida",
+    "imageLabel": "Imagem",
+    "videoLabel": "Vídeo",
+    "uploadFile": "Enviar arquivo",
+    "uploading": "Enviando…",
+    "fileUploaded": "Arquivo enviado.",
+    "uploadFailed": "Falha no envio.",
+    "fileTooLarge": "O arquivo tem {size} MB — o limite é 16 MB.",
+    "removeFile": "Remover arquivo",
+    "cardBodyLabel": "Texto do cartão (opcional)",
+    "cardBodyPlaceholder": "O que aparece abaixo da imagem",
+    "cardButtonUrlLabel": "URL de destino",
+    "cardButtonUrlPlaceholder": "https://…"
   },
   "DashboardShell": {
     "loading": "Carregando..."

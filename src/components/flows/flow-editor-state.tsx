@@ -158,6 +158,16 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
           },
         ],
       };
+    case "send_carousel":
+      return {
+        body: "",
+        button_mode: "url",
+        cards: [
+          { header_type: "image", header_url: "", body: "", button_label: "", button_url: "" },
+          { header_type: "image", header_url: "", body: "", button_label: "", button_url: "" },
+        ],
+        next_node_key: "",
+      };
     case "send_media":
       return {
         media_type: "image",

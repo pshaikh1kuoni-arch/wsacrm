@@ -30,6 +30,11 @@ const h = vi.hoisted(() => ({
       args: Parameters<typeof engineSendInteractiveList>[0],
     ) => Promise<{ whatsapp_message_id: string }>
   >(async () => ({ whatsapp_message_id: "wamid.4" })),
+  sendCarousel: vi.fn<
+    (
+      args: Parameters<typeof engineSendInteractiveCarousel>[0],
+    ) => Promise<{ whatsapp_message_id: string }>
+  >(async () => ({ whatsapp_message_id: "wamid.5" })),
 }));
 
 vi.mock("./admin-client", () => {
@@ -83,6 +88,7 @@ vi.mock("./meta-send", () => ({
   engineSendMedia: vi.fn(async () => ({ whatsapp_message_id: "wamid.2" })),
   engineSendInteractiveButtons: h.sendButtons,
   engineSendInteractiveList: h.sendList,
+  engineSendInteractiveCarousel: h.sendCarousel,
 }));
 
 vi.mock("@/lib/automations/meta-send", () => ({
@@ -102,6 +108,7 @@ import {
 import type {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
+  engineSendInteractiveCarousel,
 } from "./meta-send";
 import type { ParsedInbound } from "./types";
 
@@ -192,6 +199,35 @@ describe("matchReplyId", () => {
       ),
     ).toBeNull();
   });
+
+  it("matches the cards array on a quick_reply-mode send_carousel node", () => {
+    const node = {
+      node_type: "send_carousel",
+      config: {
+        body: "Top picks",
+        button_mode: "quick_reply",
+        cards: [
+          { reply_id: "card_1", button_label: "Buy", next_node_key: "buy_1" },
+          { reply_id: "card_2", button_label: "Buy", next_node_key: "buy_2" },
+        ],
+      },
+    };
+    expect(matchReplyId(node, "card_1")).toBe("buy_1");
+    expect(matchReplyId(node, "card_2")).toBe("buy_2");
+    expect(matchReplyId(node, "card_99")).toBeNull();
+  });
+
+  it("returns null for a url-mode send_carousel node — no reply_id to match", () => {
+    const node = {
+      node_type: "send_carousel",
+      config: {
+        body: "Top picks",
+        button_mode: "url",
+        cards: [{ button_label: "Buy", button_url: "https://x" }],
+      },
+    };
+    expect(matchReplyId(node, "anything")).toBeNull();
+  });
 });
 
 describe("matchesKeywordTrigger", () => {
@@ -269,6 +305,17 @@ describe("node classification helpers", () => {
     expect(isSuspending("end")).toBe(false);
   });
 
+  it("send_carousel classifies by button_mode — url auto-advances, quick_reply suspends", () => {
+    expect(isAutoAdvancing("send_carousel", { button_mode: "url" })).toBe(true);
+    expect(isSuspending("send_carousel", { button_mode: "url" })).toBe(false);
+    expect(isAutoAdvancing("send_carousel", { button_mode: "quick_reply" })).toBe(false);
+    expect(isSuspending("send_carousel", { button_mode: "quick_reply" })).toBe(true);
+    // No config — defaults to url-mode's classification, matching
+    // blankCarouselPayload()'s default button_mode.
+    expect(isAutoAdvancing("send_carousel")).toBe(true);
+    expect(isSuspending("send_carousel")).toBe(false);
+  });
+
   it("isTerminal covers handoff + end", () => {
     expect(isTerminal("handoff")).toBe(true);
     expect(isTerminal("end")).toBe(true);
@@ -291,6 +338,7 @@ describe("node classification helpers", () => {
       "send_message",
       "send_buttons",
       "send_list",
+      "send_carousel",
       "send_media",
       "send_template",
       "wait_followup",

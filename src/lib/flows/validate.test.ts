@@ -516,6 +516,241 @@ describe("validateFlowForActivation — send_media", () => {
   });
 });
 
+describe("validateFlowForActivation — send_carousel", () => {
+  const baseFlow = { ...validFlow, entry_node_id: "s" };
+  const CARD = {
+    header_type: "image",
+    header_url: "https://cdn.example/a.jpg",
+    body: "Sandalwood — ₹1,499",
+    button_label: "Buy now",
+  };
+  const nodesWith = (carouselConfig: Record<string, unknown>) => [
+    { node_key: "s", node_type: "start", config: { next_node_key: "c" } },
+    { node_key: "c", node_type: "send_carousel", config: carouselConfig },
+    { node_key: "h", node_type: "handoff", config: {} },
+    { node_key: "h2", node_type: "handoff", config: {} },
+  ];
+
+  it("passes on a fully-populated url-mode node", () => {
+    // Only one target in scope — url mode routes through a single
+    // node-level next_node_key, so (unlike the quick_reply case below)
+    // there's no second handoff for a two-handoff nodesWith() to leave
+    // dangling as "unreachable".
+    const issues = validateFlowForActivation(baseFlow, [
+      { node_key: "s", node_type: "start", config: { next_node_key: "c" } },
+      {
+        node_key: "c",
+        node_type: "send_carousel",
+        config: {
+          body: "Top picks",
+          button_mode: "url",
+          cards: [
+            { ...CARD, button_url: "https://shop.example/a" },
+            { ...CARD, button_url: "https://shop.example/b" },
+          ],
+          next_node_key: "h",
+        },
+      },
+      { node_key: "h", node_type: "handoff", config: {} },
+    ]);
+    expect(issues).toEqual([]);
+  });
+
+  it("passes on a fully-populated quick_reply-mode node", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "Top picks",
+        button_mode: "quick_reply",
+        cards: [
+          { ...CARD, reply_id: "c1", next_node_key: "h" },
+          { ...CARD, reply_id: "c2", next_node_key: "h2" },
+        ],
+      }),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("flags fewer than 2 cards and more than 10", () => {
+    const tooFew = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        button_mode: "url",
+        cards: [{ ...CARD, button_url: "https://x" }],
+        next_node_key: "h",
+      }),
+    );
+    expect(tooFew.some((i) => i.node_key === "c" && i.field === "cards")).toBe(true);
+
+    const tooMany = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        button_mode: "url",
+        cards: Array.from({ length: 11 }, () => ({ ...CARD, button_url: "https://x" })),
+        next_node_key: "h",
+      }),
+    );
+    expect(tooMany.some((i) => i.node_key === "c" && i.field === "cards")).toBe(true);
+  });
+
+  it("flags a missing button_mode", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        cards: [
+          { ...CARD, button_url: "https://x" },
+          { ...CARD, button_url: "https://y" },
+        ],
+        next_node_key: "h",
+      }),
+    );
+    expect(issues.some((i) => i.node_key === "c" && i.field === "button_mode")).toBe(true);
+  });
+
+  it("flags a card missing its header", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        button_mode: "url",
+        cards: [
+          { button_label: "Buy", button_url: "https://x" },
+          { ...CARD, button_url: "https://y" },
+        ],
+        next_node_key: "h",
+      }),
+    );
+    expect(
+      issues.some((i) => i.node_key === "c" && i.field === "cards.0.header_url"),
+    ).toBe(true);
+  });
+
+  it("flags card body over 160 chars", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        button_mode: "url",
+        cards: [
+          { ...CARD, body: "x".repeat(161), button_url: "https://x" },
+          { ...CARD, button_url: "https://y" },
+        ],
+        next_node_key: "h",
+      }),
+    );
+    expect(issues.some((i) => i.node_key === "c" && i.field === "cards.0.body")).toBe(true);
+  });
+
+  it("url mode: flags a card missing button_url, and a missing node-level next_node_key", () => {
+    const missingUrl = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        button_mode: "url",
+        cards: [CARD, { ...CARD, button_url: "https://y" }],
+        next_node_key: "h",
+      }),
+    );
+    expect(
+      missingUrl.some((i) => i.node_key === "c" && i.field === "cards.0.button_url"),
+    ).toBe(true);
+
+    const missingNext = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        button_mode: "url",
+        cards: [
+          { ...CARD, button_url: "https://x" },
+          { ...CARD, button_url: "https://y" },
+        ],
+      }),
+    );
+    expect(
+      missingNext.some((i) => i.node_key === "c" && i.field === "next_node_key"),
+    ).toBe(true);
+  });
+
+  it("quick_reply mode: flags a missing reply_id, duplicate reply_ids, and a next_node_key pointing nowhere", () => {
+    const missingId = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        button_mode: "quick_reply",
+        cards: [CARD, { ...CARD, reply_id: "c2", next_node_key: "h" }],
+      }),
+    );
+    expect(
+      missingId.some((i) => i.node_key === "c" && i.field === "cards.0.reply_id"),
+    ).toBe(true);
+
+    const dup = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        button_mode: "quick_reply",
+        cards: [
+          { ...CARD, reply_id: "same", next_node_key: "h" },
+          { ...CARD, reply_id: "same", next_node_key: "h2" },
+        ],
+      }),
+    );
+    expect(dup.some((i) => i.node_key === "c" && i.field === "cards.1.reply_id")).toBe(true);
+
+    const ghost = validateFlowForActivation(
+      baseFlow,
+      nodesWith({
+        body: "x",
+        button_mode: "quick_reply",
+        cards: [
+          { ...CARD, reply_id: "c1", next_node_key: "ghost" },
+          { ...CARD, reply_id: "c2", next_node_key: "h" },
+        ],
+      }),
+    );
+    expect(
+      ghost.some(
+        (i) =>
+          i.node_key === "c" &&
+          i.field === "cards.0.next_node_key" &&
+          i.message.includes("ghost"),
+      ),
+    ).toBe(true);
+  });
+
+  it("contributes to reachability: node-level next_node_key in url mode, per-card in quick_reply mode", () => {
+    const urlSet = reachableFromEntry(
+      "s",
+      nodesWith({
+        body: "x",
+        button_mode: "url",
+        cards: [
+          { ...CARD, button_url: "https://x" },
+          { ...CARD, button_url: "https://y" },
+        ],
+        next_node_key: "h",
+      }),
+    );
+    expect(urlSet).toEqual(new Set(["s", "c", "h"]));
+
+    const qrSet = reachableFromEntry(
+      "s",
+      nodesWith({
+        body: "x",
+        button_mode: "quick_reply",
+        cards: [
+          { ...CARD, reply_id: "c1", next_node_key: "h" },
+          { ...CARD, reply_id: "c2", next_node_key: "h2" },
+        ],
+      }),
+    );
+    expect(qrSet).toEqual(new Set(["s", "c", "h", "h2"]));
+  });
+});
+
 describe("validateFlowForActivation — send_template", () => {
   const baseFlow = { ...validFlow, entry_node_id: "s" };
   const nodesWith = (templateConfig: Record<string, unknown>) => [

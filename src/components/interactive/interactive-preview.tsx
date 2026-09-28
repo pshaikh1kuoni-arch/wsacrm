@@ -1,6 +1,6 @@
 "use client";
 
-import { List, Reply } from "lucide-react";
+import { Image as ImageIcon, List, Reply, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { InteractiveMessagePayload } from "@/lib/whatsapp/interactive";
 
@@ -45,7 +45,7 @@ export function InteractivePreview({
       )}
     >
       <div className="px-3 py-2">
-        {payload.header ? (
+        {payload.kind !== "carousel" && payload.header ? (
           <p className="mb-1 break-words text-sm font-semibold">
             {payload.header}
           </p>
@@ -55,7 +55,7 @@ export function InteractivePreview({
             <span className="text-muted-foreground">{bodyLabel}</span>
           )}
         </p>
-        {payload.footer ? (
+        {payload.kind !== "carousel" && payload.footer ? (
           <p className="mt-1 break-words text-[11px] text-muted-foreground">
             {payload.footer}
           </p>
@@ -76,7 +76,7 @@ export function InteractivePreview({
             </button>
           ))}
         </div>
-      ) : (
+      ) : payload.kind === "list" ? (
         <button
           type="button"
           disabled
@@ -85,6 +85,55 @@ export function InteractivePreview({
           <List className="h-3.5 w-3.5" />
           <span className="truncate">{payload.button_label || menuLabel}</span>
         </button>
+      ) : (
+        <div className="border-t border-border py-2">
+          <div className="flex gap-2 overflow-x-auto px-3 pb-1">
+            {payload.cards.map((card, i) => (
+              <div
+                key={i}
+                className="w-28 shrink-0 overflow-hidden rounded-md border border-border"
+              >
+                <div className="flex h-16 items-center justify-center bg-muted">
+                  {card.header.url ? (
+                    card.header.type === "video" ? (
+                      <video
+                        src={card.header.url}
+                        className="h-full w-full object-cover"
+                        muted
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={card.header.url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    )
+                  ) : card.header.type === "video" ? (
+                    <Video className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-1 bg-card p-1.5">
+                  {card.body ? (
+                    <p className="line-clamp-2 whitespace-pre-wrap break-words text-[10px]">
+                      {card.body}
+                    </p>
+                  ) : null}
+                  <span className="truncate border-t border-border pt-1 text-center text-[10px] font-medium text-primary">
+                    {card.button_label || buttonLabel}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex justify-center gap-1">
+            {payload.cards.map((_, i) => (
+              <span key={i} className="h-1 w-1 rounded-full bg-border" />
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1250,7 +1250,17 @@
         "fileUploaded": "Archivo subido.",
         "uploadFailed": "Error al subir.",
         "fileTooLarge": "El archivo pesa {size} MB; el límite es 16 MB.",
-        "defaultOptionTitle": "Opción"
+        "defaultOptionTitle": "Opción",
+        "cardButtonType": "Tipo de botón de la tarjeta",
+        "websiteLink": "Enlace web",
+        "quickReply": "Respuesta rápida",
+        "cardsCount": "Tarjetas ({count}/{max})",
+        "cardN": "Tarjeta {n}",
+        "removeCard": "Quitar tarjeta",
+        "addCard": "Agregar tarjeta",
+        "cardHeaderLabel": "Encabezado de la tarjeta {n}",
+        "cardBodyLabel": "Texto de la tarjeta (opcional)",
+        "cardButtonUrlPlaceholder": "https://…"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -1273,6 +1283,10 @@
         "send_list": {
           "label": "Enviar lista",
           "blurb": "Envía una lista de opciones para tocar"
+        },
+        "send_carousel": {
+          "label": "Enviar carrusel",
+          "blurb": "Envía una tira deslizable de tarjetas multimedia"
         },
         "send_media": {
           "label": "Enviar archivo",
@@ -1340,6 +1354,9 @@
       "opContains": "contiene",
       "opExists": "existe",
       "opMissing": "falta",
+      "cards": "{count} {count, plural, =1 {tarjeta} other {tarjetas}}",
+      "modeQuickReply": "respuesta rápida",
+      "modeUrl": "enlace",
       "modeAdd": "Agregar",
       "modeRemove": "Quitar",
       "tagPicked": "{mode} etiqueta {tag}…",
@@ -2071,7 +2088,28 @@
     "rowTitlePlaceholder": "Título de la fila",
     "rowDescriptionPlaceholder": "Descripción (opcional)",
     "addRow": "Agregar fila",
-    "addSection": "Agregar sección"
+    "addSection": "Agregar sección",
+    "carousel": "Carrusel",
+    "cardsCount": "Tarjetas ({count}/{max})",
+    "cardN": "Tarjeta {n}",
+    "cardHeaderLabel": "Encabezado de la tarjeta {n}",
+    "removeCard": "Quitar tarjeta",
+    "addCard": "Agregar tarjeta",
+    "cardButtonType": "Tipo de botón de la tarjeta",
+    "websiteLink": "Enlace web",
+    "quickReply": "Respuesta rápida",
+    "imageLabel": "Imagen",
+    "videoLabel": "Video",
+    "uploadFile": "Subir archivo",
+    "uploading": "Subiendo…",
+    "fileUploaded": "Archivo subido.",
+    "uploadFailed": "Error al subir.",
+    "fileTooLarge": "El archivo pesa {size} MB — el límite es 16 MB.",
+    "removeFile": "Quitar archivo",
+    "cardBodyLabel": "Texto de la tarjeta (opcional)",
+    "cardBodyPlaceholder": "Lo que aparece debajo de la imagen",
+    "cardButtonUrlLabel": "URL de destino",
+    "cardButtonUrlPlaceholder": "https://…"
   },
   "DashboardShell": {
     "loading": "Cargando..."

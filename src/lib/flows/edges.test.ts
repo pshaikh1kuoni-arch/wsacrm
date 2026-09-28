@@ -282,6 +282,56 @@ describe("deriveCanvasEdges — send_list (per-row across sections)", () => {
   });
 });
 
+describe("deriveCanvasEdges — send_carousel (dual-mode)", () => {
+  it("url mode: a single 'next' edge from the node-level next_node_key", () => {
+    const edges = deriveCanvasEdges(
+      nodes(
+        {
+          node_key: "carousel",
+          node_type: "send_carousel",
+          config: {
+            body: "Picks",
+            button_mode: "url",
+            cards: [{ button_label: "Buy", button_url: "https://x" }],
+            next_node_key: "after",
+          },
+        },
+        { node_key: "after", node_type: "end", config: {} },
+      ),
+    );
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({
+      source: "carousel",
+      target: "after",
+      sourceHandle: "next",
+    });
+  });
+
+  it("quick_reply mode: one edge per card, with `card:<reply_id>` handles", () => {
+    const edges = deriveCanvasEdges(
+      nodes(
+        {
+          node_key: "carousel",
+          node_type: "send_carousel",
+          config: {
+            body: "Picks",
+            button_mode: "quick_reply",
+            cards: [
+              { reply_id: "c1", button_label: "Buy A", next_node_key: "a" },
+              { reply_id: "c2", button_label: "Buy B", next_node_key: "b" },
+            ],
+          },
+        },
+        { node_key: "a", node_type: "end", config: {} },
+        { node_key: "b", node_type: "end", config: {} },
+      ),
+    );
+    expect(edges).toHaveLength(2);
+    expect(edges[0]).toMatchObject({ sourceHandle: "card:c1", label: "Buy A", target: "a" });
+    expect(edges[1]).toMatchObject({ sourceHandle: "card:c2", label: "Buy B", target: "b" });
+  });
+});
+
 describe("deriveCanvasEdges — terminal nodes", () => {
   it("emits no outgoing edges from handoff / end", () => {
     const edges = deriveCanvasEdges(
@@ -411,6 +461,32 @@ describe("outgoingSlots", () => {
       outgoingSlots({ node_key: "e", node_type: "end", config: {} }),
     ).toEqual([]);
   });
+
+  it("send_carousel: a single 'next' slot in url mode, one per card in quick_reply mode", () => {
+    expect(
+      outgoingSlots({
+        node_key: "c",
+        node_type: "send_carousel",
+        config: { button_mode: "url", cards: [{ button_label: "Buy" }] },
+      }),
+    ).toEqual([{ id: "next", label: "Next" }]);
+
+    const slots = outgoingSlots({
+      node_key: "c",
+      node_type: "send_carousel",
+      config: {
+        button_mode: "quick_reply",
+        cards: [
+          { reply_id: "c1", button_label: "Buy A" },
+          { reply_id: "c2", button_label: "Buy B" },
+        ],
+      },
+    });
+    expect(slots).toEqual([
+      { id: "card:c1", label: "Buy A" },
+      { id: "card:c2", label: "Buy B" },
+    ]);
+  });
 });
 
 describe("applyEdgeConnection", () => {
@@ -505,6 +581,36 @@ describe("applyEdgeConnection", () => {
     };
     expect(patch.sections[0].rows[0].next_node_key).toBe("");
     expect(patch.sections[1].rows[0].next_node_key).toBe("tgt");
+  });
+
+  it("send_carousel: 'next' patches the node-level key in url mode, 'card:<id>' patches the matching card in quick_reply mode", () => {
+    const urlNode: BuilderNode = {
+      node_key: "c",
+      node_type: "send_carousel",
+      config: { button_mode: "url", cards: [{ button_label: "Buy" }], next_node_key: "" },
+    };
+    expect(applyEdgeConnection(urlNode, "next", "after")).toEqual({
+      next_node_key: "after",
+    });
+    expect(applyEdgeConnection(urlNode, "card:c1", "x")).toBeNull();
+
+    const qrNode: BuilderNode = {
+      node_key: "c",
+      node_type: "send_carousel",
+      config: {
+        button_mode: "quick_reply",
+        cards: [
+          { reply_id: "c1", button_label: "A", next_node_key: "" },
+          { reply_id: "c2", button_label: "B", next_node_key: "" },
+        ],
+      },
+    };
+    const patch = applyEdgeConnection(qrNode, "card:c2", "buy_2") as {
+      cards: Array<{ reply_id: string; next_node_key: string }>;
+    };
+    expect(patch.cards[0].next_node_key).toBe("");
+    expect(patch.cards[1].next_node_key).toBe("buy_2");
+    expect(applyEdgeConnection(qrNode, "next", "x")).toBeNull();
   });
 
   it("returns null for terminal nodes (no outgoing)", () => {
@@ -606,6 +712,38 @@ describe("unlinkNodeReferences", () => {
     }).sections[0].rows;
     expect(rows[0].next_node_key).toBe("");
     expect(rows[1].next_node_key).toBe("safe");
+  });
+
+  it("send_carousel: clears the node-level next_node_key in url mode, only the matching card in quick_reply mode", () => {
+    const urlBefore: BuilderNode[] = [
+      {
+        node_key: "c",
+        node_type: "send_carousel",
+        config: { button_mode: "url", cards: [{ button_label: "Buy" }], next_node_key: "victim" },
+      },
+    ];
+    const urlAfter = unlinkNodeReferences(urlBefore, "victim");
+    expect((urlAfter[0].config as { next_node_key: string }).next_node_key).toBe("");
+
+    const qrBefore: BuilderNode[] = [
+      {
+        node_key: "c",
+        node_type: "send_carousel",
+        config: {
+          button_mode: "quick_reply",
+          cards: [
+            { reply_id: "c1", next_node_key: "victim" },
+            { reply_id: "c2", next_node_key: "safe" },
+          ],
+        },
+      },
+    ];
+    const qrAfter = unlinkNodeReferences(qrBefore, "victim");
+    const cards = (qrAfter[0].config as {
+      cards: Array<{ reply_id: string; next_node_key: string }>;
+    }).cards;
+    expect(cards[0].next_node_key).toBe("");
+    expect(cards[1].next_node_key).toBe("safe");
   });
 
   it("returns the input nodes by identity when none reference the deleted key (no-op path)", () => {

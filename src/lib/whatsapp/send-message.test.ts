@@ -128,6 +128,29 @@ describe('sendMessageToConversation — param validation (pre-DB)', () => {
       400,
       /20-character limit/
     );
+    // Carousel: too few cards — proves the carousel branch of
+    // validateInteractivePayload is actually wired into this dispatch,
+    // not just exercised directly in interactive.test.ts.
+    await expectSendError(
+      {
+        ...base,
+        messageType: 'interactive',
+        interactivePayload: {
+          kind: 'carousel',
+          body: 'Top picks',
+          button_mode: 'url',
+          cards: [
+            {
+              header: { type: 'image', url: 'https://example.com/a.jpg' },
+              button_label: 'Buy now',
+              button_url: 'https://shop.example.com/a',
+            },
+          ],
+        },
+      },
+      400,
+      /at least 2 cards/
+    );
   });
 
   it('allows a long "caption" on audio (audio carries none) — so it reaches the DB', async () => {
@@ -174,6 +197,7 @@ vi.mock('@/lib/whatsapp/meta-api', async (importOriginal) => ({
   sendMediaMessage: vi.fn(async () => ({ messageId: 'wamid.media' })),
   sendInteractiveButtons: vi.fn(async () => ({ messageId: 'wamid.btn' })),
   sendInteractiveList: vi.fn(async () => ({ messageId: 'wamid.list' })),
+  sendInteractiveCarousel: vi.fn(async () => ({ messageId: 'wamid.carousel' })),
 }));
 
 vi.mock('@/lib/whatsapp/encryption', () => ({

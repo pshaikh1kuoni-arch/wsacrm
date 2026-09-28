@@ -953,6 +953,13 @@ export const INTERACTIVE_LIMITS = {
   bodyMaxLength: 1024,
   footerMaxLength: 60,
   headerTextMaxLength: 60,
+  // Carousel — button label reuses buttonTitleMaxLength (Meta caps both
+  // at 20 chars). Card count and card body length are carousel-only
+  // limits: developers.facebook.com/documentation/business-messaging/
+  // whatsapp/messages/interactive-media-carousel-messages
+  minCarouselCards: 2,
+  maxCarouselCards: 10,
+  carouselCardBodyMaxLength: 160,
 } as const
 
 export interface InteractiveButton {
@@ -1161,6 +1168,169 @@ export async function sendInteractiveList(
   }
   if (headerText) interactive.header = { type: 'text', text: headerText }
   if (footerText) interactive.footer = { text: footerText }
+
+  const body: Record<string, unknown> = {
+    messaging_product: 'whatsapp',
+    ...recipientFields(to),
+    type: 'interactive',
+    interactive,
+  }
+  if (contextMessageId) body.context = { message_id: contextMessageId }
+
+  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
+
+export interface InteractiveCarouselCard {
+  /** Cards only support media headers — no text/document/location. */
+  headerType: 'image' | 'video'
+  /** Public URL Meta will fetch for the card's header media. */
+  headerUrl: string
+  /** Optional card text (≤ 160 chars, ≤ 2 line breaks per Meta). */
+  bodyText?: string
+  /** Visible label on the card's button (≤ 20 chars per Meta). */
+  buttonLabel: string
+  /** Set when the carousel's `buttonMode` is `'url'`. */
+  buttonUrl?: string
+  /** Set when `buttonMode` is `'quick_reply'` — echoed back in the
+   *  webhook when tapped, same role as `InteractiveButton.id`. */
+  buttonId?: string
+}
+
+export interface SendInteractiveCarouselArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  /** Main message text shown above the cards (≤ 1024 chars). */
+  bodyText: string
+  /** Fixed across every card — Meta rejects mixing button types. */
+  buttonMode: 'url' | 'quick_reply'
+  /** 2–10 cards. */
+  cards: InteractiveCarouselCard[]
+  contextMessageId?: string
+}
+
+/**
+ * Send an interactive carousel — a horizontal strip of 2–10 media
+ * cards, each with its own header, optional text, and one button.
+ * Session-only (no Meta template review), same as
+ * `sendInteractiveButtons`/`sendInteractiveList`. A quick-reply tap
+ * arrives via the ordinary `messages[0].interactive.button_reply.id`
+ * webhook shape — confirmed against Meta's webhook reference, which
+ * documents no carousel-specific variant, so no webhook changes were
+ * needed to receive these taps.
+ *
+ * Validation throws BEFORE the network call, same reasoning as the
+ * other two interactive senders: misconfigured flows fail at save
+ * time, not during a live conversation.
+ */
+export async function sendInteractiveCarousel(
+  args: SendInteractiveCarouselArgs
+): Promise<MetaSendResult> {
+  const {
+    phoneNumberId, accessToken, to,
+    bodyText, buttonMode, cards, contextMessageId,
+  } = args
+  validateInteractiveBody(bodyText)
+  if (
+    cards.length < INTERACTIVE_LIMITS.minCarouselCards ||
+    cards.length > INTERACTIVE_LIMITS.maxCarouselCards
+  ) {
+    throw new Error(
+      `Interactive carousel requires ${INTERACTIVE_LIMITS.minCarouselCards}-${INTERACTIVE_LIMITS.maxCarouselCards} cards (got ${cards.length}).`
+    )
+  }
+  if (buttonMode !== 'url' && buttonMode !== 'quick_reply') {
+    throw new Error(
+      `Interactive carousel buttonMode must be 'url' or 'quick_reply' (got "${buttonMode}").`
+    )
+  }
+  const seenButtonIds = new Set<string>()
+  cards.forEach((card, i) => {
+    const n = i + 1
+    if (card.headerType !== 'image' && card.headerType !== 'video') {
+      throw new Error(`Carousel card ${n} needs an image or video header.`)
+    }
+    if (!card.headerUrl) {
+      throw new Error(`Carousel card ${n} is missing its header media URL.`)
+    }
+    if (card.bodyText && card.bodyText.length > INTERACTIVE_LIMITS.carouselCardBodyMaxLength) {
+      throw new Error(
+        `Carousel card ${n} text exceeds ${INTERACTIVE_LIMITS.carouselCardBodyMaxLength} chars.`
+      )
+    }
+    if (!card.buttonLabel) {
+      throw new Error(`Carousel card ${n} needs a button label.`)
+    }
+    if (card.buttonLabel.length > INTERACTIVE_LIMITS.buttonTitleMaxLength) {
+      throw new Error(
+        `Carousel card ${n} button label exceeds ${INTERACTIVE_LIMITS.buttonTitleMaxLength} chars.`
+      )
+    }
+    if (buttonMode === 'url') {
+      if (!card.buttonUrl) {
+        throw new Error(`Carousel card ${n} needs a destination URL.`)
+      }
+    } else {
+      if (!card.buttonId) {
+        throw new Error(`Carousel card ${n} button is missing an id.`)
+      }
+      // Same reasoning as sendInteractiveButtons above: duplicate ids
+      // make the tapped-button webhook ambiguous, and the pre-flight
+      // validator (interactive.ts) rejects them too — guard here to
+      // keep the two paths in step.
+      if (seenButtonIds.has(card.buttonId)) {
+        throw new Error(`Interactive carousel has duplicate card button id "${card.buttonId}".`)
+      }
+      seenButtonIds.add(card.buttonId)
+    }
+  })
+
+  const interactive: Record<string, unknown> = {
+    type: 'carousel',
+    body: { text: bodyText },
+    action: {
+      cards: cards.map((card, i) => ({
+        card_index: i,
+        // Meta's card wrapper `type` is always 'cta_url', even on a
+        // quick-reply carousel — confirmed against Meta's own example
+        // payloads for both button variants; only the nested `action`
+        // shape below differs by buttonMode.
+        type: 'cta_url',
+        header: {
+          type: card.headerType,
+          [card.headerType]: { link: card.headerUrl },
+        },
+        ...(card.bodyText ? { body: { text: card.bodyText } } : {}),
+        action:
+          buttonMode === 'url'
+            ? {
+                name: 'cta_url',
+                parameters: { display_text: card.buttonLabel, url: card.buttonUrl },
+              }
+            : {
+                buttons: [
+                  {
+                    type: 'quick_reply',
+                    quick_reply: { id: card.buttonId, title: card.buttonLabel },
+                  },
+                ],
+              },
+      })),
+    },
+  }
 
   const body: Record<string, unknown> = {
     messaging_product: 'whatsapp',

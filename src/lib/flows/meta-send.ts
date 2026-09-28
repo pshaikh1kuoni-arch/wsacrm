@@ -1,10 +1,12 @@
 import {
   sendInteractiveButtons,
   sendInteractiveList,
+  sendInteractiveCarousel,
   sendMediaMessage,
   sendTextMessage,
   type InteractiveButton,
   type InteractiveListSection,
+  type InteractiveCarouselCard,
   type MediaKind,
 } from '@/lib/whatsapp/meta-api'
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
@@ -311,6 +313,16 @@ interface SendInteractiveListEngineArgs {
   footerText?: string
 }
 
+interface SendInteractiveCarouselEngineArgs {
+  accountId: string
+  userId: string
+  conversationId: string
+  contactId: string
+  bodyText: string
+  buttonMode: 'url' | 'quick_reply'
+  cards: InteractiveCarouselCard[]
+}
+
 /**
  * Send an interactive-button WhatsApp message from the Flows engine.
  *
@@ -338,9 +350,21 @@ export async function engineSendInteractiveList(
   return sendInteractiveViaMeta({ ...args, kind: 'list' })
 }
 
+/**
+ * Send an interactive carousel WhatsApp message from the Flows engine.
+ * Used by the `send_carousel` node — session-only, same track as the
+ * two senders above (no Meta template review).
+ */
+export async function engineSendInteractiveCarousel(
+  args: SendInteractiveCarouselEngineArgs,
+): Promise<{ whatsapp_message_id: string }> {
+  return sendInteractiveViaMeta({ ...args, kind: 'carousel' })
+}
+
 type SendInput =
   | (SendInteractiveButtonsEngineArgs & { kind: 'buttons' })
   | (SendInteractiveListEngineArgs & { kind: 'list' })
+  | (SendInteractiveCarouselEngineArgs & { kind: 'carousel' })
 
 async function sendInteractiveViaMeta(
   input: SendInput,
@@ -388,15 +412,26 @@ async function sendInteractiveViaMeta(
       })
       return r.messageId
     }
-    const r = await sendInteractiveList({
+    if (input.kind === 'list') {
+      const r = await sendInteractiveList({
+        phoneNumberId,
+        accessToken,
+        to: phone,
+        bodyText: input.bodyText,
+        buttonLabel: input.buttonLabel,
+        sections: input.sections,
+        headerText: input.headerText,
+        footerText: input.footerText,
+      })
+      return r.messageId
+    }
+    const r = await sendInteractiveCarousel({
       phoneNumberId,
       accessToken,
       to: phone,
       bodyText: input.bodyText,
-      buttonLabel: input.buttonLabel,
-      sections: input.sections,
-      headerText: input.headerText,
-      footerText: input.footerText,
+      buttonMode: input.buttonMode,
+      cards: input.cards,
     })
     return r.messageId
   }
@@ -446,14 +481,27 @@ async function sendInteractiveViaMeta(
           footer: input.footerText,
           buttons: input.buttons,
         }
-      : {
-          kind: 'list',
-          body: input.bodyText,
-          header: input.headerText,
-          footer: input.footerText,
-          button_label: input.buttonLabel,
-          sections: input.sections,
-        }
+      : input.kind === 'list'
+        ? {
+            kind: 'list',
+            body: input.bodyText,
+            header: input.headerText,
+            footer: input.footerText,
+            button_label: input.buttonLabel,
+            sections: input.sections,
+          }
+        : {
+            kind: 'carousel',
+            body: input.bodyText,
+            button_mode: input.buttonMode,
+            cards: input.cards.map((c) => ({
+              header: { type: c.headerType, url: c.headerUrl },
+              body: c.bodyText,
+              button_label: c.buttonLabel,
+              button_url: c.buttonUrl,
+              button_id: c.buttonId,
+            })),
+          }
 
   const { error: msgErr } = await db.from('messages').insert({
     conversation_id: input.conversationId,

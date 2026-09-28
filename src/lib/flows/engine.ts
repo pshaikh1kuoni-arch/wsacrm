@@ -36,6 +36,7 @@ import { supabaseAdmin } from "./admin-client";
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
+  engineSendInteractiveCarousel,
   engineSendMedia,
   engineSendText,
 } from "./meta-send";
@@ -71,6 +72,7 @@ import {
   type ParsedInbound,
   type SendButtonsNodeConfig,
   type SendListNodeConfig,
+  type SendCarouselNodeConfig,
   type SendMediaNodeConfig,
   type SendMessageNodeConfig,
   type SendTemplateNodeConfig,
@@ -105,6 +107,11 @@ export function matchReplyId(
       if (hit) return hit.next_node_key;
     }
     return null;
+  }
+  if (node.node_type === "send_carousel") {
+    const cfg = node.config as unknown as SendCarouselNodeConfig;
+    const hit = cfg.cards?.find((c) => c.reply_id === reply_id);
+    return hit?.next_node_key ?? null;
   }
   return null;
 }
@@ -153,8 +160,19 @@ export function entryTriggerTexts(message: ParsedInbound): string[] {
   );
 }
 
-/** Nodes that advance to a next_node_key without waiting for input. */
-export function isAutoAdvancing(node_type: string): boolean {
+/**
+ * Nodes that advance to a next_node_key without waiting for input.
+ *
+ * `send_carousel` is dual-mode (see `SendCarouselNodeConfig` in
+ * types.ts) — pass its `config` so this can tell which behaviour
+ * applies; omitting it defaults to url-mode's classification (matches
+ * `blankCarouselPayload()`'s default button_mode).
+ */
+export function isAutoAdvancing(
+  node_type: string,
+  config?: { button_mode?: string },
+): boolean {
+  if (node_type === "send_carousel") return config?.button_mode !== "quick_reply";
   return (
     node_type === "start" ||
     node_type === "send_message" ||
@@ -173,7 +191,11 @@ export function isAutoAdvancing(node_type: string): boolean {
  * they actually said, rather than firing on stale context the instant
  * the flow reaches it.
  */
-export function isSuspending(node_type: string): boolean {
+export function isSuspending(
+  node_type: string,
+  config?: { button_mode?: string },
+): boolean {
+  if (node_type === "send_carousel") return config?.button_mode === "quick_reply";
   return (
     node_type === "ai_agent" ||
     node_type === "send_buttons" ||
@@ -501,6 +523,55 @@ async function sendListAndSuspend(
   });
   await logEvent(db, run.id, "message_sent", node.node_key, {
     node_type: "send_list",
+    whatsapp_message_id,
+  });
+  const { data: msg } = await db
+    .from("messages")
+    .select("id")
+    .eq("message_id", whatsapp_message_id)
+    .maybeSingle();
+  await db
+    .from("flow_runs")
+    .update({
+      last_prompt_message_id: (msg as { id: string } | null)?.id ?? null,
+    })
+    .eq("id", run.id);
+  return { outcome: "advanced", node_key: node.node_key };
+}
+
+/**
+ * Sends a quick-reply-mode carousel and suspends. Used by both the
+ * initial send in `advanceFromNodeKey` and the reprompt path in
+ * `handleReplyForActiveRun` — url-mode carousels never reach either,
+ * since a url button tap fires no webhook to suspend/reprompt on (see
+ * `SendCarouselNodeConfig`'s doc comment in types.ts).
+ */
+async function sendCarouselAndSuspend(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+): Promise<{ outcome: "advanced"; node_key: string }> {
+  const cfg = node.config as unknown as SendCarouselNodeConfig;
+  const { whatsapp_message_id } = await engineSendInteractiveCarousel({
+    accountId: run.account_id,
+    userId: run.user_id,
+    conversationId: run.conversation_id!,
+    contactId: run.contact_id!,
+    bodyText: interpolateVars(cfg.body, run.vars),
+    buttonMode: cfg.button_mode,
+    // reply_id is deliberately NOT interpolated — same reasoning as
+    // sendButtonsAndSuspend's reply_id above: it's the routing key
+    // matchReplyId compares the tap against.
+    cards: cfg.cards.map((c) => ({
+      headerType: c.header_type,
+      headerUrl: c.header_url,
+      bodyText: interpolateOptionalVars(c.body, run.vars),
+      buttonLabel: interpolateVars(c.button_label, run.vars),
+      buttonId: c.reply_id,
+    })),
+  });
+  await logEvent(db, run.id, "message_sent", node.node_key, {
+    node_type: "send_carousel",
     whatsapp_message_id,
   });
   const { data: msg } = await db
@@ -1205,6 +1276,68 @@ async function advanceFromNodeKey(
       }
       return { outcome: "advanced" };
     }
+    if (node.node_type === "send_carousel") {
+      const cfg = node.config as unknown as SendCarouselNodeConfig;
+      if (cfg.button_mode !== "quick_reply") {
+        // url mode — a card's button opens a link client-side; Meta
+        // never sends a webhook for that tap, so fire and auto-advance,
+        // same shape as send_media/send_template above.
+        try {
+          const { whatsapp_message_id } = await engineSendInteractiveCarousel({
+            accountId: run.account_id,
+            userId: run.user_id,
+            conversationId: run.conversation_id!,
+            contactId: run.contact_id!,
+            bodyText: interpolateVars(cfg.body, run.vars),
+            buttonMode: "url",
+            cards: cfg.cards.map((c) => ({
+              headerType: c.header_type,
+              headerUrl: c.header_url,
+              bodyText: interpolateOptionalVars(c.body, run.vars),
+              buttonLabel: interpolateVars(c.button_label, run.vars),
+              buttonUrl: c.button_url,
+            })),
+          });
+          await logEvent(db, run.id, "message_sent", node.node_key, {
+            node_type: "send_carousel",
+            whatsapp_message_id,
+          });
+        } catch (err) {
+          await logEvent(db, run.id, "error", node.node_key, {
+            reason: "send_carousel_failed",
+            detail: err instanceof Error ? err.message : String(err),
+          });
+          await endRun(db, run.id, "failed", "send_carousel_failed");
+          return { outcome: "completed" };
+        }
+        currentKey = cfg.next_node_key ?? null;
+        continue;
+      }
+      // quick_reply mode — send and suspend, same shape as
+      // send_buttons/send_list above.
+      try {
+        await sendCarouselAndSuspend(db, run, node);
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_carousel_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_carousel_failed");
+        return { outcome: "completed" };
+      }
+      const advancedCarousel = await advanceCurrentNodeKey(
+        db,
+        run.id,
+        run.current_node_key,
+        node.node_key,
+      );
+      if (!advancedCarousel) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "lost_race_during_advance",
+        });
+      }
+      return { outcome: "advanced" };
+    }
     if (node.node_type === "handoff") {
       await executeHandoff(db, run, node);
       return { outcome: "handed_off" };
@@ -1535,7 +1668,11 @@ async function handleReplyForActiveRun(
   }
 
   // Two ways a reply can advance:
-  //   1. Interactive button/list tap on a send_buttons/send_list node.
+  //   1. Interactive button/list/carousel-card tap on a
+  //      send_buttons/send_list/send_carousel node. A url-mode
+  //      carousel is never the current node here in the first place —
+  //      it auto-advances past itself in advanceFromNodeKey, so this
+  //      branch only ever sees a quick_reply-mode carousel.
   //   2. Text reply on a collect_input node — capture into vars.
   //
   // Everything else falls through to the fallback policy below.
@@ -1543,7 +1680,8 @@ async function handleReplyForActiveRun(
   if (
     message.kind === "interactive_reply" &&
     (currentNode.node_type === "send_buttons" ||
-      currentNode.node_type === "send_list")
+      currentNode.node_type === "send_list" ||
+      currentNode.node_type === "send_carousel")
   ) {
     matched = matchReplyId(currentNode, message.reply_id);
   } else if (
@@ -1630,6 +1768,8 @@ async function handleReplyForActiveRun(
         await sendButtonsAndSuspend(db, run, currentNode);
       } else if (currentNode.node_type === "send_list") {
         await sendListAndSuspend(db, run, currentNode);
+      } else if (currentNode.node_type === "send_carousel") {
+        await sendCarouselAndSuspend(db, run, currentNode);
       } else if (currentNode.node_type === "collect_input") {
         // Customer typed something we couldn't accept (empty after trim,
         // or var_key missing — rare). Re-send the prompt so they try again.

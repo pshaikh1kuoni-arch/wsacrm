@@ -1250,7 +1250,17 @@
         "fileUploaded": "File uploaded.",
         "uploadFailed": "Upload failed.",
         "fileTooLarge": "File is {size} MB — limit is 16 MB.",
-        "defaultOptionTitle": "Option"
+        "defaultOptionTitle": "Option",
+        "cardButtonType": "Card button type",
+        "websiteLink": "Website link",
+        "quickReply": "Quick reply",
+        "cardsCount": "Cards ({count}/{max})",
+        "cardN": "Card {n}",
+        "removeCard": "Remove card",
+        "addCard": "Add card",
+        "cardHeaderLabel": "Card {n} header",
+        "cardBodyLabel": "Card text (optional)",
+        "cardButtonUrlPlaceholder": "https://…"
       },
       "categories": {
         "messaging": "Messaging",
@@ -1273,6 +1283,10 @@
         "send_list": {
           "label": "Send list",
           "blurb": "Sends a tappable list of options"
+        },
+        "send_carousel": {
+          "label": "Send carousel",
+          "blurb": "Sends a swipeable strip of media cards"
         },
         "send_media": {
           "label": "Send media",
@@ -1342,6 +1356,9 @@
       "opMissing": "missing",
       "modeAdd": "Add",
       "modeRemove": "Remove",
+      "cards": "{count} {count, plural, =1 {card} other {cards}}",
+      "modeQuickReply": "quick reply",
+      "modeUrl": "link",
       "tagPicked": "{mode} tag {tag}…",
       "tagNone": "{mode} tag (none picked)"
     },
@@ -2083,7 +2100,28 @@
     "rowTitlePlaceholder": "Row title",
     "rowDescriptionPlaceholder": "Description (optional)",
     "addRow": "Add row",
-    "addSection": "Add section"
+    "addSection": "Add section",
+    "carousel": "Carousel",
+    "cardsCount": "Cards ({count}/{max})",
+    "cardN": "Card {n}",
+    "cardHeaderLabel": "Card {n} header",
+    "removeCard": "Remove card",
+    "addCard": "Add card",
+    "cardButtonType": "Card button type",
+    "websiteLink": "Website link",
+    "quickReply": "Quick reply",
+    "imageLabel": "Image",
+    "videoLabel": "Video",
+    "uploadFile": "Upload file",
+    "uploading": "Uploading…",
+    "fileUploaded": "File uploaded.",
+    "uploadFailed": "Upload failed.",
+    "fileTooLarge": "File is {size} MB — limit is 16 MB.",
+    "removeFile": "Remove file",
+    "cardBodyLabel": "Card text (optional)",
+    "cardBodyPlaceholder": "What shows under the image",
+    "cardButtonUrlLabel": "Destination URL",
+    "cardButtonUrlPlaceholder": "https://…"
   },
   "DashboardShell": {
     "loading": "Loading..."

@@ -122,6 +122,18 @@ export function NodeConfigForm({
         />
       );
 
+    case "send_carousel":
+      return (
+        <SendCarouselForm
+          cfg={cfg as SendCarouselCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          showAdvanced={showAdvanced}
+          t={t}
+        />
+      );
+
     case "send_media":
       return (
         <SendMediaForm
@@ -1187,6 +1199,346 @@ function AiAgentForm({
         onChange={(v) => onUpdateConfig({ next_node_key: v })}
         label={t("thenAdvanceTo")}
       />
+    </>
+  );
+}
+
+// ============================================================
+// send_carousel
+// ============================================================
+
+interface SendCarouselCfg {
+  body?: string;
+  button_mode?: "url" | "quick_reply";
+  cards?: Array<{
+    header_type?: "image" | "video";
+    header_url?: string;
+    body?: string;
+    button_label?: string;
+    button_url?: string;
+    reply_id?: string;
+    next_node_key?: string;
+  }>;
+  /** Auto-advance target, url mode only — see SendCarouselNodeConfig's
+   *  doc comment in types.ts. */
+  next_node_key?: string;
+}
+
+const CAROUSEL_MIN_CARDS = 2;
+const CAROUSEL_MAX_CARDS = 10;
+const CAROUSEL_HEADER_ACCEPT: Record<"image" | "video", string> = {
+  image: "image/png,image/jpeg,image/webp",
+  video: "video/mp4,video/3gpp",
+};
+const CAROUSEL_MEDIA_BUCKET = "flow-media";
+
+function blankCarouselCard(
+  buttonMode: "url" | "quick_reply",
+  id: string,
+): NonNullable<SendCarouselCfg["cards"]>[number] {
+  return {
+    header_type: "image",
+    header_url: "",
+    body: "",
+    button_label: "",
+    ...(buttonMode === "url" ? { button_url: "" } : { reply_id: id, next_node_key: "" }),
+  };
+}
+
+function SendCarouselForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+  showAdvanced,
+  t,
+}: {
+  cfg: SendCarouselCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  showAdvanced: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [uploading, setUploading] = useState(false);
+
+  const cards = cfg.cards ?? [];
+  const buttonMode = cfg.button_mode ?? "url";
+  const selectedIdx = cards.length > 0 ? Math.min(selectedIndex, cards.length - 1) : 0;
+  const selected = cards[selectedIdx];
+
+  const updateCard = (
+    idx: number,
+    patch: Partial<NonNullable<SendCarouselCfg["cards"]>[number]>,
+  ) =>
+    onUpdateConfig({
+      cards: cards.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
+    });
+
+  const addCard = () => {
+    if (cards.length >= CAROUSEL_MAX_CARDS) return;
+    onUpdateConfig({
+      cards: [...cards, blankCarouselCard(buttonMode, `card_${cards.length + 1}`)],
+    });
+    setSelectedIndex(cards.length);
+  };
+
+  const removeCard = (idx: number) => {
+    if (cards.length <= CAROUSEL_MIN_CARDS) return;
+    onUpdateConfig({ cards: cards.filter((_, i) => i !== idx) });
+    setSelectedIndex((i) => Math.min(i, cards.length - 2));
+  };
+
+  // Meta requires the same button type on every card — modeled once
+  // here rather than per-card, same reasoning as the shared
+  // InteractiveBuilder's carousel editor (interactive-builder.tsx).
+  const setButtonMode = (mode: "url" | "quick_reply") => {
+    if (mode === buttonMode) return;
+    onUpdateConfig({
+      button_mode: mode,
+      cards: cards.map((c, i) =>
+        mode === "url"
+          ? { ...c, button_url: c.button_url ?? "", reply_id: undefined, next_node_key: undefined }
+          : {
+              ...c,
+              reply_id: c.reply_id ?? `card_${i + 1}`,
+              next_node_key: c.next_node_key ?? "",
+              button_url: undefined,
+            },
+      ),
+      ...(mode === "url" ? { next_node_key: cfg.next_node_key ?? "" } : {}),
+    });
+  };
+
+  const handleFile = useCallback(
+    async (idx: number, file: File) => {
+      if (file.size > MEDIA_MAX_BYTES) {
+        toast.error(t("fileTooLarge", { size: (file.size / 1024 / 1024).toFixed(1) }));
+        return;
+      }
+      setUploading(true);
+      try {
+        // Same account-scoped bucket send_media uploads to above.
+        const { publicUrl } = await uploadAccountMedia(CAROUSEL_MEDIA_BUCKET, file);
+        updateCard(idx, { header_url: publicUrl });
+        toast.success(t("fileUploaded"));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("uploadFailed"));
+      } finally {
+        setUploading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateCard closes over `cards` fresh each render; recreated every render is fine, this only needs to be stable within one.
+    [cards, t],
+  );
+
+  if (!selected) return null;
+
+  return (
+    <>
+      <TextRow
+        label={t("bodyText")}
+        value={cfg.body ?? ""}
+        onChange={(v) => onUpdateConfig({ body: v })}
+        rows={2}
+      />
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">{t("cardButtonType")}</label>
+          <Select value={buttonMode} onValueChange={(v) => setButtonMode(v as "url" | "quick_reply")}>
+            <SelectTrigger className="bg-muted">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="url">{t("websiteLink")}</SelectItem>
+              <SelectItem value="quick_reply">{t("quickReply")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {buttonMode === "url" && (
+          <NextNodeRow
+            value={cfg.next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={currentKey}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        )}
+      </div>
+
+      <div>
+        <label className="mb-2 block text-xs text-muted-foreground">
+          {t("cardsCount", { count: cards.length, max: CAROUSEL_MAX_CARDS })}
+        </label>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {cards.map((c, i) => (
+            <div key={i} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedIndex(i)}
+                className={cn(
+                  "flex h-14 w-14 items-center justify-center rounded-md border text-[10px] font-medium",
+                  i === selectedIdx
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground",
+                )}
+              >
+                {t("cardN", { n: i + 1 })}
+              </button>
+              {cards.length > CAROUSEL_MIN_CARDS && (
+                <button
+                  type="button"
+                  onClick={() => removeCard(i)}
+                  aria-label={t("removeCard")}
+                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-red-400"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
+          ))}
+          {cards.length < CAROUSEL_MAX_CARDS && (
+            <button
+              type="button"
+              onClick={addCard}
+              aria-label={t("addCard")}
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/40 p-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">
+              {t("cardHeaderLabel", { n: selectedIdx + 1 })}
+            </label>
+            <Select
+              value={selected.header_type ?? "image"}
+              onValueChange={(v) =>
+                updateCard(selectedIdx, { header_type: v as "image" | "video", header_url: "" })
+              }
+            >
+              <SelectTrigger className="bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="image">{t("imageLabel")}</SelectItem>
+                <SelectItem value="video">{t("videoLabel")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">{t("fileLabel")}</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={CAROUSEL_HEADER_ACCEPT[selected.header_type ?? "image"]}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleFile(selectedIdx, file);
+                e.target.value = "";
+              }}
+            />
+            {selected.header_url ? (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
+                <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+                <a
+                  href={selected.header_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-w-0 flex-1 truncate text-foreground hover:text-cyan-300"
+                  title={selected.header_url}
+                >
+                  {selected.header_url.split("/").pop()}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => updateCard(selectedIdx, { header_url: "" })}
+                  className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label={t("removeFile")}
+                  disabled={uploading}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {uploading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )}
+                {uploading ? t("uploading") : t("clickToUpload")}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <TextRow
+          label={t("cardBodyLabel")}
+          value={selected.body ?? ""}
+          onChange={(v) => updateCard(selectedIdx, { body: v })}
+          rows={2}
+        />
+
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-2",
+            showAdvanced && buttonMode === "quick_reply"
+              ? "md:grid-cols-[1fr_2fr]"
+              : "md:grid-cols-2",
+          )}
+        >
+          {showAdvanced && buttonMode === "quick_reply" && (
+            <Input
+              value={selected.reply_id ?? ""}
+              onChange={(e) =>
+                updateCard(selectedIdx, {
+                  reply_id: slugify(e.target.value, `card_${selectedIdx + 1}`),
+                })
+              }
+              placeholder="reply_id"
+              className="bg-muted font-mono text-xs"
+            />
+          )}
+          <Input
+            value={selected.button_label ?? ""}
+            onChange={(e) => updateCard(selectedIdx, { button_label: e.target.value })}
+            placeholder={t("optionTitlePlaceholder")}
+            maxLength={20}
+            className="bg-card"
+          />
+          {buttonMode === "url" ? (
+            <Input
+              value={selected.button_url ?? ""}
+              onChange={(e) => updateCard(selectedIdx, { button_url: e.target.value })}
+              placeholder={t("cardButtonUrlPlaceholder")}
+              className="bg-card"
+            />
+          ) : (
+            <NodeKeySelect
+              value={selected.next_node_key || null}
+              nodes={allNodes}
+              excludeKey={currentKey}
+              onChange={(v) => updateCard(selectedIdx, { next_node_key: v ?? "" })}
+              placeholder={t("nextNodePlaceholder")}
+            />
+          )}
+        </div>
+      </div>
     </>
   );
 }

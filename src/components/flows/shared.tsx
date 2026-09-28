@@ -19,6 +19,7 @@
 import {
   Flag,
   FileText,
+  GalleryHorizontal,
   GitFork,
   Hourglass,
   Inbox,
@@ -48,6 +49,7 @@ export type NodeType =
   | 'send_message'
   | 'send_buttons'
   | 'send_list'
+  | 'send_carousel'
   | 'send_media'
   | 'send_template'
   | 'wait_followup'
@@ -125,6 +127,12 @@ export const NODE_META: Record<
     slugSeed: 'Send list',
     icon: ListPlus,
     color: 'text-indigo-400',
+    category: 'messaging',
+  },
+  send_carousel: {
+    slugSeed: 'Send carousel',
+    icon: GalleryHorizontal,
+    color: 'text-lime-400',
     category: 'messaging',
   },
   send_media: {
@@ -215,6 +223,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   send_message: { l: 0.6, c: 0.18, h: 293 }, // violet — the workhorse
   send_buttons: { l: 0.62, c: 0.16, h: 254 }, // cobalt
   send_list: { l: 0.62, c: 0.15, h: 277 }, // indigo
+  send_carousel: { l: 0.68, c: 0.14, h: 128 }, // lime — distinct from every other hue in this set
   send_media: { l: 0.65, c: 0.12, h: 210 }, // sky
   send_template: { l: 0.68, c: 0.15, h: 45 }, // orange — an approved, pre-written message
   wait_followup: { l: 0.64, c: 0.14, h: 235 }, // blue-violet — pauses, then nudges
@@ -382,6 +391,19 @@ export function summarizeNode(
           ? t('optionsAcrossSections', { rowCount, sectionCount: sections.length })
           : `${rowCount} option${rowCount === 1 ? '' : 's'} across ${sections.length} section${sections.length === 1 ? '' : 's'}`
         : null;
+    }
+    case 'send_carousel': {
+      const cardCount = Array.isArray(cfg.cards) ? cfg.cards.length : 0;
+      const mode = cfg.button_mode === 'quick_reply' ? 'quick_reply' : 'url';
+      const body = typeof cfg.body === 'string' ? cfg.body : '';
+      const cardsLabel = t
+        ? t('cards', { count: cardCount })
+        : `${cardCount} card${cardCount === 1 ? '' : 's'}`;
+      const modeLabel = mode === 'quick_reply' ? (t ? t('modeQuickReply') : 'quick reply') : (t ? t('modeUrl') : 'link');
+      if (cardCount === 0) return null;
+      return body.length > 0
+        ? `${truncate(body, 40)} · ${cardsLabel} · ${modeLabel}`
+        : `${cardsLabel} · ${modeLabel}`;
     }
     case 'send_media': {
       const mediaType =
