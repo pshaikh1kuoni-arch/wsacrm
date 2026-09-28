@@ -19,13 +19,11 @@ const h = vi.hoisted(() => ({
     /** Set by the flow_runs INSERT; what its .maybeSingle() returns. */
     insertedRun: null as Record<string, unknown> | null,
     rpcCalls: [] as string[],
-    /** What loadConversationOwnership sees. Default: nobody owns it —
-     *  the pre-existing entry-trigger tests below all assume a flow is
+    /** What isHumanAssigned sees. Default: no human assigned — the
+     *  pre-existing entry-trigger tests below all assume a flow is
      *  free to start. */
     conversation: {
       assigned_agent_id: null as string | null,
-      ai_autoreply_disabled: false,
-      ai_reply_count: 0,
     },
   },
 }));
@@ -168,8 +166,6 @@ beforeEach(() => {
   h.state.rpcCalls = [];
   h.state.conversation = {
     assigned_agent_id: null,
-    ai_autoreply_disabled: false,
-    ai_reply_count: 0,
   };
   engineSendText.mockClear();
 });
@@ -347,24 +343,11 @@ describe("dispatchInboundToFlows — conversation ownership gate", () => {
     expect(startedRuns()).toEqual([]);
   });
 
-  it("does not start a flow while the standalone AI is actively replying", async () => {
+  it("starts a flow even though the standalone AI has replied here before, as long as no human is assigned", async () => {
+    // Only assigned_agent_id gates a flow's start — whether the
+    // standalone AI bot has replied in this thread before is not
+    // tracked or consulted here anymore (see isHumanAssigned).
     h.state.flows = [KEYWORD_FLOW];
-    h.state.conversation.ai_reply_count = 3;
-
-    const result = await dispatch({
-      kind: "text",
-      text: "order status please",
-      meta_message_id: "m1",
-    });
-
-    expect(result).toEqual({ consumed: false, outcome: "no_match" });
-    expect(startedRuns()).toEqual([]);
-  });
-
-  it("starts a flow once the AI has handed off, even with a nonzero reply count", async () => {
-    h.state.flows = [KEYWORD_FLOW];
-    h.state.conversation.ai_reply_count = 3;
-    h.state.conversation.ai_autoreply_disabled = true;
 
     const result = await dispatch({
       kind: "text",
