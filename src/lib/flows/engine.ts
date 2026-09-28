@@ -520,6 +520,13 @@ async function findEntryFlow(
   if (error || !flows) return null;
 
   const typed = flows as FlowRow[];
+  // Checked only once the loop below finds no keyword/first-message
+  // match on ANY flow — a specific trigger always outranks a catch-all
+  // one so a broad "any message" flow can't starve a more targeted
+  // flow of the messages it was actually built for. Oldest-first
+  // ordering (the query above) means the longest-standing any_message
+  // flow wins if more than one is active.
+  let anyMessageFallback: FlowRow | null = null;
   for (const flow of typed) {
     if (flow.trigger_type === "keyword") {
       const cfg = flow.trigger_config as KeywordTriggerConfig;
@@ -534,10 +541,12 @@ async function findEntryFlow(
       // `first_inbound_message` regardless of envelope) — flows were
       // the inconsistent half.
       return flow;
+    } else if (flow.trigger_type === "any_message" && !anyMessageFallback) {
+      anyMessageFallback = flow;
     }
     // 'manual' triggers do not auto-start from inbound messages.
   }
-  return null;
+  return anyMessageFallback;
 }
 
 // ============================================================

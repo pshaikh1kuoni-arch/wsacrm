@@ -1118,6 +1118,7 @@
       "triggerKeywordNone": "키워드로 트리거 (설정 안 됨)",
       "triggerKeyword": "트리거 조건: {keywords}",
       "triggerFirstInbound": "연락처의 첫 수신 메시지에서 트리거됨",
+      "triggerAnyMessage": "모든 수신 메시지에서 트리거됨",
       "triggerManual": "수동 트리거"
     },
     "edit": {
@@ -1149,6 +1150,7 @@
       "whenLabel": "조건…",
       "triggerKeywordTitle": "메시지에 키워드가 포함될 때",
       "triggerFirstInboundTitle": "고객의 첫 수신 메시지",
+      "triggerAnyMessageTitle": "모든 수신 메시지",
       "triggerManualTitle": "수동 전용 (자동 트리거 없음)",
       "keywordsLabel": "키워드 (쉼표로 구분)",
       "keywordsPlaceholder": "support, help, hi",

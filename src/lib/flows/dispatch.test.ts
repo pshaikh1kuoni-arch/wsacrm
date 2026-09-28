@@ -396,3 +396,57 @@ describe("dispatchInboundToFlows — conversation ownership gate", () => {
     expect(startedRuns()).toHaveLength(1);
   });
 });
+
+const ANY_MESSAGE_FLOW = {
+  id: "flow-any",
+  account_id: "acct-1",
+  user_id: "u-1",
+  status: "active",
+  trigger_type: "any_message",
+  trigger_config: {},
+  entry_node_id: "start",
+  created_at: "2026-02-01T00:00:00Z",
+};
+
+describe("dispatchInboundToFlows — any_message trigger", () => {
+  it("starts the flow on an ordinary message that matches no keyword", async () => {
+    h.state.flows = [ANY_MESSAGE_FLOW];
+
+    const result = await dispatch({
+      kind: "text",
+      text: "hey are you open right now?",
+      meta_message_id: "m1",
+    });
+
+    expect(result.consumed).toBe(true);
+    expect(startedRuns()).toHaveLength(1);
+  });
+
+  it("lets a matching keyword flow win over an any_message fallback", async () => {
+    h.state.flows = [ANY_MESSAGE_FLOW, KEYWORD_FLOW];
+
+    const result = await dispatch({
+      kind: "text",
+      text: "order status please",
+      meta_message_id: "m1",
+    });
+
+    expect(result.consumed).toBe(true);
+    expect(startedRuns()).toHaveLength(1);
+    expect(startedRuns()[0].row.flow_id).toBe(KEYWORD_FLOW.id);
+  });
+
+  it("still respects the ownership gate — blocked while a human is assigned", async () => {
+    h.state.flows = [ANY_MESSAGE_FLOW];
+    h.state.conversation.assigned_agent_id = "agent-1";
+
+    const result = await dispatch({
+      kind: "text",
+      text: "anything at all",
+      meta_message_id: "m1",
+    });
+
+    expect(result).toEqual({ consumed: false, outcome: "no_match" });
+    expect(startedRuns()).toEqual([]);
+  });
+});

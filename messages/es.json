@@ -1118,6 +1118,7 @@
       "triggerKeywordNone": "Se activa por palabra clave (ninguna definida)",
       "triggerKeyword": "Se activa con: {keywords}",
       "triggerFirstInbound": "Se activa con el primer mensaje entrante de un contacto",
+      "triggerAnyMessage": "Se activa con cualquier mensaje entrante",
       "triggerManual": "Activación manual"
     },
     "edit": {
@@ -1149,6 +1150,7 @@
       "whenLabel": "Cuando…",
       "triggerKeywordTitle": "Un mensaje contiene una palabra clave",
       "triggerFirstInboundTitle": "Primer mensaje entrante del cliente",
+      "triggerAnyMessageTitle": "Cualquier mensaje entrante",
       "triggerManualTitle": "Solo manual (sin activación automática)",
       "keywordsLabel": "Palabras clave (separadas por comas)",
       "keywordsPlaceholder": "soporte, ayuda, hola",

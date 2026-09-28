@@ -301,6 +301,9 @@ function TriggerPanel({
               <SelectItem value="first_inbound_message">
                 {t('triggerFirstInboundTitle')}
               </SelectItem>
+              <SelectItem value="any_message">
+                {t('triggerAnyMessageTitle')}
+              </SelectItem>
               <SelectItem value="manual">
                 {t('triggerManualTitle')}
               </SelectItem>

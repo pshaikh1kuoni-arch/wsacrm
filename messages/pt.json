@@ -1118,6 +1118,7 @@
       "triggerKeywordNone": "Acionado por palavra-chave (nenhuma definida)",
       "triggerKeyword": "Acionado por: {keywords}",
       "triggerFirstInbound": "Acionado pela primeira mensagem recebida de um contato",
+      "triggerAnyMessage": "Acionado por qualquer mensagem recebida",
       "triggerManual": "Acionamento manual"
     },
     "edit": {
@@ -1149,6 +1150,7 @@
       "whenLabel": "Quando…",
       "triggerKeywordTitle": "Uma mensagem contém uma palavra-chave",
       "triggerFirstInboundTitle": "Primeira mensagem recebida do cliente",
+      "triggerAnyMessageTitle": "Qualquer mensagem recebida",
       "triggerManualTitle": "Somente manual (sem acionamento automático)",
       "keywordsLabel": "Palavras-chave (separadas por vírgula)",
       "keywordsPlaceholder": "suporte, ajuda, oi",

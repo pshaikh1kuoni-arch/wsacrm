@@ -1118,6 +1118,7 @@
       "triggerKeywordNone": "Triggers on keyword (none set)",
       "triggerKeyword": "Triggers on: {keywords}",
       "triggerFirstInbound": "Triggers on a contact's first-ever inbound message",
+      "triggerAnyMessage": "Triggers on any inbound message",
       "triggerManual": "Manual trigger"
     },
     "edit": {
@@ -1149,6 +1150,7 @@
       "whenLabel": "When…",
       "triggerKeywordTitle": "A message contains a keyword",
       "triggerFirstInboundTitle": "Customer's first ever inbound message",
+      "triggerAnyMessageTitle": "Any inbound message",
       "triggerManualTitle": "Manual only (no auto-trigger)",
       "keywordsLabel": "Keywords (comma-separated)",
       "keywordsPlaceholder": "support, help, hi",
