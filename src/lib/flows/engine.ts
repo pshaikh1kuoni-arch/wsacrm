@@ -395,12 +395,72 @@ async function isDuplicateInbound(
   return (count ?? 0) > 0;
 }
 
+/** Who currently has this conversation — used to gate whether a fresh
+ *  keyword is even allowed to start a new flow run. */
+export type ConversationOwnership = "human" | "ai" | "none";
+
+/**
+ * A human-assigned thread, or one the standalone AI auto-reply is
+ * actively carrying, is already "owned" — a coincidental keyword match
+ * must never silently hijack it into an unrelated flow. `ai_reply_count
+ * > 0` (and not handed off) is the same signal `dispatchInboundToAiReply`
+ * already uses to know the bot has been replying here; mirroring it lets
+ * flows and the standalone bot agree on what "AI owns this" means.
+ * `"none"` only when nobody has engaged yet — a brand new contact, or a
+ * thread that's gone cold with no assignee — which is when a flow SHOULD
+ * be free to start (e.g. the "new customer says hi" case).
+ */
+export function resolveConversationOwnership(conv: {
+  assigned_agent_id: string | null;
+  ai_autoreply_disabled: boolean;
+  ai_reply_count: number;
+}): ConversationOwnership {
+  if (conv.assigned_agent_id) return "human";
+  if (!conv.ai_autoreply_disabled && conv.ai_reply_count > 0) return "ai";
+  return "none";
+}
+
+/**
+ * Load the ownership signal for `findEntryFlow`'s gate. Fails toward
+ * "human" (i.e. block the flow from starting) on a missing row or a DB
+ * error — same direction `dispatchInboundToAiReply` takes when it can't
+ * read the conversation (it silently declines to reply rather than
+ * guessing). The conversation row always exists by the time the webhook
+ * reaches flow dispatch, so this only bites on a genuine DB hiccup.
+ */
+async function loadConversationOwnership(
+  db: AdminClient,
+  conversationId: string,
+): Promise<ConversationOwnership> {
+  const { data, error } = await db
+    .from("conversations")
+    .select("assigned_agent_id, ai_autoreply_disabled, ai_reply_count")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error || !data) return "human";
+  return resolveConversationOwnership(
+    data as {
+      assigned_agent_id: string | null;
+      ai_autoreply_disabled: boolean;
+      ai_reply_count: number;
+    },
+  );
+}
+
 async function findEntryFlow(
   db: AdminClient,
   accountId: string,
   message: ParsedInbound,
   isFirstInbound: boolean,
+  ownership: ConversationOwnership,
 ): Promise<FlowRow | null> {
+  // Someone (or the AI) already owns this conversation — a keyword
+  // trigger doesn't get to hijack it into a new flow run. See
+  // resolveConversationOwnership. isFirstInbound implies "none" in
+  // practice (nothing could have engaged before the contact's first
+  // message), so this never blocks the genuinely-new-contact case.
+  if (ownership !== "none") return null;
+
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
   // only while a prompt is outstanding — and this function runs solely
@@ -1590,12 +1650,19 @@ export async function dispatchInboundToFlows(
       return handleReplyForActiveRun(db, activeRun, input.message, nodes);
     }
 
-    // No active run → look for a flow whose entry trigger matches.
+    // No active run → look for a flow whose entry trigger matches, but
+    // only if nobody already owns this conversation (see
+    // resolveConversationOwnership).
+    const ownership = await loadConversationOwnership(
+      db,
+      input.conversationId,
+    );
     const flow = await findEntryFlow(
       db,
       input.accountId,
       input.message,
       input.isFirstInboundMessage,
+      ownership,
     );
     if (!flow || !flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };

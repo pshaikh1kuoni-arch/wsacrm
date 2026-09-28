@@ -50,4 +50,20 @@ describe('buildConversationContext', () => {
     )
     expect(out).toEqual([{ role: 'user', content: 'real' }])
   })
+
+  it('includes template and interactive (flow) messages, not just plain text', async () => {
+    // Newest-first from the DB: a customer's button tap, a flow prompt,
+    // and a broadcast template send — none of them content_type='text'.
+    const rows = [
+      { sender_type: 'customer', content_text: 'Magic Mug' },
+      { sender_type: 'bot', content_text: 'Magic Mug Available at 300 INR' },
+      { sender_type: 'bot', content_text: 'Mug Offer 25% on Every Mug' },
+    ]
+    const out = await buildConversationContext(fakeDb(rows), 'conv-1')
+    expect(out).toEqual([
+      { role: 'assistant', content: 'Mug Offer 25% on Every Mug' },
+      { role: 'assistant', content: 'Magic Mug Available at 300 INR' },
+      { role: 'user', content: 'Magic Mug' },
+    ])
+  })
 })

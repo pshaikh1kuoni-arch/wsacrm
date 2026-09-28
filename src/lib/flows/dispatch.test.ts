@@ -19,6 +19,14 @@ const h = vi.hoisted(() => ({
     /** Set by the flow_runs INSERT; what its .maybeSingle() returns. */
     insertedRun: null as Record<string, unknown> | null,
     rpcCalls: [] as string[],
+    /** What loadConversationOwnership sees. Default: nobody owns it —
+     *  the pre-existing entry-trigger tests below all assume a flow is
+     *  free to start. */
+    conversation: {
+      assigned_agent_id: null as string | null,
+      ai_autoreply_disabled: false,
+      ai_reply_count: 0,
+    },
   },
 }));
 
@@ -27,6 +35,7 @@ vi.mock("./admin-client", () => {
     if (table === "flow_runs") return h.state.activeRuns;
     if (table === "flows") return h.state.flows;
     if (table === "flow_nodes") return h.state.nodes;
+    if (table === "conversations") return [h.state.conversation];
     return [];
   }
 
@@ -157,6 +166,11 @@ beforeEach(() => {
   h.state.inserted = [];
   h.state.insertedRun = null;
   h.state.rpcCalls = [];
+  h.state.conversation = {
+    assigned_agent_id: null,
+    ai_autoreply_disabled: false,
+    ai_reply_count: 0,
+  };
   engineSendText.mockClear();
 });
 
@@ -314,6 +328,71 @@ describe("dispatchInboundToFlows — entry triggers (#490)", () => {
     // treated it that way.
     expect(result.consumed).toBe(true);
     expect(result.flow_run_id).toBe("run-1");
+    expect(startedRuns()).toHaveLength(1);
+  });
+});
+
+describe("dispatchInboundToFlows — conversation ownership gate", () => {
+  it("does not start a flow when a human agent is assigned", async () => {
+    h.state.flows = [KEYWORD_FLOW];
+    h.state.conversation.assigned_agent_id = "agent-1";
+
+    const result = await dispatch({
+      kind: "text",
+      text: "order status please",
+      meta_message_id: "m1",
+    });
+
+    expect(result).toEqual({ consumed: false, outcome: "no_match" });
+    expect(startedRuns()).toEqual([]);
+  });
+
+  it("does not start a flow while the standalone AI is actively replying", async () => {
+    h.state.flows = [KEYWORD_FLOW];
+    h.state.conversation.ai_reply_count = 3;
+
+    const result = await dispatch({
+      kind: "text",
+      text: "order status please",
+      meta_message_id: "m1",
+    });
+
+    expect(result).toEqual({ consumed: false, outcome: "no_match" });
+    expect(startedRuns()).toEqual([]);
+  });
+
+  it("starts a flow once the AI has handed off, even with a nonzero reply count", async () => {
+    h.state.flows = [KEYWORD_FLOW];
+    h.state.conversation.ai_reply_count = 3;
+    h.state.conversation.ai_autoreply_disabled = true;
+
+    const result = await dispatch({
+      kind: "text",
+      text: "order status please",
+      meta_message_id: "m1",
+    });
+
+    expect(result.consumed).toBe(true);
+    expect(startedRuns()).toHaveLength(1);
+  });
+
+  it("still starts a first_inbound_message flow for a genuinely new contact", async () => {
+    h.state.flows = [
+      { ...KEYWORD_FLOW, trigger_type: "first_inbound_message", trigger_config: {} },
+    ];
+    // Default h.state.conversation is unowned — matches a contact who
+    // has never been messaged before.
+
+    const result = await dispatchInboundToFlows({
+      accountId: "acct-1",
+      userId: "u-1",
+      contactId: "ct-1",
+      conversationId: "cv-1",
+      message: { kind: "text", text: "hi", meta_message_id: "m1" },
+      isFirstInboundMessage: true,
+    });
+
+    expect(result.consumed).toBe(true);
     expect(startedRuns()).toHaveLength(1);
   });
 });
