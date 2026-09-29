@@ -3,10 +3,11 @@ import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
 import { retrieveKnowledge } from './knowledge'
 import { generateReply } from './generate'
-import { buildSystemPrompt } from './defaults'
+import { buildSystemPrompt, HANDOFF_FALLBACK_TEXT } from './defaults'
 import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
+import { isOptOutKeyword, recordFollowupsOptOut } from './opt-out'
 import {
   engineSendText,
   loadAccountMetaCredentials,
@@ -26,6 +27,11 @@ interface DispatchArgs {
    *  a typing indicator (which also marks it read) is shown while the
    *  reply is generated. Optional so older callers keep working. */
   inboundMessageId?: string
+  /** The customer's raw message text — checked against the
+   *  deterministic WhatsApp/SMS opt-out keywords (STOP/UNSUBSCRIBE/
+   *  QUIT) before any AI call runs. Optional so older callers keep
+   *  working (they just skip that one check). */
+  inboundText?: string
 }
 
 /**
@@ -56,10 +62,28 @@ export async function dispatchInboundToAiReply(
     contactId,
     configOwnerUserId,
     inboundMessageId,
+    inboundText,
   } = args
 
   try {
     const db = supabaseAdmin()
+
+    // Deterministic opt-out keyword, checked first and unconditionally —
+    // ahead of every other gate below, no LLM round trip. Standard
+    // WhatsApp/SMS convention: STOP/UNSUBSCRIBE/QUIT are reserved and
+    // always honored immediately. Recorded even if AI auto-reply itself
+    // is currently off for this account — the flag also gates Flows'
+    // scheduled follow-ups (see hasFollowupsDisabled in engine.ts), so
+    // it's worth capturing regardless of today's AI settings.
+    if (inboundText && isOptOutKeyword(inboundText)) {
+      await recordFollowupsOptOut(db, {
+        accountId,
+        userId: configOwnerUserId,
+        conversationId,
+        contactId,
+      })
+      return
+    }
 
     const config = await loadAiConfig(db, accountId)
     if (!config || !config.autoReplyEnabled) return
@@ -136,11 +160,29 @@ export async function dispatchInboundToAiReply(
       knowledge,
     })
 
-    const { text, handoff, usage } = await generateReply({
+    // Isolated from the eligibility checks above (human assigned, bot
+    // disabled, rate-limited) — those must stay silent, this is the
+    // genuine "we tried and the provider call itself blew up" case, so
+    // it gets the same fallback text as a handoff rather than falling
+    // through to the outer catch's bare console.error.
+    const generation = await generateReply({
       config,
       systemPrompt,
       messages,
+    }).catch((err) => {
+      console.error('[ai auto-reply] generateReply failed:', err)
+      return null
     })
+    if (!generation) {
+      await sendAutoReplyFallback(db, {
+        accountId,
+        conversationId,
+        contactId,
+        configOwnerUserId,
+      })
+      return
+    }
+    const { text, handoff, stopFollowups, usage } = generation
 
     // Record token spend on the account's BYO key. Fire-and-forget so it
     // never adds latency to the customer-facing send: `logAiUsage`
@@ -155,6 +197,21 @@ export async function dispatchInboundToAiReply(
       model: config.model,
       usage,
     })
+
+    // Checked before handoff — this is the customer asking not to be
+    // contacted again, not "get a human." Its own confirmation is sent
+    // inside recordFollowupsOptOut; the deterministic keyword above
+    // catches the exact-word case, this catches the same request
+    // phrased any other way.
+    if (stopFollowups) {
+      await recordFollowupsOptOut(db, {
+        accountId,
+        userId: configOwnerUserId,
+        conversationId,
+        contactId,
+      })
+      return
+    }
 
     if (handoff || !text) {
       // The model can't (or shouldn't) answer — stop auto-replying on
@@ -178,6 +235,12 @@ export async function dispatchInboundToAiReply(
         update.assigned_agent_id = config.handoffAgentId
       }
       await db.from('conversations').update(update).eq('id', conversationId)
+      await sendAutoReplyFallback(db, {
+        accountId,
+        conversationId,
+        contactId,
+        configOwnerUserId,
+      })
       return
     }
 
@@ -213,6 +276,35 @@ export async function dispatchInboundToAiReply(
     })
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed:', err)
+  }
+}
+
+/**
+ * Best-effort "we couldn't help" message for the standalone bot's own
+ * handoff / provider-error exits — see HANDOFF_FALLBACK_TEXT's doc.
+ * A failed send here must never surface: the handoff bookkeeping (or
+ * the caller's early return) already happened or is about to.
+ */
+async function sendAutoReplyFallback(
+  db: ReturnType<typeof supabaseAdmin>,
+  args: {
+    accountId: string
+    conversationId: string
+    contactId: string
+    configOwnerUserId: string
+  },
+): Promise<void> {
+  try {
+    await engineSendText({
+      accountId: args.accountId,
+      userId: args.configOwnerUserId,
+      conversationId: args.conversationId,
+      contactId: args.contactId,
+      text: HANDOFF_FALLBACK_TEXT,
+      aiGenerated: true,
+    })
+  } catch (err) {
+    console.error('[ai auto-reply] handoff fallback send failed:', err)
   }
 }
 

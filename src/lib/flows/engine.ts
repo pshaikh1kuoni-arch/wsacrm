@@ -54,7 +54,8 @@ import { loadAiConfig } from "@/lib/ai/config";
 import { buildConversationContext } from "@/lib/ai/context";
 import { retrieveKnowledge } from "@/lib/ai/knowledge";
 import { generateReply } from "@/lib/ai/generate";
-import { buildSystemPrompt } from "@/lib/ai/defaults";
+import { buildSystemPrompt, HANDOFF_FALLBACK_TEXT } from "@/lib/ai/defaults";
+import { isOptOutKeyword, recordFollowupsOptOut } from "@/lib/ai/opt-out";
 import { buildHandoffSummary } from "@/lib/ai/handoff";
 import { logAiUsage } from "@/lib/ai/usage";
 import { latestUserMessage } from "@/lib/ai/query";
@@ -422,6 +423,32 @@ async function isHumanAssigned(
 }
 
 /**
+ * Has this contact asked not to receive automated follow-ups again?
+ * Checked before every *unprompted* automated touch a flow can send —
+ * scheduling a `wait_followup` reminder, scheduling an `ai_agent`
+ * "stay in charge" nudge, and the cron actually firing either one
+ * (`resumeFlowPendingExecution`). Never gates a direct reply to
+ * something the customer just asked — only automated, unprompted
+ * messages. Fails toward `true` (block the touch) on a DB error, same
+ * direction as `isHumanAssigned`.
+ */
+async function hasFollowupsDisabled(
+  db: AdminClient,
+  conversationId: string,
+): Promise<boolean> {
+  const { data, error } = await db
+    .from("conversations")
+    .select("ai_followups_disabled")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error || !data) return true;
+  return Boolean(
+    (data as { ai_followups_disabled: boolean | null }).ai_followups_disabled,
+  );
+}
+
+
+/**
  * Stop an active run in its tracks because a human just took (or already
  * has) the conversation — shared by the live-reply and scheduled-callback
  * paths so both end the run and log the same way.
@@ -669,6 +696,30 @@ async function executeHandoff(
 }
 
 /**
+ * The `ai_agent` node's "customer asked not to be contacted again"
+ * path — distinct from a handoff: nobody gets assigned, no human
+ * queue, the run simply ends cleanly. Sends the one opt-out
+ * confirmation (`recordFollowupsOptOut`) and sets the durable flag so
+ * nothing automated reaches this contact again.
+ */
+async function executeFollowupsOptOut(
+  db: AdminClient,
+  run: FlowRunRow,
+  nodeKey: string | null,
+): Promise<void> {
+  await recordFollowupsOptOut(db, {
+    accountId: run.account_id,
+    userId: run.user_id,
+    conversationId: run.conversation_id!,
+    contactId: run.contact_id!,
+  });
+  await logEvent(db, run.id, "completed", nodeKey, {
+    reason: "customer_opted_out",
+  });
+  await endRun(db, run.id, "completed", "customer_opted_out");
+}
+
+/**
  * The `ai_agent` node's handoff path — reached when AI isn't
  * configured for the account, the account hit its AI rate limit, or
  * the model itself decided it can't help (the same reply-or-handoff
@@ -682,7 +733,7 @@ async function executeHandoff(
 async function executeAiAgentHandoff(
   db: AdminClient,
   run: FlowRunRow,
-  node: FlowNodeRow,
+  nodeKey: string | null,
   reason: string,
   assignTo?: string | null,
   note?: string,
@@ -698,7 +749,7 @@ async function executeAiAgentHandoff(
       .update(convUpdate)
       .eq("id", run.conversation_id);
   }
-  await logEvent(db, run.id, "handoff", node.node_key, {
+  await logEvent(db, run.id, "handoff", nodeKey, {
     note: note ?? null,
     reason,
     assigned_to: assignTo ?? null,
@@ -714,25 +765,37 @@ type AiAgentGenResult =
       reason: "ai_agent_handoff";
       assignTo?: string | null;
       note?: string;
+    }
+  | {
+      // The customer asked not to be contacted/followed up with again —
+      // distinct from a handoff (that means "get a human"; this means
+      // "stop automated messages entirely"). See STOP_FOLLOWUPS_SENTINEL.
+      ok: false;
+      reason: "stop_followups";
     };
 
 /**
- * Shared AI-generation path for the `ai_agent` node — used both for a
- * live turn (the customer just spoke) and for the "stay in charge"
- * follow-up (the customer went quiet). Same account config, same
- * node prompt, same reply-or-handoff contract; `mode` only decides
- * whether a synthetic nudge turn gets appended so the model writes a
- * fresh re-engagement message instead of continuing its last reply
- * (the transcript otherwise ends on our own `assistant` turn, which
- * isn't a valid "generate the next message" prompt on its own).
+ * Shared AI-generation path for anything that speaks as the AI agent —
+ * an `ai_agent` node's live turn, its "stay in charge" follow-up, and
+ * (per the unification below) a `wait_followup` node's reminder too.
+ * Same account config, same reply-or-handoff contract; `mode` only
+ * decides whether a synthetic nudge turn gets appended so the model
+ * writes a fresh re-engagement message instead of continuing its last
+ * reply (the transcript otherwise ends on our own `assistant` turn,
+ * which isn't a valid "generate the next message" prompt on its own).
+ *
+ * Takes the node's own instructions as a plain string rather than a
+ * `FlowNodeRow` — an `ai_agent` node's `cfg.prompt` and a
+ * `wait_followup` node's `cfg.followup_text` are different config
+ * shapes, but both are just "what this touch should be about" once
+ * they get here.
  */
 async function generateAiAgentMessage(
   db: AdminClient,
   run: FlowRunRow,
-  node: FlowNodeRow,
+  args: { prompt: string; useKnowledgeBase?: boolean },
   mode: "reply" | "followup",
 ): Promise<AiAgentGenResult> {
-  const cfg = node.config as unknown as AiAgentNodeConfig;
   const aiConfig = await loadAiConfig(db, run.account_id);
   if (!aiConfig) return { ok: false, reason: "ai_not_configured" };
   const acctLimit = checkRateLimit(
@@ -750,7 +813,7 @@ async function generateAiAgentMessage(
     });
   }
   const knowledge =
-    cfg.use_knowledge_base === false
+    args.useKnowledgeBase === false
       ? undefined
       : await retrieveKnowledge(
           db,
@@ -759,13 +822,18 @@ async function generateAiAgentMessage(
           latestUserMessage(messages),
         );
   const systemPrompt = buildSystemPrompt({
-    userPrompt: [aiConfig.systemPrompt, cfg.prompt]
+    // interpolateVars here too — every other node type's text goes
+    // through it (send_message, send_buttons, collect_input's prompt,
+    // …); ai_agent's own prompt was the one exception, so a
+    // collect_input-captured `{{vars.name}}` typed into this node's
+    // instructions reached the model as a literal, unresolved string.
+    userPrompt: [aiConfig.systemPrompt, interpolateVars(args.prompt, run.vars)]
       .filter((s): s is string => Boolean(s && s.trim()))
       .join("\n\n"),
     mode: "auto_reply",
     knowledge,
   });
-  const { text, handoff, usage } = await generateReply({
+  const { text, handoff, stopFollowups, usage } = await generateReply({
     config: aiConfig,
     systemPrompt,
     messages,
@@ -778,6 +846,13 @@ async function generateAiAgentMessage(
     model: aiConfig.model,
     usage,
   });
+  // Checked before handoff/empty-text: this is a distinct outcome
+  // ("stop contacting me", not "get a human") even if the model also
+  // returned empty text, which it will — the sentinel is instructed to
+  // stand alone. See performAiAgentTurn's handling of this reason.
+  if (stopFollowups) {
+    return { ok: false, reason: "stop_followups" };
+  }
   if (handoff || !text) {
     return {
       ok: false,
@@ -805,12 +880,55 @@ async function generateAiAgentMessage(
  * node's `next_node_key` via `advanceFromNodeKey` — an AI reply is
  * just one more auto-advancing step once it lands.
  */
-async function runAiAgentTurn(
+type AiAgentTurnResult =
+  | { kind: "replied"; nextKey: string }
+  | { kind: "suspended" }
+  | { kind: "handed_off" }
+  | { kind: "stopped" }
+  | { kind: "failed" };
+
+/**
+ * Best-effort "we couldn't help" message. Sent right before an AI turn
+ * resolves to handoff or error, so the customer sees something rather
+ * than a bare internal status flip — see HANDOFF_FALLBACK_TEXT's doc.
+ * A failed send here must never stop the handoff/error bookkeeping that
+ * follows, hence the isolated try/catch.
+ */
+async function sendAiHandoffFallback(
+  db: AdminClient,
+  run: FlowRunRow,
+): Promise<void> {
+  try {
+    await engineSendText({
+      accountId: run.account_id,
+      userId: run.user_id,
+      conversationId: run.conversation_id!,
+      contactId: run.contact_id!,
+      text: HANDOFF_FALLBACK_TEXT,
+      aiGenerated: true,
+    });
+  } catch (err) {
+    console.error(
+      "[flows] ai handoff fallback send failed:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
+/**
+ * The `ai_agent` node's actual turn: generate, then either send the
+ * real reply, hand off, or fail — shared by the two places a turn can
+ * happen: a customer reply landing on an already-parked node
+ * (`runAiAgentTurn`, below) and a run reaching this node fresh with
+ * nothing sent ahead of it yet (`advanceFromNodeKey`'s `ai_agent`
+ * branch). Returns a plain result rather than either caller's own
+ * shape so both can fold it into their own control flow.
+ */
+async function performAiAgentTurn(
   db: AdminClient,
   run: FlowRunRow,
   node: FlowNodeRow,
-  nodes: Map<string, FlowNodeRow>,
-): Promise<DispatchInboundResult> {
+): Promise<AiAgentTurnResult> {
   const cfg = node.config as unknown as AiAgentNodeConfig;
   // A reply always means "they're back" — clear any scheduled
   // re-engage callback from a previous turn's "stay in charge" wait
@@ -818,21 +936,34 @@ async function runAiAgentTurn(
   // a handoff, or an error. Safe no-op when nothing is pending.
   await cancelPendingExecutions(db, run.id);
   try {
-    const result = await generateAiAgentMessage(db, run, node, "reply");
+    const result = await generateAiAgentMessage(
+      db,
+      run,
+      { prompt: cfg.prompt, useKnowledgeBase: cfg.use_knowledge_base },
+      "reply",
+    );
     if (!result.ok) {
+      if (result.reason === "stop_followups") {
+        // Not a handoff — no human, no fallback-to-team text (that
+        // would contradict "we won't message you again"). Its own
+        // confirmation is sent inside executeFollowupsOptOut.
+        await executeFollowupsOptOut(db, run, node.node_key);
+        return { kind: "stopped" };
+      }
+      await sendAiHandoffFallback(db, run);
       if (result.reason === "ai_agent_handoff") {
         await executeAiAgentHandoff(
           db,
           run,
-          node,
+          node.node_key,
           result.reason,
           result.assignTo,
           result.note,
         );
       } else {
-        await executeAiAgentHandoff(db, run, node, result.reason);
+        await executeAiAgentHandoff(db, run, node.node_key, result.reason);
       }
-      return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
+      return { kind: "handed_off" };
     }
     const { whatsapp_message_id } = await engineSendText({
       accountId: run.account_id,
@@ -847,15 +978,20 @@ async function runAiAgentTurn(
       whatsapp_message_id,
     });
   } catch (err) {
+    await sendAiHandoffFallback(db, run);
     await logEvent(db, run.id, "error", node.node_key, {
       reason: "ai_agent_failed",
       detail: err instanceof Error ? err.message : String(err),
     });
     await endRun(db, run.id, "failed", "ai_agent_failed");
-    return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+    return { kind: "failed" };
   }
 
-  if (cfg.followup_wait_minutes && cfg.followup_wait_minutes > 0) {
+  if (
+    cfg.followup_wait_minutes &&
+    cfg.followup_wait_minutes > 0 &&
+    !(await hasFollowupsDisabled(db, run.conversation_id!))
+  ) {
     // "Stay in charge": don't advance yet. current_node_key is
     // already parked on this ai_agent node (it's been here since the
     // first reply), so there's nothing to move — just schedule the
@@ -864,6 +1000,12 @@ async function runAiAgentTurn(
     // the cron call `generateAiAgentMessage` again in "followup" mode
     // via `resumeFlowPendingExecution`, so the nudge is AI-written
     // from the real conversation, not a fixed string.
+    //
+    // Gated by hasFollowupsDisabled: the reply just sent above is a
+    // direct answer to what the customer said, always allowed; only
+    // this *unprompted* follow-up nudge is what an opt-out blocks. If
+    // disabled, fall through to the normal `replied` return below —
+    // same as a node with no follow-up configured at all.
     try {
       await scheduleFollowup(
         db,
@@ -881,12 +1023,41 @@ async function runAiAgentTurn(
         detail: err instanceof Error ? err.message : String(err),
       });
       await endRun(db, run.id, "failed", "ai_agent_followup_schedule_failed");
-      return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+      return { kind: "failed" };
     }
-    return { consumed: true, flow_run_id: run.id, outcome: "advanced" };
+    return { kind: "suspended" };
   }
 
-  const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
+  return { kind: "replied", nextKey: cfg.next_node_key };
+}
+
+/**
+ * Thin wrapper for the "customer replied to an already-parked ai_agent
+ * node" path — translates `performAiAgentTurn`'s result into
+ * `handleReplyForActiveRun`'s `DispatchInboundResult` shape.
+ */
+async function runAiAgentTurn(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  nodes: Map<string, FlowNodeRow>,
+): Promise<DispatchInboundResult> {
+  const result = await performAiAgentTurn(db, run, node);
+  if (result.kind === "handed_off") {
+    return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
+  }
+  if (result.kind === "stopped") {
+    return { consumed: true, flow_run_id: run.id, outcome: "opted_out" };
+  }
+  if (result.kind === "failed") {
+    return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+  }
+  if (result.kind === "suspended") {
+    return { consumed: true, flow_run_id: run.id, outcome: "advanced" };
+  }
+  // The reply above already went out — a next node that's itself
+  // another ai_agent must not treat that as an unanswered message.
+  const outcome = await advanceFromNodeKey(db, run, result.nextKey, nodes, true);
   return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
 }
 
@@ -1002,8 +1173,26 @@ async function advanceFromNodeKey(
   run: FlowRunRow,
   startNodeKey: string,
   nodes: Map<string, FlowNodeRow>,
+  /**
+   * True when the caller already sent something to the customer
+   * (a reply, a reminder) immediately before this call, outside the
+   * loop below — a wait_followup reminder or an ai_agent "stay in
+   * charge" nudge firing from `resumeFlowPendingExecution`, or a
+   * just-sent ai_agent reply from `runAiAgentTurn`. If `startNodeKey`
+   * is (or leads straight into) another `ai_agent` node, it must NOT
+   * treat that as "nothing said yet" — the customer hasn't spoken,
+   * only our own side has. Defaults to false: every other caller here
+   * is reacting to a genuine, fresh customer message.
+   */
+  alreadySentSomething = false,
 ): Promise<{ outcome: "advanced" | "completed" | "handed_off" }> {
   let currentKey: string | null = startNodeKey;
+  // Has anything actually gone out to the customer yet, in this call
+  // OR immediately before it? Read by the `ai_agent` branch below —
+  // replying immediately is only safe when nothing has, otherwise the
+  // model would be answering stale context one full turn old. See that
+  // branch for the full story.
+  let sentSomethingThisAdvance = alreadySentSomething;
   // Defensive cap — if a flow has a cycle (which the validator
   // SHOULD catch but doesn't yet in v1), we bail rather than loop.
   for (let safety = 0; safety < 64; safety += 1) {
@@ -1044,6 +1233,7 @@ async function advanceFromNodeKey(
           node_type: "send_message",
           whatsapp_message_id,
         });
+        sentSomethingThisAdvance = true;
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_text_failed",
@@ -1075,6 +1265,7 @@ async function advanceFromNodeKey(
           media_type: cfg.media_type,
           whatsapp_message_id,
         });
+        sentSomethingThisAdvance = true;
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_media_failed",
@@ -1101,6 +1292,7 @@ async function advanceFromNodeKey(
           node_type: "send_template",
           whatsapp_message_id,
         });
+        sentSomethingThisAdvance = true;
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_template_failed",
@@ -1114,6 +1306,17 @@ async function advanceFromNodeKey(
     }
     if (node.node_type === "wait_followup") {
       const cfg = node.config as unknown as WaitFollowupNodeConfig;
+      if (await hasFollowupsDisabled(db, run.conversation_id!)) {
+        // The contact opted out of automated follow-ups — never
+        // schedule an unprompted touch. End cleanly here rather than
+        // advancing into whatever comes next, which could itself send
+        // something automatically.
+        await logEvent(db, run.id, "completed", node.node_key, {
+          reason: "followups_disabled",
+        });
+        await endRun(db, run.id, "completed", "followups_disabled");
+        return { outcome: "completed" };
+      }
       try {
         await scheduleFollowup(
           db,
@@ -1251,18 +1454,48 @@ async function advanceFromNodeKey(
       continue;
     }
     if (node.node_type === "ai_agent") {
-      // Suspend only — deliberately does NOT call the LLM here. Firing
-      // immediately (the way set_tag/send_message auto-advance) meant
-      // the model answered using whatever was already in the
-      // conversation, one full turn before the customer had actually
-      // said anything new at this point in the flow — it would reply
-      // to a question they hadn't asked yet (issue found in testing:
-      // a "Classic Mug" button tap → price message → the AI agent
-      // immediately also answered a discount/payment question that
-      // came from EARLIER in the thread). Parking here and running the
-      // LLM only when the customer's next message arrives —
-      // `runAiAgentTurn`, called from `handleReplyForActiveRun` below
-      // — means the reply is always grounded in what they just said.
+      if (!sentSomethingThisAdvance) {
+        // Nothing has gone out to the customer yet in this chain — the
+        // message that triggered this run (or got it here) is still
+        // unanswered, so replying now is grounded in exactly what they
+        // just said. Persist the resting point first: performAiAgentTurn's
+        // "stay in charge" path needs current_node_key already pointing
+        // here, the same way it would after a later, ordinary reply.
+        const advanced = await advanceCurrentNodeKey(
+          db,
+          run.id,
+          run.current_node_key,
+          node.node_key,
+        );
+        if (!advanced) {
+          await logEvent(db, run.id, "error", node.node_key, {
+            reason: "lost_race_during_advance",
+          });
+          return { outcome: "advanced" };
+        }
+        run.current_node_key = node.node_key;
+        const result = await performAiAgentTurn(db, run, node);
+        if (result.kind === "replied") {
+          currentKey = result.nextKey;
+          continue;
+        }
+        if (result.kind === "suspended") return { outcome: "advanced" };
+        if (result.kind === "handed_off") return { outcome: "handed_off" };
+        return { outcome: "completed" };
+      }
+      // Something was already auto-sent earlier in this same advance
+      // chain — suspend only, deliberately not calling the LLM here.
+      // Firing immediately in that shape meant the model answered using
+      // whatever was already in the conversation, one full turn before
+      // the customer had actually said anything new at this point in
+      // the flow — it would reply to a question they hadn't asked yet
+      // (issue found in testing: a "Classic Mug" button tap → price
+      // message → the AI agent immediately also answered a discount/
+      // payment question that came from EARLIER in the thread). Parking
+      // here and running the LLM only when the customer's next message
+      // arrives — `runAiAgentTurn`, called from `handleReplyForActiveRun`
+      // below — means that reply is always grounded in what they just
+      // said.
       const advanced = await advanceCurrentNodeKey(
         db,
         run.id,
@@ -1541,16 +1774,64 @@ export async function resumeFlowPendingExecution(
     return;
   }
 
+  // Belt-and-braces: the flag may have flipped after this callback was
+  // scheduled, before the cron got to it. Never fire an unprompted
+  // touch on a contact who opted out in the meantime.
+  if (
+    run.conversation_id &&
+    (await hasFollowupsDisabled(db, run.conversation_id))
+  ) {
+    await logEvent(db, run.id, "completed", row.node_key, {
+      reason: "followups_disabled",
+    });
+    await endRun(db, run.id, "completed", "followups_disabled");
+    await markPendingExecution(db, row.id, "cancelled");
+    return;
+  }
+
   const nodes = await loadAllNodes(db, run.flow_id);
 
   if (row.action.kind === "followup_message") {
+    // Generated fresh from the full conversation every time, same
+    // mechanism an ai_agent's own "stay in charge" nudge uses — not
+    // the literal, fixed `row.action.text` sent verbatim. That text is
+    // now the *intent* fed to the model ("check in about whether they
+    // still want to go ahead") rather than the outbound message
+    // itself, so this reminder is exactly as context-aware as the
+    // ai_agent path below: it won't nag past a stated commitment, and
+    // it can trigger the same stop-followups / handoff outcomes.
     try {
+      const result = await generateAiAgentMessage(
+        db,
+        run,
+        { prompt: `Check in with the customer about: ${row.action.text}` },
+        "followup",
+      );
+      if (!result.ok) {
+        if (result.reason === "stop_followups") {
+          await executeFollowupsOptOut(db, run, row.node_key);
+        } else if (result.reason === "ai_agent_handoff") {
+          await executeAiAgentHandoff(
+            db,
+            run,
+            row.node_key,
+            result.reason,
+            result.assignTo,
+            result.note,
+          );
+        } else {
+          await executeAiAgentHandoff(db, run, row.node_key, result.reason);
+        }
+        await markPendingExecution(db, row.id, "done");
+        return;
+      }
       const { whatsapp_message_id } = await engineSendText({
         accountId: run.account_id,
         userId: run.user_id,
         conversationId: run.conversation_id!,
         contactId: run.contact_id!,
-        text: interpolateVars(row.action.text, run.vars),
+        text: result.text,
+        aiGenerated: true,
       });
       await logEvent(db, run.id, "message_sent", row.node_key, {
         node_type: "wait_followup",
@@ -1566,26 +1847,36 @@ export async function resumeFlowPendingExecution(
       await markPendingExecution(db, row.id, "failed");
       return;
     }
-    await advanceFromNodeKey(db, run, row.action.next_node_key, nodes);
+    // The reminder above already went out — a next node that's an
+    // ai_agent must not treat this as an unanswered customer message.
+    await advanceFromNodeKey(db, run, row.action.next_node_key, nodes, true);
     await markPendingExecution(db, row.id, "done");
   } else if (row.action.kind === "ai_reengage") {
     const action = row.action;
     const node = nodes.get(row.node_key);
     try {
       if (node) {
-        const result = await generateAiAgentMessage(db, run, node, "followup");
+        const cfg = node.config as unknown as AiAgentNodeConfig;
+        const result = await generateAiAgentMessage(
+          db,
+          run,
+          { prompt: cfg.prompt, useKnowledgeBase: cfg.use_knowledge_base },
+          "followup",
+        );
         if (!result.ok) {
-          if (result.reason === "ai_agent_handoff") {
+          if (result.reason === "stop_followups") {
+            await executeFollowupsOptOut(db, run, node.node_key);
+          } else if (result.reason === "ai_agent_handoff") {
             await executeAiAgentHandoff(
               db,
               run,
-              node,
+              node.node_key,
               result.reason,
               result.assignTo,
               result.note,
             );
           } else {
-            await executeAiAgentHandoff(db, run, node, result.reason);
+            await executeAiAgentHandoff(db, run, node.node_key, result.reason);
           }
           await markPendingExecution(db, row.id, "done");
           return;
@@ -1613,7 +1904,9 @@ export async function resumeFlowPendingExecution(
       await markPendingExecution(db, row.id, "failed");
       return;
     }
-    await advanceFromNodeKey(db, run, action.next_node_key, nodes);
+    // The AI-written nudge above already went out — same reasoning as
+    // the followup_message branch above.
+    await advanceFromNodeKey(db, run, action.next_node_key, nodes, true);
     await markPendingExecution(db, row.id, "done");
   }
 }
@@ -1627,6 +1920,27 @@ export async function dispatchInboundToFlows(
 ): Promise<DispatchInboundResult> {
   const db = supabaseAdmin();
   try {
+    // Deterministic opt-out keyword, checked first and unconditionally —
+    // ahead of any active run's own logic, no LLM round trip. Standard
+    // WhatsApp/SMS convention: STOP/UNSUBSCRIBE/QUIT are reserved and
+    // always honored immediately, whatever else is happening on the
+    // thread. This only gates FUTURE unprompted automated touches
+    // (reminders, re-engagement) — it doesn't end or alter an in-
+    // progress run, which may still have something legitimate to say
+    // in direct reply to what the customer's doing right now.
+    if (
+      input.message.kind === "text" &&
+      isOptOutKeyword(input.message.text)
+    ) {
+      await recordFollowupsOptOut(db, {
+        accountId: input.accountId,
+        userId: input.userId,
+        conversationId: input.conversationId,
+        contactId: input.contactId,
+      });
+      return { consumed: true, outcome: "opted_out" };
+    }
+
     const activeRun = await loadActiveRunForContact(
       db,
       input.accountId,

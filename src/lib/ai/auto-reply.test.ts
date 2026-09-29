@@ -268,10 +268,17 @@ describe('dispatchInboundToAiReply — typing indicator (#527)', () => {
 })
 
 describe('dispatchInboundToAiReply — handoff', () => {
-  it('disables auto-reply, writes a summary, and does not send on handoff', async () => {
+  it('disables auto-reply, writes a summary, and sends the fallback text instead of the real reply', async () => {
     h.generateReply.mockResolvedValue({ text: '', handoff: true })
     await dispatchInboundToAiReply(ARGS)
-    expect(h.engineSendText).not.toHaveBeenCalled()
+    // A handoff must never leave the customer with total silence — see
+    // HANDOFF_FALLBACK_TEXT. The generated reply itself is withheld
+    // (it doesn't exist here, `text` is empty), but a short fallback
+    // message goes out instead of the claim/send path below.
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: expect.stringContaining("connect you with our team") }),
+    )
     expect(h.state.rpcCalls).toHaveLength(0)
     expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
     expect(h.state.updatePayload?.ai_handoff_summary).toContain(
@@ -289,5 +296,52 @@ describe('dispatchInboundToAiReply — handoff', () => {
       ai_autoreply_disabled: true,
       assigned_agent_id: 'agent-7',
     })
+  })
+})
+
+describe('dispatchInboundToAiReply — follow-ups opt-out', () => {
+  it.each(['stop', 'STOP', 'Unsubscribe', 'quit'])(
+    'sets ai_followups_disabled and sends a confirmation for %j, without calling the model at all',
+    async (word) => {
+      await dispatchInboundToAiReply({ ...ARGS, inboundText: word })
+      expect(h.loadAiConfig).not.toHaveBeenCalled()
+      expect(h.generateReply).not.toHaveBeenCalled()
+      expect(h.state.updatePayload).toMatchObject({ ai_followups_disabled: true })
+      expect(h.engineSendText).toHaveBeenCalledTimes(1)
+      expect(h.engineSendText).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining("won't send any more automated follow-ups"),
+        }),
+      )
+    },
+  )
+
+  it('does not trip on a message that merely contains the word', async () => {
+    h.generateReply.mockResolvedValue({ text: 'Sure, here you go!', handoff: false })
+    await dispatchInboundToAiReply({
+      ...ARGS,
+      inboundText: 'please stop sending me the wrong size',
+    })
+    // Falls through to the normal auto-reply path — only the bare
+    // keyword trips the deterministic gate.
+    expect(h.loadAiConfig).toHaveBeenCalled()
+  })
+
+  it('sets the flag via the model-detected signal, distinct from a handoff', async () => {
+    h.generateReply.mockResolvedValue({
+      text: '',
+      handoff: false,
+      stopFollowups: true,
+    })
+    await dispatchInboundToAiReply({ ...ARGS, inboundText: 'please leave me alone' })
+    expect(h.state.updatePayload).toMatchObject({ ai_followups_disabled: true })
+    // Not the handoff path — no ai_autoreply_disabled / handoff summary.
+    expect(h.state.updatePayload).not.toHaveProperty('ai_autoreply_disabled')
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining("won't send any more automated follow-ups"),
+      }),
+    )
   })
 })

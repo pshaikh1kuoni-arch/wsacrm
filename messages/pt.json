@@ -1245,7 +1245,7 @@
         "advanceAfterTemplate": "Após enviar, avançar para",
         "waitMinutesLabel": "Aguardar até (minutos)",
         "waitMinutesWarning": "Mínimo de 5 minutos, máximo de 1380 minutos (23 horas). Menos de 5 minutos arrisca atingir os limites de taxa do WhatsApp se isso for acionado repetidamente. Após 24 horas, o WhatsApp bloqueia uma mensagem normal de follow-up desde a última resposta do cliente — use um nó de Modelo para um atraso maior.",
-        "followupTextLabel": "Mensagem de follow-up (enviada somente se o cliente ficar em silêncio)",
+        "followupTextLabel": "Sobre o que fazer o acompanhamento (enviado somente se o cliente ficar em silêncio — a IA escreve a mensagem real)",
         "pickNextNode": "Escolha o próximo nó…",
         "none": "— Nenhum —",
         "removeSection": "Remover seção",

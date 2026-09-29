@@ -64,10 +64,14 @@ export interface ProviderResult {
 
 /** Outcome of a generation call. */
 export interface GenerateResult {
-  /** The reply text, with any handoff sentinel stripped. */
+  /** The reply text, with any handoff/stop-followups sentinel stripped. */
   text: string
   /** True when the model asked to hand off to a human (auto-reply mode). */
   handoff: boolean
+  /** True when the model detected the customer asking not to be
+   *  contacted/followed up with again (auto-reply mode). Independent of
+   *  `handoff` — this means "stop automated messages," not "get a human." */
+  stopFollowups: boolean
   /** Provider token usage for this call, or null when unavailable. */
   usage: AiUsage | null
 }

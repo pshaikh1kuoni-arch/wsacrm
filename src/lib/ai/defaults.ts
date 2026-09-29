@@ -24,6 +24,29 @@ export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
  */
 export const HANDOFF_SENTINEL = '[[HANDOFF]]'
 
+/**
+ * Sentinel the model is instructed to emit (in auto-reply mode) when
+ * the customer clearly asks not to be contacted again — the natural-
+ * language equivalent of a WhatsApp/SMS "STOP" request (e.g. "please
+ * don't message me again," "leave me alone"). The literal keywords
+ * STOP / UNSUBSCRIBE / QUIT are caught deterministically before any
+ * model call (see `isOptOutKeyword` in engine.ts) — this sentinel is
+ * the backstop for the same request phrased any other way. Parsed and
+ * stripped by `generateReply`, same mechanism as `HANDOFF_SENTINEL`.
+ */
+export const STOP_FOLLOWUPS_SENTINEL = '[[STOP_FOLLOWUPS]]'
+
+/**
+ * Sent to the customer whenever an AI turn resolves to "can't answer" —
+ * a handoff decision, missing/rate-limited config, or the provider call
+ * itself throwing. Every one of those cases previously ended in total
+ * silence (an internal status flip only), which is indistinguishable
+ * from the bot being broken. This guarantees the customer always sees
+ * *something* the moment AI can't help, never nothing.
+ */
+export const HANDOFF_FALLBACK_TEXT =
+  "Thanks for your message! Let me connect you with our team so they can help you with this — they'll be with you shortly."
+
 /** Cap on generated reply length — keeps WhatsApp replies short and
  *  bounds token spend on the caller's own key. */
 export const MAX_OUTPUT_TOKENS = 1024
@@ -71,6 +94,9 @@ export function buildSystemPrompt(args: {
   if (mode === 'auto_reply') {
     parts.push(
       `You are replying automatically with no human in the loop. If you cannot confidently and safely help — the customer explicitly asks for a human, is upset or complaining, or the request needs information you do not have — reply with exactly ${HANDOFF_SENTINEL} and nothing else. A human agent will then take over. Prefer handing off over guessing.`,
+    )
+    parts.push(
+      `Separately: if the customer clearly asks not to be contacted, messaged, or followed up with again — in any wording, not just the word "stop" — reply with exactly ${STOP_FOLLOWUPS_SENTINEL} and nothing else. This is different from a handoff: it means stop automated messages to this person entirely, not "get a human." A confirmation is sent to the customer automatically; you do not need to write one.`,
     )
   }
 

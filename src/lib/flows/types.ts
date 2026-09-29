@@ -237,10 +237,14 @@ export interface AiAgentNodeConfig {
 
 /**
  * Pauses the run for up to 23 hours waiting on the customer's next
- * reply. No reply within the window → sends `followup_text` (a plain
- * message, never a template — the 1380-minute (23h) cap keeps this
- * inside Meta's 24-hour customer-service window) then advances. A
- * reply arrives first → the pending callback is cancelled and the run
+ * reply. No reply within the window → generates an AI reminder grounded
+ * in the full conversation (never a template — the 1380-minute (23h)
+ * cap keeps this inside Meta's 24-hour customer-service window), then
+ * advances. Context-aware like `ai_agent`'s own "stay in charge"
+ * follow-up: it won't nag past a stated commitment, and can trigger a
+ * handoff or a stop-followups outcome the same way — see
+ * `generateAiAgentMessage`'s `"followup"` mode in engine.ts. A reply
+ * arrives first → the pending callback is cancelled and the run
  * advances immediately, no interpretation of what they said (that's a
  * downstream node's job).
  *
@@ -254,7 +258,12 @@ export interface WaitFollowupNodeConfig {
    *  a decimal, and so this is actually testable locally without
    *  waiting a full hour for the timer to fire. */
   wait_minutes: number;
-  /** Sent only if the timer fires before the customer replies. */
+  /**
+   * The *intent* behind the reminder (e.g. "check in about whether
+   * they still want to go ahead"), fed to the AI as instructions — not
+   * sent to the customer verbatim. Only used if the timer fires before
+   * the customer replies.
+   */
   followup_text: string;
   /** Node to advance to either way (reply-back or follow-up-sent). */
   next_node_key: string;
@@ -529,7 +538,8 @@ export interface DispatchInboundResult {
     | "handed_off"
     | "fallback_fired"
     | "duplicate_inbound_ignored"
-    | "no_match";
+    | "no_match"
+    | "opted_out";
 }
 
 // ============================================================

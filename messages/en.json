@@ -1245,7 +1245,7 @@
         "advanceAfterTemplate": "After sending, advance to",
         "waitMinutesLabel": "Wait up to (minutes)",
         "waitMinutesWarning": "Minimum 5 minutes, maximum 1380 minutes (23 hours). Under 5 minutes risks hitting WhatsApp's rate limits if this keeps re-triggering. Past 24 hours, WhatsApp blocks a normal follow-up message since the customer's last reply — use a Template node for a longer delay instead.",
-        "followupTextLabel": "Follow-up message (sent only if the customer stays quiet)",
+        "followupTextLabel": "What to check in about (sent only if the customer stays quiet — the AI writes the actual message)",
         "pickNextNode": "Pick a next node…",
         "none": "— None —",
         "removeSection": "Remove section",
