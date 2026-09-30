@@ -266,6 +266,11 @@ vi.mock('@/lib/whatsapp/template-webhook', () => ({
     field.startsWith('message_template_'),
   handleTemplateWebhookChange: vi.fn(),
 }))
+vi.mock('@/lib/whatsapp/number-health-webhook', () => ({
+  isNumberHealthWebhookField: (field: string) =>
+    field === 'phone_number_quality_update' || field === 'account_update',
+  handleNumberHealthWebhookChange: vi.fn(),
+}))
 vi.mock('@/lib/automations/engine', () => ({
   runAutomationsForTrigger: h.runAutomationsForTrigger,
 }))

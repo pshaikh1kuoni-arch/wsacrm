@@ -22,6 +22,10 @@ import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
+import {
+  handleNumberHealthWebhookChange,
+  isNumberHealthWebhookField,
+} from '@/lib/whatsapp/number-health-webhook'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -283,6 +287,17 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
             value: change.value as unknown,
             wabaId: entry.id,
           },
+          supabaseAdmin(),
+        )
+        continue
+      }
+
+      // Number-health events (quality rating / messaging limit / account
+      // updates). Like template events they carry no message-shaped
+      // fields, and `entry.id` is the WABA id.
+      if (isNumberHealthWebhookField(change.field)) {
+        await handleNumberHealthWebhookChange(
+          { field: change.field, value: change.value as unknown, wabaId: entry.id },
           supabaseAdmin(),
         )
         continue

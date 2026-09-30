@@ -133,6 +133,29 @@ export async function verifyPhoneNumber(
   return response.json()
 }
 
+export interface PhoneNumberHealth extends MetaPhoneInfo {
+  messaging_limit_tier?: string
+  name_status?: string
+}
+
+/**
+ * Read a number's quality rating and messaging limit tier — the two
+ * values the phone_number_quality_update webhook announces changes to.
+ */
+export async function getPhoneNumberHealth(
+  args: VerifyPhoneNumberArgs
+): Promise<PhoneNumberHealth> {
+  const { phoneNumberId, accessToken } = args
+  const url = `${META_API_BASE}/${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating,messaging_limit_tier,name_status`
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  return response.json()
+}
+
 // ============================================================
 // Cloud API registration (subscription for inbound webhooks)
 // ============================================================
