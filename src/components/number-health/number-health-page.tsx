@@ -4,16 +4,18 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, HeartPulse, RefreshCw } from 'lucide-react'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { canEditSettings } from '@/lib/auth/roles'
 import {
   messagingLimitFromTier,
   type QualityRating,
 } from '@/lib/whatsapp/number-health'
+import { EmptyCard, Tile } from './cards'
 import { DailyVolumeChart, type DailyRow } from './daily-volume-chart'
 import { PartnerProgress } from './partner-progress'
 import { QualityBadge } from './quality-badge'
+import { UsageSection } from './usage-section'
 
 interface HealthRow {
   phone_number_id: string
@@ -53,6 +55,8 @@ export function NumberHealthPage() {
   const [failed, setFailed] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState<string | null>(null)
+  // Changing this makes the usage section read from Meta again.
+  const [usageVersion, setUsageVersion] = useState(0)
 
   const load = useCallback(async () => {
     try {
@@ -82,6 +86,7 @@ export function NumberHealthPage() {
         setRefreshError(body?.error ?? t('refreshFailed'))
       } else {
         await load()
+        setUsageVersion((v) => v + 1)
       }
     } catch {
       setRefreshError(t('refreshFailed'))
@@ -186,6 +191,8 @@ export function NumberHealthPage() {
             </div>
           )}
 
+          <UsageSection key={usageVersion} />
+
           <section className="rounded-2xl bg-card p-5 shadow-card">
             <h2 className="text-lg font-semibold text-foreground">{t('chartTitle')}</h2>
             <DailyVolumeChart rows={data.daily} />
@@ -237,44 +244,3 @@ function describeEvent(
   return t('eventMeta', { event: e.meta_event ?? t('unknown') })
 }
 
-function Tile({
-  label,
-  hint,
-  children,
-}: {
-  label: string
-  hint: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-2 rounded-2xl bg-card p-5 shadow-card">
-      <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      {children}
-      <span className="text-xs text-muted-foreground">{hint}</span>
-    </div>
-  )
-}
-
-function EmptyCard({
-  title,
-  body,
-  href,
-  cta,
-}: {
-  title: string
-  body: string
-  href?: string
-  cta?: string
-}) {
-  return (
-    <div className="flex flex-col items-start gap-2 rounded-2xl bg-card p-6 shadow-card">
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-      <p className="max-w-xl text-sm text-muted-foreground">{body}</p>
-      {href && cta && (
-        <Link href={href} className={buttonVariants()}>
-          {cta}
-        </Link>
-      )}
-    </div>
-  )
-}

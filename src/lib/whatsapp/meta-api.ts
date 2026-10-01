@@ -10,6 +10,7 @@
  */
 
 import { isBusinessScopedUserId } from './wa-identity'
+import type { UsageDataPoint } from './usage'
 
 const META_API_VERSION = 'v21.0'
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
@@ -154,6 +155,47 @@ export async function getPhoneNumberHealth(
     await throwMetaError(response, `Meta API error: ${response.status}`)
   }
   return response.json()
+}
+
+export interface GetWabaUsageArgs {
+  wabaId: string
+  accessToken: string
+  /** Unix seconds. */
+  start: number
+  end: number
+}
+
+export interface WabaUsage {
+  currency: string | null
+  dataPoints: UsageDataPoint[]
+}
+
+/**
+ * Read what a WhatsApp Business Account was billed between `start` and
+ * `end`: message volume and cost per day, split by pricing category and
+ * type. Cost comes in the account's own currency.
+ *   https://developers.facebook.com/docs/graph-api/reference/whats-app-business-account/pricing_analytics/
+ */
+export async function getWabaUsage(args: GetWabaUsageArgs): Promise<WabaUsage> {
+  const { wabaId, accessToken, start, end } = args
+  const analytics =
+    `pricing_analytics.start(${start}).end(${end}).granularity(DAILY)` +
+    `.metric_types(["COST","VOLUME"]).dimensions(["PRICING_CATEGORY","PRICING_TYPE"])`
+  const fields = encodeURIComponent(`currency,${analytics}`)
+  const response = await fetch(`${META_API_BASE}/${wabaId}?fields=${fields}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = (await response.json()) as {
+    currency?: string
+    pricing_analytics?: { data?: { data_points?: UsageDataPoint[] }[] }
+  }
+  return {
+    currency: typeof data.currency === 'string' ? data.currency : null,
+    dataPoints: (data.pricing_analytics?.data ?? []).flatMap((d) => d.data_points ?? []),
+  }
 }
 
 // ============================================================
