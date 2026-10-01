@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseBroadcastCsv } from './broadcast-csv';
+import {
+  BROADCAST_CSV_EXAMPLES,
+  BROADCAST_SAMPLE_CSV,
+  parseBroadcastCsv,
+} from './broadcast-csv';
 
 describe('parseBroadcastCsv', () => {
   it('parses phone + name into the audience shape', () => {
@@ -119,6 +123,41 @@ describe('parseBroadcastCsv', () => {
       error: 'no_valid_rows',
     });
   });
+
+  // The guide note in the wizard promises these. If the parser changes,
+  // the note must change with it, so the promise is checked here.
+  it('accepts the downloadable sample file with nothing skipped', () => {
+    const result = parseBroadcastCsv(BROADCAST_SAMPLE_CSV);
+
+    expect(result).toEqual({
+      ok: true,
+      duplicates: 0,
+      invalid: 0,
+      contacts: [
+        { phone: '+915555500101', name: 'Rakesh' },
+        { phone: '+915555500102', name: 'Rahul' },
+        { phone: '+915555500103', name: 'Priya' },
+      ],
+    });
+  });
+
+  it.each(BROADCAST_CSV_EXAMPLES.accepted)(
+    'accepts the guide example %s',
+    (value) => {
+      const result = parseBroadcastCsv(`phone\n${value}`);
+      expect(result).toMatchObject({ ok: true, invalid: 0 });
+    }
+  );
+
+  it.each(BROADCAST_CSV_EXAMPLES.skipped.map((s) => s.value))(
+    'skips the guide example %s',
+    (value) => {
+      expect(parseBroadcastCsv(`phone\n${value}`)).toEqual({
+        ok: false,
+        error: 'no_valid_rows',
+      });
+    }
+  );
 
   it('handles CRLF line endings and a trailing newline', () => {
     const result = parseBroadcastCsv(

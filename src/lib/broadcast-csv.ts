@@ -49,6 +49,42 @@ export type ParseBroadcastCsvResult =
     }
   | { ok: false; error: BroadcastCsvError };
 
+/**
+ * The file behind the wizard's "Download sample CSV" button. India has no
+ * number range reserved for examples, so these use a +91 5xxxx series.
+ * Indian mobile numbers start with 6 to 9, so an unedited sample is very
+ * unlikely to reach a real person. CRLF so Excel on Windows opens it
+ * cleanly; the parser accepts either ending.
+ */
+export const BROADCAST_SAMPLE_CSV =
+  [
+    'phone,name',
+    '+915555500101,Rakesh',
+    '+915555500102,Rahul',
+    '+915555500103,Priya',
+  ].join('\r\n') + '\r\n';
+
+export type BroadcastCsvSkipReason = 'noPlus' | 'excel' | 'tooShort';
+
+/**
+ * Numbers shown in the wizard's guide note. Kept next to the parser and
+ * run through it in the unit tests, so the note can never promise
+ * something the parser doesn't do.
+ */
+export const BROADCAST_CSV_EXAMPLES: {
+  accepted: string[];
+  skipped: { value: string; reason: BroadcastCsvSkipReason }[];
+} = {
+  // Display only, never sent. Same number three ways: the parser ignores
+  // spaces and dashes between the digits.
+  accepted: ['+919876543210', '+91 98765 43210', '+91-98765-43210'],
+  skipped: [
+    { value: '9876543210', reason: 'noPlus' },
+    { value: '9.19877E+11', reason: 'excel' },
+    { value: '+91 98765', reason: 'tooShort' },
+  ],
+};
+
 export function parseBroadcastCsv(text: string): ParseBroadcastCsvResult {
   const { rows, hasPhoneColumn } = parseContactCsv(text);
 

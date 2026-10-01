@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { parseBroadcastCsv } from '@/lib/broadcast-csv';
+import {
+  BROADCAST_CSV_EXAMPLES,
+  BROADCAST_SAMPLE_CSV,
+  parseBroadcastCsv,
+} from '@/lib/broadcast-csv';
 import { CustomField, Tag } from '@/types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -16,6 +20,10 @@ import {
   ArrowRight,
   ArrowLeft,
   X,
+  Info,
+  Download,
+  Check,
+  AlertTriangle,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -41,6 +49,44 @@ interface Step2Props {
   onUpdate: (audience: AudienceConfig) => void;
   onNext: () => void;
   onBack: () => void;
+}
+
+function downloadSampleCsv() {
+  const blob = new Blob([BROADCAST_SAMPLE_CSV], {
+    type: 'text/csv;charset=utf-8;',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'broadcast-sample.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Revoking in the same tick can cancel the download in Safari.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function CsvStat({
+  value,
+  label,
+  warn = false,
+}: {
+  value: number;
+  label: string;
+  warn?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-lg px-3 py-2.5 shadow-card-sm ${
+        warn ? 'bg-amber-500/10' : 'bg-card'
+      }`}
+    >
+      <p className="text-lg font-semibold leading-6 text-foreground">
+        {value.toLocaleString()}
+      </p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
 }
 
 export function Step2SelectAudience({
@@ -98,12 +144,23 @@ export function Step2SelectAudience({
   // themselves live on `audience.csvContacts` (owned by the wizard) so
   // they survive stepping forward and back.
   const [pickedCsvName, setPickedCsvName] = useState<string | null>(null);
+  // How many rows the parser dropped from the picked file, shown under
+  // the upload box so a shrunken audience is never a surprise.
+  const [csvStats, setCsvStats] = useState<{
+    duplicates: number;
+    invalid: number;
+  } | null>(null);
+  // `null` means "follow the default": steps open until a file is chosen,
+  // then folded away. Once the user taps Show/Hide, their choice wins.
+  const [stepsOpen, setStepsOpen] = useState<boolean | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   const csvCount = audience.csvContacts?.length ?? 0;
   // Only meaningful while the rows it produced are still in play —
   // picking another audience type wipes `csvContacts`.
   const csvFileName = csvCount > 0 ? pickedCsvName : null;
+  const csvResult = csvCount > 0 ? csvStats : null;
+  const guideOpen = stepsOpen ?? csvCount === 0;
 
   // Tags are used both by the primary "Filter by Tags" audience type
   // AND by the exclude-list below — so always load once on mount.
@@ -242,20 +299,19 @@ export function Step2SelectAudience({
       // fires `change` (the browser suppresses it for an identical value).
       e.target.value = '';
       setPickedCsvName(null);
+      setCsvStats(null);
+      setStepsOpen(null);
       onUpdate({ ...audience, csvContacts: undefined });
       return;
     }
 
     // Rows without a leading `+` and country code were refused (issue
-    // #586). Say so, or a spreadsheet export that stripped the `+` looks
-    // like a mysteriously smaller audience.
-    if (result.invalid > 0) {
-      toast.warning(
-        t('selectAudience.csvInvalidPhones', { count: result.invalid }),
-      );
-    }
-
+    // #586). The banner under the upload box says so, or a spreadsheet
+    // export that stripped the `+` looks like a mysteriously smaller
+    // audience.
     setPickedCsvName(selected.name);
+    setCsvStats({ duplicates: result.duplicates, invalid: result.invalid });
+    setStepsOpen(null);
     onUpdate({ ...audience, csvContacts: result.contacts });
   }
 
@@ -283,6 +339,28 @@ export function Step2SelectAudience({
     };
     onUpdate({ ...audience, customField: { ...prev, ...patch } });
   }
+
+  const guideRich = {
+    code: (chunks: React.ReactNode) => (
+      <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-foreground">
+        {chunks}
+      </code>
+    ),
+    b: (chunks: React.ReactNode) => (
+      <strong className="font-semibold">{chunks}</strong>
+    ),
+  };
+  const guideSteps = [
+    t.rich('selectAudience.guide.step1', guideRich),
+    t.rich('selectAudience.guide.step2', guideRich),
+    t.rich('selectAudience.guide.step3', guideRich),
+    t.rich('selectAudience.guide.step4', guideRich),
+  ];
+  const skipReasonLabel = {
+    noPlus: t('selectAudience.guide.reasonNoPlus'),
+    excel: t('selectAudience.guide.reasonExcel'),
+    tooShort: t('selectAudience.guide.reasonTooShort'),
+  };
 
   const isValid =
     audience.type === 'all' ||
@@ -448,6 +526,89 @@ export function Step2SelectAudience({
             </p>
           </div>
 
+          <div className="space-y-3 rounded-xl bg-card p-4 shadow-card-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <Info className="h-4 w-4 shrink-0 text-primary" />
+              <p className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+                {t('selectAudience.guide.title')}
+              </p>
+              {csvCount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-expanded={guideOpen}
+                  onClick={() => setStepsOpen(!guideOpen)}
+                  className="text-muted-foreground"
+                >
+                  {guideOpen
+                    ? t('selectAudience.guide.hideSteps')
+                    : t('selectAudience.guide.showSteps')}
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={downloadSampleCsv}
+              >
+                <Download />
+                {t('selectAudience.guide.download')}
+              </Button>
+            </div>
+
+            {guideOpen && (
+              <>
+                <ol className="space-y-2">
+                  {guideSteps.map((step, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-foreground">
+                        {i + 1}
+                      </span>
+                      <span className="text-xs leading-5 text-foreground">
+                        {step}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="w-20 shrink-0 text-xs text-muted-foreground">
+                      {t('selectAudience.guide.accepted')}
+                    </span>
+                    {BROADCAST_CSV_EXAMPLES.accepted.map((value) => (
+                      <span
+                        key={value}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs text-foreground"
+                      >
+                        <Check className="h-3 w-3 shrink-0 text-primary" />
+                        <span className="font-mono">{value}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="w-20 shrink-0 text-xs text-muted-foreground">
+                      {t('selectAudience.guide.skipped')}
+                    </span>
+                    {BROADCAST_CSV_EXAMPLES.skipped.map(({ value, reason }) => (
+                      <span
+                        key={value}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-xs text-foreground"
+                      >
+                        <X className="h-3 w-3 shrink-0 text-red-500" />
+                        <span className="font-mono">{value}</span>
+                        <span className="text-muted-foreground">
+                          · {skipReasonLabel[reason]}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={() => csvInputRef.current?.click()}
@@ -469,6 +630,39 @@ export function Step2SelectAudience({
               </p>
             )}
           </button>
+
+          {csvResult && (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                <CsvStat
+                  value={csvCount}
+                  label={t('selectAudience.guide.statReady')}
+                />
+                <CsvStat
+                  value={csvResult.invalid}
+                  label={t('selectAudience.guide.statSkipped')}
+                  warn={csvResult.invalid > 0}
+                />
+                <CsvStat
+                  value={csvResult.duplicates}
+                  label={t('selectAudience.guide.statDuplicates')}
+                />
+              </div>
+              {csvResult.invalid > 0 && (
+                <div
+                  role="status"
+                  className="flex items-start gap-2.5 rounded-lg bg-amber-500/10 p-3"
+                >
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                  <p className="text-xs leading-5 text-foreground">
+                    {t('selectAudience.csvInvalidPhones', {
+                      count: csvResult.invalid,
+                    })}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
 
           <input
             ref={csvInputRef}
