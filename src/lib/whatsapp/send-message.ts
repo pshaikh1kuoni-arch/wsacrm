@@ -61,6 +61,19 @@ export const VALID_MESSAGE_TYPES = [
 ] as const;
 
 /**
+ * Meta's short message, plus its `details` line when that adds something.
+ * For a bad parameter the short message is only "Parameter value is not
+ * valid"; `details` is the part that says which one.
+ */
+function metaErrorText(err: unknown): string {
+  if (!(err instanceof Error)) return 'Unknown Meta API error';
+  const details = (err as { details?: unknown }).details;
+  const extra = typeof details === 'string' ? details.trim() : '';
+  if (extra && !err.message.includes(extra)) return `${err.message}. ${extra}`;
+  return err.message;
+}
+
+/**
  * Typed failure with a machine `code` and a suggested HTTP `status`.
  * Callers map it to their own response shape (`toErrorResponse` for
  * the dashboard route, the v1 envelope for the public endpoint).
@@ -501,8 +514,7 @@ export async function sendMessageToConversation(
 
     if (lastError) throw lastError;
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Unknown Meta API error';
+    const message = metaErrorText(err);
     console.error('[send-message] Meta send failed for all variants:', message);
     throw new SendMessageError('meta_error', `Meta API error: ${message}`, 502);
   }

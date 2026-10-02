@@ -556,6 +556,26 @@ describe('sendMessageToConversation — product messages', () => {
     );
   });
 
+  it("shows Meta's details line when it rejects a product", async () => {
+    const meta = await import('@/lib/whatsapp/meta-api');
+    const failure = Object.assign(new Error('(#131009) Parameter value is not valid'), {
+      details: 'Product not found in the catalogue',
+    });
+    vi.mocked(meta.sendInteractiveProduct).mockRejectedValueOnce(failure);
+    await expect(
+      sendMessageToConversation(sendPathDb([], {}), 'acct-1', {
+        conversationId: 'cv-1',
+        messageType: 'interactive',
+        interactivePayload: productPayload,
+      })
+    ).rejects.toMatchObject({
+      status: 502,
+      message: expect.stringMatching(
+        /Parameter value is not valid\. Product not found in the catalogue/
+      ),
+    });
+  });
+
   it('rejects a product message with no catalogue before touching the database', async () => {
     await expectSendError(
       {
