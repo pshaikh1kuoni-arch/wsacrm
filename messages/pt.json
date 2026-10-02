@@ -1431,7 +1431,11 @@
       "fieldsCount": "{count} {count, plural, =1 {campo personalizado} other {campos personalizados}}",
       "appearance": "modo {mode} · destaque {theme}",
       "yourAccount": "Sua conta",
-      "loading": "Carregando…"
+      "loading": "Carregando…",
+      "catalogItems": "{count} {count, plural, =1 {item} other {itens}}",
+      "catalogNotSynced": "Ainda não sincronizado",
+      "catalogNeedsWhatsApp": "Conecte o WhatsApp primeiro",
+      "viewCatalog": "Sincronize o seu catálogo de produtos"
     },
     "members": {
       "title": "Membros da equipe",
@@ -1767,7 +1771,8 @@
       "fields": "Campos e tags",
       "deals": "Negócios e moeda",
       "members": "Membros da equipe",
-      "api": "Chaves de API"
+      "api": "Chaves de API",
+      "catalog": "Catálogo"
     },
     "groups": {
       "account": "Conta",
@@ -2259,6 +2264,8 @@
     "checking": "Verificando...",
     "checkHint": "Enviar produtos pelo CRM funciona mesmo com o ícone oculto.",
     "checkFailed": "Não foi possível ler as configurações na Meta.",
-    "gateCheck": "verificar as configurações do catálogo"
+    "gateCheck": "verificar as configurações do catálogo",
+    "cardTitle": "Catálogo da Meta",
+    "panelDescription": "Envie os seus produtos aos clientes no WhatsApp e leia os carrinhos que eles enviam de volta."
   }
 }

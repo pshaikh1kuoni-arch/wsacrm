@@ -31,6 +31,12 @@ interface WhatsAppStatus {
   connected: boolean;
 }
 
+// What GET /api/catalog says, trimmed to what the tile needs.
+interface CatalogStatus {
+  status: string;
+  itemCount?: number;
+}
+
 export function SettingsOverview({
   onSelect,
 }: {
@@ -51,6 +57,10 @@ export function SettingsOverview({
   // from blanking the rest of the landing.
   const [whatsapp, setWhatsapp] = useState<WhatsAppStatus | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState(true);
+  // The catalogue tile reads our own database only (never Meta), so it is
+  // cheap, but it stays independent so a failure leaves the other tiles alone.
+  const [catalog, setCatalog] = useState<CatalogStatus | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(true);
 
   useEffect(() => {
     if (!user || !accountId) return;
@@ -136,6 +146,21 @@ export function SettingsOverview({
       setWhatsappLoading(false);
     })();
 
+    // Catalogue copy status — our own database, independent.
+    (async () => {
+      setCatalogLoading(true);
+      try {
+        const res = await fetch('/api/catalog', { cache: 'no-store' });
+        if (!res.ok) throw new Error(String(res.status));
+        const body = (await res.json()) as CatalogStatus;
+        if (!cancelled) setCatalog(body);
+      } catch {
+        if (!cancelled) setCatalog(null);
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -172,6 +197,18 @@ export function SettingsOverview({
           <StatusDot tone="muted" /> {t('needsReconnecting')}
         </>
       ),
+    },
+    {
+      section: 'catalog',
+      loading: catalogLoading,
+      subtitle:
+        catalog == null
+          ? t('viewCatalog')
+          : catalog.status === 'ok'
+            ? t('catalogItems', { count: catalog.itemCount ?? 0 })
+            : catalog.status === 'not_synced'
+              ? t('catalogNotSynced')
+              : t('catalogNeedsWhatsApp'),
     },
     {
       section: 'members',

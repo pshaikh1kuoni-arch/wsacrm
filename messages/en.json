@@ -1431,7 +1431,11 @@
       "fieldsCount": "{count} custom {count, plural, =1 {field} other {fields}}",
       "appearance": "{mode} mode · {theme} accent",
       "yourAccount": "Your account",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "catalogItems": "{count} {count, plural, =1 {item} other {items}}",
+      "catalogNotSynced": "Not synced yet",
+      "catalogNeedsWhatsApp": "Connect WhatsApp first",
+      "viewCatalog": "Sync your product catalogue"
     },
     "members": {
       "title": "Team members",
@@ -1767,7 +1771,8 @@
       "fields": "Fields & tags",
       "deals": "Deals & currency",
       "members": "Team members",
-      "api": "API keys"
+      "api": "API keys",
+      "catalog": "Catalogue"
     },
     "groups": {
       "account": "Account",
@@ -2259,6 +2264,8 @@
     "checking": "Checking...",
     "checkHint": "Sending products from the CRM works even when the icon is hidden.",
     "checkFailed": "Could not read the settings from Meta.",
-    "gateCheck": "check the catalogue settings"
+    "gateCheck": "check the catalogue settings",
+    "cardTitle": "Meta catalogue",
+    "panelDescription": "Send your products to customers in WhatsApp, and read the baskets they send back."
   }
 }

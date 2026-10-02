@@ -9,6 +9,8 @@ import { GatedButton } from '@/components/ui/gated-button';
 import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
 
+import { SettingsPanelHead } from './settings-panel-head';
+
 type StatusPayload =
   | { status: 'not_connected' | 'no_waba' }
   | {
@@ -26,9 +28,22 @@ type SwitchesState =
   | { state: 'unavailable' };
 
 /**
- * Settings → WhatsApp → Catalogue. Shows which Meta catalogue the CRM has
- * copied, a Sync now button, and a read-only check of the shop icon and
- * basket button on the connected number. Plan: docs/catalog-cart-plan.md.
+ * Settings → Catalogue. The section's header and the card under it.
+ */
+export function CatalogPanel() {
+  const t = useTranslations('Catalog');
+  return (
+    <section className="animate-in fade-in-50 duration-200">
+      <SettingsPanelHead title={t('title')} description={t('panelDescription')} />
+      <CatalogCard />
+    </section>
+  );
+}
+
+/**
+ * Shows which Meta catalogue the CRM has copied, a Sync now button, and a
+ * read-only check of the shop icon and basket button on the connected
+ * number. Plan: docs/catalog-cart-plan.md.
  */
 export function CatalogCard() {
   const t = useTranslations('Catalog');
@@ -110,7 +125,7 @@ export function CatalogCard() {
           <ShoppingBag className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold text-foreground">{t('title')}</h2>
+          <h2 className="text-base font-semibold text-foreground">{t('cardTitle')}</h2>
           <p className="text-sm text-muted-foreground">{t('description')}</p>
         </div>
         {synced && (
