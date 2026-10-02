@@ -91,6 +91,17 @@ BEGIN
       'whatsapp_config.catalog_id/catalog_name/catalog_synced_at are missing — migration 052 did not apply';
   END IF;
 
+  -- 053 adds size and colour to catalogue items. The sync upserts both,
+  -- so a missing column would fail every catalogue sync at runtime.
+  IF (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'catalog_items'
+      AND column_name IN ('size', 'color')
+  ) <> 2 THEN
+    RAISE EXCEPTION
+      'catalog_items.size/color are missing — migration 053 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

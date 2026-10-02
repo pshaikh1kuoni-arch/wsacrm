@@ -207,7 +207,17 @@ function MessageContent({
       //    migration 035 backfilled the column): show the body text plainly —
       //    it is our own message, NOT a customer tap.
       if (message.interactive_payload) {
-        return <InteractivePreview payload={message.interactive_payload} />;
+        return (
+          <InteractivePreview
+            payload={message.interactive_payload}
+            labels={{
+              view: t("productView"),
+              viewItems: t("productViewItems"),
+              viewCatalogue: t("productViewCatalogue"),
+              more: (count) => t("productMore", { count }),
+            }}
+          />
+        );
       }
       if (message.sender_type === "customer") {
         return (

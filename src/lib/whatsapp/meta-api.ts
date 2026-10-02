@@ -200,6 +200,217 @@ export async function getWabaUsage(args: GetWabaUsageArgs): Promise<WabaUsage> {
 }
 
 // ============================================================
+// Product messages (catalogue) — sending
+// ============================================================
+//
+// Three session messages that show products from the connected catalogue.
+// They are sent like any interactive message, so they only work inside the
+// 24 hour window. Payload shapes:
+//   developers.facebook.com/documentation/business-messaging/whatsapp/catalogs/
+//   (single-product-messages, multi-product-messages, catalog-messages)
+
+interface PostInteractiveArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  interactive: Record<string, unknown>
+  contextMessageId?: string
+}
+
+async function postInteractive(args: PostInteractiveArgs): Promise<MetaSendResult> {
+  const body: Record<string, unknown> = {
+    messaging_product: 'whatsapp',
+    ...recipientFields(args.to),
+    type: 'interactive',
+    interactive: args.interactive,
+  }
+  if (args.contextMessageId) body.context = { message_id: args.contextMessageId }
+
+  const response = await fetch(`${META_API_BASE}/${args.phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${args.accessToken}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
+
+function validateProductFooter(footerText: string | undefined): void {
+  if (footerText && footerText.length > INTERACTIVE_LIMITS.footerMaxLength) {
+    throw new Error(
+      `Interactive footer exceeds ${INTERACTIVE_LIMITS.footerMaxLength} chars (got ${footerText.length}).`
+    )
+  }
+}
+
+export interface SendInteractiveProductArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  bodyText: string
+  footerText?: string
+  catalogId: string
+  productRetailerId: string
+  contextMessageId?: string
+}
+
+/** One catalogue product as a card with its picture, name and price. */
+export async function sendInteractiveProduct(
+  args: SendInteractiveProductArgs
+): Promise<MetaSendResult> {
+  const { phoneNumberId, accessToken, to, bodyText, footerText, catalogId, productRetailerId, contextMessageId } = args
+  validateInteractiveBody(bodyText)
+  validateProductFooter(footerText)
+  if (!catalogId) throw new Error('Product message needs a catalogue ID.')
+  if (!productRetailerId) throw new Error('Product message needs a product.')
+
+  return postInteractive({
+    phoneNumberId,
+    accessToken,
+    to,
+    contextMessageId,
+    interactive: {
+      type: 'product',
+      body: { text: bodyText },
+      ...(footerText ? { footer: { text: footerText } } : {}),
+      action: { catalog_id: catalogId, product_retailer_id: productRetailerId },
+    },
+  })
+}
+
+export interface ProductListSection {
+  title?: string
+  productRetailerIds: string[]
+}
+
+export interface SendInteractiveProductListArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  headerText: string
+  bodyText: string
+  footerText?: string
+  catalogId: string
+  sections: ProductListSection[]
+  contextMessageId?: string
+}
+
+/** Up to 30 catalogue products in one message, in up to 10 sections. */
+export async function sendInteractiveProductList(
+  args: SendInteractiveProductListArgs
+): Promise<MetaSendResult> {
+  const { phoneNumberId, accessToken, to, headerText, bodyText, footerText, catalogId, sections, contextMessageId } = args
+  validateInteractiveBody(bodyText)
+  validateProductFooter(footerText)
+  if (!catalogId) throw new Error('Product list needs a catalogue ID.')
+  if (!headerText) throw new Error('Product list needs a header.')
+  if (headerText.length > INTERACTIVE_LIMITS.headerTextMaxLength) {
+    throw new Error(
+      `Interactive header exceeds ${INTERACTIVE_LIMITS.headerTextMaxLength} chars (got ${headerText.length}).`
+    )
+  }
+  if (sections.length < 1 || sections.length > INTERACTIVE_LIMITS.maxProductListSections) {
+    throw new Error(
+      `Product list requires 1-${INTERACTIVE_LIMITS.maxProductListSections} sections (got ${sections.length}).`
+    )
+  }
+  const seen = new Set<string>()
+  let total = 0
+  for (const section of sections) {
+    if (section.productRetailerIds.length < 1) {
+      throw new Error('Every product section needs at least one product.')
+    }
+    if (sections.length > 1 && !section.title) {
+      throw new Error('Every section needs a title when there is more than one.')
+    }
+    if (
+      section.title &&
+      section.title.length > INTERACTIVE_LIMITS.productListSectionTitleMaxLength
+    ) {
+      throw new Error(
+        `Section title exceeds ${INTERACTIVE_LIMITS.productListSectionTitleMaxLength} chars (got ${section.title.length}).`
+      )
+    }
+    for (const id of section.productRetailerIds) {
+      total++
+      if (seen.has(id)) throw new Error(`Product list has the product "${id}" twice.`)
+      seen.add(id)
+    }
+  }
+  if (total > INTERACTIVE_LIMITS.maxProductListProducts) {
+    throw new Error(
+      `Product list allows at most ${INTERACTIVE_LIMITS.maxProductListProducts} products (got ${total}).`
+    )
+  }
+
+  return postInteractive({
+    phoneNumberId,
+    accessToken,
+    to,
+    contextMessageId,
+    interactive: {
+      type: 'product_list',
+      header: { type: 'text', text: headerText },
+      body: { text: bodyText },
+      ...(footerText ? { footer: { text: footerText } } : {}),
+      action: {
+        catalog_id: catalogId,
+        sections: sections.map((section) => ({
+          ...(section.title ? { title: section.title } : {}),
+          product_items: section.productRetailerIds.map((id) => ({
+            product_retailer_id: id,
+          })),
+        })),
+      },
+    },
+  })
+}
+
+export interface SendInteractiveCatalogArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  bodyText: string
+  footerText?: string
+  /** Item whose picture is the thumbnail. Meta uses the first item when unset. */
+  thumbnailRetailerId?: string
+  contextMessageId?: string
+}
+
+/** A message with a "View catalogue" button that opens the whole catalogue. */
+export async function sendInteractiveCatalog(
+  args: SendInteractiveCatalogArgs
+): Promise<MetaSendResult> {
+  const { phoneNumberId, accessToken, to, bodyText, footerText, thumbnailRetailerId, contextMessageId } = args
+  validateInteractiveBody(bodyText)
+  validateProductFooter(footerText)
+
+  return postInteractive({
+    phoneNumberId,
+    accessToken,
+    to,
+    contextMessageId,
+    interactive: {
+      type: 'catalog_message',
+      body: { text: bodyText },
+      ...(footerText ? { footer: { text: footerText } } : {}),
+      action: {
+        name: 'catalog_message',
+        ...(thumbnailRetailerId
+          ? { parameters: { thumbnail_product_retailer_id: thumbnailRetailerId } }
+          : {}),
+      },
+    },
+  })
+}
+
+// ============================================================
 // Catalogue (commerce) — read only
 // ============================================================
 //
@@ -1146,6 +1357,13 @@ export const INTERACTIVE_LIMITS = {
   minCarouselCards: 2,
   maxCarouselCards: 10,
   carouselCardBodyMaxLength: 160,
+  // Product messages (catalogue). 30 products and 10 sections are the
+  // documented caps for a multi product message. The 24-character section
+  // title cap is the one Meta applies to list section titles; we use one
+  // short title per message, so we stay well inside it either way.
+  maxProductListProducts: 30,
+  maxProductListSections: 10,
+  productListSectionTitleMaxLength: 24,
 } as const
 
 export interface InteractiveButton {

@@ -98,6 +98,20 @@ export function blankCarouselPayload(): InteractiveCarouselPayload {
   };
 }
 
+/**
+ * The kinds this builder can edit. Product messages are built with "Send
+ * products" in the chat menu, so a product payload that reaches the builder
+ * (for example from an old quick reply) is shown, not edited.
+ */
+type EditablePayload =
+  | InteractiveButtonsPayload
+  | InteractiveListPayload
+  | InteractiveCarouselPayload;
+
+function isEditable(p: InteractiveMessagePayload): p is EditablePayload {
+  return p.kind === "buttons" || p.kind === "list" || p.kind === "carousel";
+}
+
 interface InteractiveBuilderProps {
   value: InteractiveMessagePayload;
   onChange: (payload: InteractiveMessagePayload) => void;
@@ -120,6 +134,15 @@ export function InteractiveBuilder({
   const t = useTranslations("Interactive");
   const [advanced, setAdvanced] = useState(false);
   const validation = validateInteractivePayload(value);
+
+  if (!isEditable(value)) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-xs text-muted-foreground">{t("productReadOnly")}</p>
+        <InteractivePreview payload={value} />
+      </div>
+    );
+  }
 
   const setField = (patch: Partial<InteractiveMessagePayload>) =>
     onChange({ ...value, ...patch } as InteractiveMessagePayload);

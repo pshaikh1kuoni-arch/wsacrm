@@ -104,12 +104,13 @@ export async function engineSendInteractive(
       sections: payload.sections,
     })
   }
-  // Carousel ships in Flows only (see docs/carousel-messages-plan.md) —
-  // Automations' send_buttons/send_list steps never produce this kind
-  // today, but fail loudly instead of silently mis-sending as a list if
-  // that ever changes.
+  // Carousel ships in Flows only (see docs/carousel-messages-plan.md), and
+  // product messages reach Automations in a later step of
+  // docs/catalog-cart-plan.md. Automations' send_buttons/send_list steps
+  // never produce these kinds today, but fail loudly instead of silently
+  // mis-sending as a list if that ever changes.
   throw new Error(
-    'Carousel messages are not supported from Automations — build this in Flows instead.',
+    'Carousel and product messages are not supported from Automations yet.',
   )
 }
 

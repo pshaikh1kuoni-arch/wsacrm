@@ -8,7 +8,7 @@
 
 /** The fields we ask Meta for on every catalogue item. */
 export const CATALOG_PRODUCT_FIELDS =
-  'retailer_id,retailer_product_group_id,name,price,sale_price,currency,availability,image_url,url'
+  'retailer_id,retailer_product_group_id,name,price,sale_price,currency,availability,image_url,url,size,color'
 
 export type CatalogAvailability = 'in_stock' | 'out_of_stock' | 'other'
 
@@ -26,9 +26,12 @@ export interface MetaCatalogProduct {
   availability?: string
   image_url?: string
   url?: string
+  /** Variant attributes. Variants of one product share a name. */
+  size?: string
+  color?: string
 }
 
-/** A row of `catalog_items` (migration 052). */
+/** A row of `catalog_items` (migrations 052 and 053). */
 export interface CatalogItemRow {
   account_id: string
   catalog_id: string
@@ -42,6 +45,8 @@ export interface CatalogItemRow {
   availability: CatalogAvailability
   image_url: string | null
   product_url: string | null
+  size: string | null
+  color: string | null
   synced_at: string
 }
 
@@ -120,6 +125,8 @@ export function toCatalogRow(
     availability: normalizeAvailability(product.availability),
     image_url: product.image_url || null,
     product_url: product.url || null,
+    size: product.size?.trim() || null,
+    color: product.color?.trim() || null,
     synced_at: syncedAt,
   }
 }
@@ -136,6 +143,39 @@ export function effectivePrice(item: {
   const { price_amount: price, sale_price_amount: sale } = item
   if (sale != null && (price == null || sale < price)) return sale
   return price
+}
+
+/**
+ * What tells one variant from another, for example "12x18in · Black".
+ * Empty when the item has neither a size nor a colour.
+ */
+export function variantLabel(item: {
+  size?: string | null
+  color?: string | null
+}): string {
+  return [item.size, item.color]
+    .map((v) => v?.trim())
+    .filter((v): v is string => !!v)
+    .join(' · ')
+}
+
+/**
+ * A price for people to read, such as "₹1,210" or "₹149.50". Whole amounts
+ * drop the decimals. Falls back to a plain number when there is no currency.
+ */
+export function formatCatalogPrice(amount: number, currency: string | null): string {
+  const fraction = Number.isInteger(amount) ? 0 : 2
+  if (!currency) return amount.toFixed(fraction)
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: fraction,
+      maximumFractionDigits: 2,
+    }).format(amount)
+  } catch {
+    return `${amount.toFixed(fraction)} ${currency}`
+  }
 }
 
 /** Structural shape of `MetaApiError`, so this module stays free of I/O imports. */

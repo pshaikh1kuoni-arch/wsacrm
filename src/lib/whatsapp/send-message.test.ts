@@ -198,6 +198,9 @@ vi.mock('@/lib/whatsapp/meta-api', async (importOriginal) => ({
   sendInteractiveButtons: vi.fn(async () => ({ messageId: 'wamid.btn' })),
   sendInteractiveList: vi.fn(async () => ({ messageId: 'wamid.list' })),
   sendInteractiveCarousel: vi.fn(async () => ({ messageId: 'wamid.carousel' })),
+  sendInteractiveProduct: vi.fn(async () => ({ messageId: 'wamid.product' })),
+  sendInteractiveProductList: vi.fn(async () => ({ messageId: 'wamid.plist' })),
+  sendInteractiveCatalog: vi.fn(async () => ({ messageId: 'wamid.catalog' })),
 }));
 
 vi.mock('@/lib/whatsapp/encryption', () => ({
@@ -467,5 +470,101 @@ describe('sendMessageToConversation — BSUID recipients (#519)', () => {
         { conversationId: 'cv-1', messageType: 'text', contentText: 'hi' }
       )
     ).rejects.toThrow(/no phone number or WhatsApp user ID/);
+  });
+});
+
+describe('sendMessageToConversation — product messages', () => {
+  const productPayload = {
+    kind: 'product' as const,
+    body: 'This one is popular.',
+    footer: 'Free delivery',
+    catalog_id: 'cat-1',
+    retailer_id: 'r-1',
+    display: { retailer_id: 'r-1', name: 'Magic Mug', price_text: '₹225' },
+  }
+
+  it('sends one product and stores what the chat needs to draw it', async () => {
+    const meta = await import('@/lib/whatsapp/meta-api');
+    const spy = vi.mocked(meta.sendInteractiveProduct);
+    spy.mockClear();
+    const captured: CapturedWrites = {};
+    const result = await sendMessageToConversation(sendPathDb([], captured), 'acct-1', {
+      conversationId: 'cv-1',
+      messageType: 'interactive',
+      interactivePayload: productPayload,
+    });
+
+    expect(result.whatsappMessageId).toBe('wamid.product');
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phoneNumberId: 'pn-1',
+        bodyText: 'This one is popular.',
+        footerText: 'Free delivery',
+        catalogId: 'cat-1',
+        productRetailerId: 'r-1',
+      })
+    );
+    expect(captured.message?.content_type).toBe('interactive');
+    expect(captured.message?.content_text).toBe('This one is popular.');
+    // The snapshot is saved so the bubble keeps showing name and price.
+    expect(captured.message?.interactive_payload).toEqual(productPayload);
+    expect(captured.conversation?.last_message_text).toBe('This one is popular.');
+  });
+
+  it('sends a product list with its sections', async () => {
+    const meta = await import('@/lib/whatsapp/meta-api');
+    const spy = vi.mocked(meta.sendInteractiveProductList);
+    spy.mockClear();
+    const captured: CapturedWrites = {};
+    await sendMessageToConversation(sendPathDb([], captured), 'acct-1', {
+      conversationId: 'cv-1',
+      messageType: 'interactive',
+      interactivePayload: {
+        kind: 'product_list',
+        body: 'Here are a few options.',
+        header: 'Our mugs',
+        catalog_id: 'cat-1',
+        sections: [{ title: 'Our mugs', retailer_ids: ['a', 'b'] }],
+      },
+    });
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headerText: 'Our mugs',
+        bodyText: 'Here are a few options.',
+        catalogId: 'cat-1',
+        sections: [{ title: 'Our mugs', productRetailerIds: ['a', 'b'] }],
+      })
+    );
+    expect(captured.message?.content_type).toBe('interactive');
+  });
+
+  it('sends the whole catalogue', async () => {
+    const meta = await import('@/lib/whatsapp/meta-api');
+    const spy = vi.mocked(meta.sendInteractiveCatalog);
+    spy.mockClear();
+    const captured: CapturedWrites = {};
+    const result = await sendMessageToConversation(sendPathDb([], captured), 'acct-1', {
+      conversationId: 'cv-1',
+      messageType: 'interactive',
+      interactivePayload: { kind: 'catalog', body: 'Browse our catalogue.' },
+    });
+
+    expect(result.whatsappMessageId).toBe('wamid.catalog');
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ bodyText: 'Browse our catalogue.' })
+    );
+  });
+
+  it('rejects a product message with no catalogue before touching the database', async () => {
+    await expectSendError(
+      {
+        conversationId: 'cv-1',
+        messageType: 'interactive',
+        interactivePayload: { ...productPayload, catalog_id: '' },
+      },
+      400,
+      /catalogue/
+    );
   });
 });

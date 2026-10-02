@@ -21,6 +21,7 @@ import {
   Sparkles,
   Plus,
   MessageSquareDashed,
+  ShoppingBag,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ import {
 import { validateInteractivePayload } from "@/lib/whatsapp/interactive";
 import type { InteractiveMessagePayload, QuickReply } from "@/types";
 import { QuickReplyPicker } from "./quick-reply-picker";
+import { ProductPicker } from "./product-picker";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -142,6 +144,7 @@ export function MessageComposer({
   onClearReply,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
+  const tProducts = useTranslations("Catalog.picker");
 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -154,6 +157,7 @@ export function MessageComposer({
     useState<InteractiveMessagePayload>(blankButtonsPayload);
   const [savingQuickReply, setSavingQuickReply] = useState(false);
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
+  const [productsOpen, setProductsOpen] = useState(false);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
   // attachment; `busy` covers the upload/transcode window.
@@ -318,6 +322,16 @@ export function MessageComposer({
     setInteractiveOpen(false);
     onClearReply?.();
   }, [interactivePayload, onSendInteractive, replyTo?.id, onClearReply]);
+
+  // A product message from the picker is already validated there. It goes
+  // out the same way a built interactive message does.
+  const sendProducts = useCallback(
+    (payload: InteractiveMessagePayload) => {
+      onSendInteractive(payload, replyTo?.id);
+      onClearReply?.();
+    },
+    [onSendInteractive, replyTo?.id, onClearReply],
+  );
 
   // Persist the current builder payload as a reusable interactive snippet.
   const saveAsQuickReply = useCallback(async () => {
@@ -694,6 +708,10 @@ export function MessageComposer({
                 <Zap className="mr-2 h-4 w-4" />
                 {t("quickReplies")}
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setProductsOpen(true)}>
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                {tProducts("menuItem")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -773,6 +791,12 @@ export function MessageComposer({
       )}
 
       {/* Interactive-message builder dialog. */}
+      <ProductPicker
+        open={productsOpen}
+        onOpenChange={setProductsOpen}
+        onSend={sendProducts}
+      />
+
       <Dialog open={interactiveOpen} onOpenChange={setInteractiveOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>

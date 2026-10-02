@@ -250,7 +250,11 @@
       "downloadFailed": "Couldn't download the attachment",
       "viewImage": "View image",
       "expandVideo": "Expand video",
-      "imageAlt": "Shared image"
+      "imageAlt": "Shared image",
+      "productView": "View",
+      "productViewItems": "View items",
+      "productViewCatalogue": "View catalogue",
+      "productMore": "+{count} more"
     },
     "mediaViewer": {
       "counter": "{index} of {total}",
@@ -2147,7 +2151,8 @@
     "cardBodyLabel": "Card text (optional)",
     "cardBodyPlaceholder": "What shows under the image",
     "cardButtonUrlLabel": "Destination URL",
-    "cardButtonUrlPlaceholder": "https://…"
+    "cardButtonUrlPlaceholder": "https://…",
+    "productReadOnly": "Product messages are built with Send products in the chat menu, so they cannot be edited here."
   },
   "DashboardShell": {
     "loading": "Loading..."
@@ -2266,6 +2271,33 @@
     "checkFailed": "Could not read the settings from Meta.",
     "gateCheck": "check the catalogue settings",
     "cardTitle": "Meta catalogue",
-    "panelDescription": "Send your products to customers in WhatsApp, and read the baskets they send back."
+    "panelDescription": "Send your products to customers in WhatsApp, and read the baskets they send back.",
+    "picker": {
+      "menuItem": "Send products",
+      "title": "Send products",
+      "description": "Catalogue: {name}. {count, number} items.",
+      "notSynced": "Your catalogue is not in the CRM yet. Open Settings, Catalogue and press Sync now.",
+      "goToSettings": "Open Settings",
+      "loadingCatalogue": "Loading...",
+      "loadFailed": "Could not load the catalogue.",
+      "modeProducts": "Choose products",
+      "modeCatalog": "Whole catalogue",
+      "search": "Search by name or ID",
+      "noResults": "No products match your search.",
+      "outOfStock": "Out of stock",
+      "showMore": "Show more",
+      "selectedCount": "{count, number} selected (up to {max, number})",
+      "limitReached": "You can send up to {max, number} products in one message.",
+      "hintSingle": "One product sends a single card. Two or more send a list.",
+      "hintCatalog": "Sends a message with a View catalogue button. The customer browses the whole catalogue.",
+      "bodyLabel": "Message to the customer",
+      "bodyDefaultProducts": "Here are some products for you.",
+      "bodyDefaultCatalog": "Browse our catalogue and pick what you like.",
+      "titleLabel": "List title",
+      "titleDefault": "Our products",
+      "clear": "Clear",
+      "sendProducts": "Send {count, plural, =1 {1 product} other {# products}}",
+      "sendCatalogue": "Send catalogue"
+    }
   }
 }

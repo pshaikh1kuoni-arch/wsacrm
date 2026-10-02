@@ -102,10 +102,71 @@ export interface InteractiveCarouselPayload {
   cards: InteractiveCarouselCard[]
 }
 
+/**
+ * What the inbox shows for a product, saved with the message so the chat
+ * keeps rendering it even if the catalogue changes later. Never sent to
+ * Meta: Meta builds the card from its own copy of the catalogue.
+ */
+export interface InteractiveProductDisplay {
+  retailer_id: string
+  name: string
+  /** What tells variants apart, for example "12x18in · Black". */
+  variant?: string
+  /** The price the customer sees, for example "₹225". */
+  price_text?: string
+  /** The normal price, shown struck through when a sale price applies. */
+  was_text?: string
+  image_url?: string
+}
+
+/** One product from the catalogue, shown as a card. */
+export interface InteractiveProductPayload {
+  kind: 'product'
+  /** Message text under the card. Meta makes it optional; we always set it. */
+  body: string
+  footer?: string
+  /** The Meta catalogue the item belongs to. */
+  catalog_id: string
+  /** The item's retailer ID in that catalogue. */
+  retailer_id: string
+  display?: InteractiveProductDisplay
+}
+
+export interface InteractiveProductListSection {
+  /** Required by Meta when there is more than one section (≤ 24 chars). */
+  title?: string
+  retailer_ids: string[]
+}
+
+/** Up to 30 catalogue products in one tap-to-open list. */
+export interface InteractiveProductListPayload {
+  kind: 'product_list'
+  body: string
+  /** Required by Meta (≤ 60 chars). */
+  header: string
+  footer?: string
+  catalog_id: string
+  /** 1–10 sections, 30 products in total. */
+  sections: InteractiveProductListSection[]
+  display?: InteractiveProductDisplay[]
+}
+
+/** A "View catalogue" message that opens the whole catalogue. */
+export interface InteractiveCatalogPayload {
+  kind: 'catalog'
+  body: string
+  footer?: string
+  /** Item whose picture is the message thumbnail. Meta uses the first item when unset. */
+  thumbnail_retailer_id?: string
+}
+
 export type InteractiveMessagePayload =
   | InteractiveButtonsPayload
   | InteractiveListPayload
   | InteractiveCarouselPayload
+  | InteractiveProductPayload
+  | InteractiveProductListPayload
+  | InteractiveCatalogPayload
 
 export type InteractiveValidation =
   | { ok: true }
@@ -165,6 +226,11 @@ export function validateInteractivePayload(
   // the two kinds that do rather than read off the shared `p`.
   if (p.kind === 'buttons' || p.kind === 'list') {
     const hf = validateHeaderFooter(p.header, p.footer)
+    if (!hf.ok) return hf
+  }
+  // Product messages carry a footer, and the product list also a header.
+  if (p.kind === 'product' || p.kind === 'catalog') {
+    const hf = validateHeaderFooter(undefined, p.footer)
     if (!hf.ok) return hf
   }
 
@@ -318,7 +384,85 @@ export function validateInteractivePayload(
     return ok()
   }
 
-  return fail('Interactive message must be reply buttons, a list, or a carousel.')
+  if (p.kind === 'product') {
+    const product = p as InteractiveProductPayload
+    if (typeof product.catalog_id !== 'string' || product.catalog_id.trim() === '') {
+      return fail('The product message needs a catalogue.')
+    }
+    if (typeof product.retailer_id !== 'string' || product.retailer_id.trim() === '') {
+      return fail('The product message needs a product.')
+    }
+    return ok()
+  }
+
+  if (p.kind === 'product_list') {
+    const list = p as InteractiveProductListPayload
+    if (typeof list.catalog_id !== 'string' || list.catalog_id.trim() === '') {
+      return fail('The product list needs a catalogue.')
+    }
+    if (typeof list.header !== 'string' || list.header.trim() === '') {
+      return fail('The product list needs a title.')
+    }
+    if (list.header.length > INTERACTIVE_LIMITS.headerTextMaxLength) {
+      return fail(
+        `Title exceeds the ${INTERACTIVE_LIMITS.headerTextMaxLength}-character limit.`,
+      )
+    }
+    const hf = validateHeaderFooter(undefined, list.footer)
+    if (!hf.ok) return hf
+    const sections = list.sections
+    if (!Array.isArray(sections) || sections.length < 1) {
+      return fail('Add at least one product section.')
+    }
+    if (sections.length > INTERACTIVE_LIMITS.maxProductListSections) {
+      return fail(
+        `A product list allows at most ${INTERACTIVE_LIMITS.maxProductListSections} sections.`,
+      )
+    }
+    const seen = new Set<string>()
+    let total = 0
+    for (const section of sections) {
+      if (!section || !Array.isArray(section.retailer_ids) || section.retailer_ids.length < 1) {
+        return fail('Every product section needs at least one product.')
+      }
+      if (sections.length > 1 && (!section.title || section.title.trim() === '')) {
+        return fail('Every section needs a title when there is more than one.')
+      }
+      if (
+        section.title &&
+        section.title.length > INTERACTIVE_LIMITS.productListSectionTitleMaxLength
+      ) {
+        return fail(
+          `Section title exceeds the ${INTERACTIVE_LIMITS.productListSectionTitleMaxLength}-character limit.`,
+        )
+      }
+      for (const id of section.retailer_ids) {
+        total++
+        if (typeof id !== 'string' || id.trim() === '') {
+          return fail('Every product needs an id.')
+        }
+        if (seen.has(id)) {
+          return fail('The same product is in the list twice.')
+        }
+        seen.add(id)
+      }
+    }
+    if (total > INTERACTIVE_LIMITS.maxProductListProducts) {
+      return fail(
+        `A product list allows at most ${INTERACTIVE_LIMITS.maxProductListProducts} products.`,
+      )
+    }
+    return ok()
+  }
+
+  if (p.kind === 'catalog') {
+    // Nothing else is required: the body and footer are checked above.
+    return ok()
+  }
+
+  return fail(
+    'Interactive message must be reply buttons, a list, a carousel, or a product message.',
+  )
 }
 
 /**
@@ -332,5 +476,8 @@ export function interactivePayloadPreviewText(
   if (body) return body
   if (payload.kind === 'buttons') return '[buttons]'
   if (payload.kind === 'list') return '[list]'
+  if (payload.kind === 'product') return '[product]'
+  if (payload.kind === 'product_list') return '[products]'
+  if (payload.kind === 'catalog') return '[catalogue]'
   return '[carousel]'
 }

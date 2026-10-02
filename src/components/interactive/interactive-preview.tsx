@@ -1,8 +1,11 @@
 "use client";
 
-import { Image as ImageIcon, List, Reply, Video } from "lucide-react";
+import { Image as ImageIcon, List, Reply, ShoppingBag, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { InteractiveMessagePayload } from "@/lib/whatsapp/interactive";
+import type {
+  InteractiveMessagePayload,
+  InteractiveProductDisplay,
+} from "@/lib/whatsapp/interactive";
 
 /**
  * WhatsApp-style read-only render of an interactive message. Used both
@@ -23,6 +26,14 @@ export interface InteractivePreviewLabels {
   button?: string;
   /** Shown in place of an empty list button label. */
   menu?: string;
+  /** Button under a single product card. */
+  view?: string;
+  /** Button under a product list. */
+  viewItems?: string;
+  /** Button under a catalogue message. */
+  viewCatalogue?: string;
+  /** Line under a product list that shows more products than fit. */
+  more?: (count: number) => string;
 }
 
 export function InteractivePreview({
@@ -37,6 +48,14 @@ export function InteractivePreview({
   const bodyLabel = labels?.body ?? "Message body…";
   const buttonLabel = labels?.button ?? "Button";
   const menuLabel = labels?.menu ?? "Menu";
+  // Only some kinds carry a header; carousel has neither header nor footer.
+  const header =
+    payload.kind === "buttons" ||
+    payload.kind === "list" ||
+    payload.kind === "product_list"
+      ? payload.header
+      : undefined;
+  const footer = payload.kind === "carousel" ? undefined : payload.footer;
   return (
     <div
       className={cn(
@@ -45,19 +64,17 @@ export function InteractivePreview({
       )}
     >
       <div className="px-3 py-2">
-        {payload.kind !== "carousel" && payload.header ? (
-          <p className="mb-1 break-words text-sm font-semibold">
-            {payload.header}
-          </p>
+        {header ? (
+          <p className="mb-1 break-words text-sm font-semibold">{header}</p>
         ) : null}
         <p className="whitespace-pre-wrap break-words text-sm">
           {payload.body || (
             <span className="text-muted-foreground">{bodyLabel}</span>
           )}
         </p>
-        {payload.kind !== "carousel" && payload.footer ? (
+        {footer ? (
           <p className="mt-1 break-words text-[11px] text-muted-foreground">
-            {payload.footer}
+            {footer}
           </p>
         ) : null}
       </div>
@@ -85,7 +102,7 @@ export function InteractivePreview({
           <List className="h-3.5 w-3.5" />
           <span className="truncate">{payload.button_label || menuLabel}</span>
         </button>
-      ) : (
+      ) : payload.kind === "carousel" ? (
         <div className="border-t border-border py-2">
           <div className="flex gap-2 overflow-x-auto px-3 pb-1">
             {payload.cards.map((card, i) => (
@@ -134,7 +151,109 @@ export function InteractivePreview({
             ))}
           </div>
         </div>
+      ) : payload.kind === "product" ? (
+        <div className="border-t border-border">
+          {payload.display ? (
+            <div className="flex gap-2 px-3 py-2">
+              <ProductThumb url={payload.display.image_url} className="h-14 w-14" />
+              <div className="min-w-0">
+                <p className="line-clamp-2 break-words text-sm font-medium">
+                  {payload.display.name}
+                </p>
+                {payload.display.variant ? (
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {payload.display.variant}
+                  </p>
+                ) : null}
+                <ProductPrice item={payload.display} />
+              </div>
+            </div>
+          ) : null}
+          <span className="flex items-center justify-center gap-1.5 border-t border-border py-2 text-sm font-medium text-primary">
+            <ShoppingBag className="h-3.5 w-3.5" />
+            {labels?.view ?? "View"}
+          </span>
+        </div>
+      ) : payload.kind === "product_list" ? (
+        <div className="border-t border-border">
+          {(payload.display ?? []).slice(0, 3).map((item) => (
+            <div
+              key={item.retailer_id}
+              className="flex items-center gap-2 border-b border-border px-3 py-1.5 last:border-b-0"
+            >
+              <ProductThumb url={item.image_url} className="h-9 w-9" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium">{item.name}</p>
+                {item.variant ? (
+                  <p className="truncate text-[10px] text-muted-foreground">
+                    {item.variant}
+                  </p>
+                ) : null}
+              </div>
+              {item.price_text ? (
+                <span className="shrink-0 text-xs font-semibold">
+                  {item.price_text}
+                </span>
+              ) : null}
+            </div>
+          ))}
+          {productListMore(payload) > 0 ? (
+            <p className="px-3 py-1 text-[11px] text-muted-foreground">
+              {labels?.more
+                ? labels.more(productListMore(payload))
+                : `+${productListMore(payload)} more`}
+            </p>
+          ) : null}
+          <span className="flex items-center justify-center gap-1.5 border-t border-border py-2 text-sm font-medium text-primary">
+            <List className="h-3.5 w-3.5" />
+            {labels?.viewItems ?? "View items"}
+          </span>
+        </div>
+      ) : (
+        <span className="flex items-center justify-center gap-1.5 border-t border-border py-2 text-sm font-medium text-primary">
+          <ShoppingBag className="h-3.5 w-3.5" />
+          {labels?.viewCatalogue ?? "View catalogue"}
+        </span>
       )}
     </div>
+  );
+}
+
+/** How many products of a list the preview cannot show. */
+function productListMore(payload: {
+  sections: { retailer_ids: string[] }[];
+  display?: InteractiveProductDisplay[];
+}): number {
+  const total = payload.sections.reduce((n, s) => n + s.retailer_ids.length, 0);
+  return Math.max(0, total - Math.min(3, payload.display?.length ?? 0));
+}
+
+function ProductThumb({ url, className }: { url?: string; className: string }) {
+  return url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="" className={cn("shrink-0 rounded-md object-cover", className)} />
+  ) : (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-md bg-muted",
+        className,
+      )}
+    >
+      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+    </span>
+  );
+}
+
+function ProductPrice({ item }: { item: InteractiveProductDisplay }) {
+  if (!item.price_text) return null;
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className="text-sm font-semibold">{item.price_text}</span>
+      {item.was_text ? (
+        <span className="text-[11px] text-muted-foreground line-through">
+          {item.was_text}
+        </span>
+      ) : null}
+    </span>
   );
 }

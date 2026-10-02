@@ -250,7 +250,11 @@
       "downloadFailed": "Não foi possível baixar o anexo",
       "viewImage": "Ver imagem",
       "expandVideo": "Expandir vídeo",
-      "imageAlt": "Imagem compartilhada"
+      "imageAlt": "Imagem compartilhada",
+      "productView": "Ver",
+      "productViewItems": "Ver itens",
+      "productViewCatalogue": "Ver catálogo",
+      "productMore": "+{count} mais"
     },
     "mediaViewer": {
       "counter": "{index} de {total}",
@@ -2147,7 +2151,8 @@
     "cardBodyLabel": "Texto do cartão (opcional)",
     "cardBodyPlaceholder": "O que aparece abaixo da imagem",
     "cardButtonUrlLabel": "URL de destino",
-    "cardButtonUrlPlaceholder": "https://…"
+    "cardButtonUrlPlaceholder": "https://…",
+    "productReadOnly": "As mensagens de produto são criadas em Enviar produtos, no menu do chat, por isso não podem ser editadas aqui."
   },
   "DashboardShell": {
     "loading": "Carregando..."
@@ -2266,6 +2271,33 @@
     "checkFailed": "Não foi possível ler as configurações na Meta.",
     "gateCheck": "verificar as configurações do catálogo",
     "cardTitle": "Catálogo da Meta",
-    "panelDescription": "Envie os seus produtos aos clientes no WhatsApp e leia os carrinhos que eles enviam de volta."
+    "panelDescription": "Envie os seus produtos aos clientes no WhatsApp e leia os carrinhos que eles enviam de volta.",
+    "picker": {
+      "menuItem": "Enviar produtos",
+      "title": "Enviar produtos",
+      "description": "Catálogo: {name}. {count, number} itens.",
+      "notSynced": "O seu catálogo ainda não está no CRM. Abra Configurações, Catálogo e clique em Sincronizar agora.",
+      "goToSettings": "Abrir Configurações",
+      "loadingCatalogue": "Carregando...",
+      "loadFailed": "Não foi possível carregar o catálogo.",
+      "modeProducts": "Escolher produtos",
+      "modeCatalog": "Catálogo completo",
+      "search": "Buscar por nome ou ID",
+      "noResults": "Nenhum produto corresponde à sua busca.",
+      "outOfStock": "Esgotado",
+      "showMore": "Mostrar mais",
+      "selectedCount": "{count, number} selecionados (até {max, number})",
+      "limitReached": "Você pode enviar até {max, number} produtos em uma mensagem.",
+      "hintSingle": "Um produto envia um cartão. Dois ou mais enviam uma lista.",
+      "hintCatalog": "Envia uma mensagem com um botão Ver catálogo. O cliente navega por todo o catálogo.",
+      "bodyLabel": "Mensagem para o cliente",
+      "bodyDefaultProducts": "Aqui estão alguns produtos para você.",
+      "bodyDefaultCatalog": "Navegue pelo nosso catálogo e escolha o que mais gostar.",
+      "titleLabel": "Título da lista",
+      "titleDefault": "Nossos produtos",
+      "clear": "Limpar",
+      "sendProducts": "Enviar {count, plural, =1 {1 produto} other {# produtos}}",
+      "sendCatalogue": "Enviar catálogo"
+    }
   }
 }

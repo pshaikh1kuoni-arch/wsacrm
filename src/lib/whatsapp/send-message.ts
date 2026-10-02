@@ -28,6 +28,9 @@ import {
   sendInteractiveButtons,
   sendInteractiveList,
   sendInteractiveCarousel,
+  sendInteractiveProduct,
+  sendInteractiveProductList,
+  sendInteractiveCatalog,
   type MediaKind,
 } from '@/lib/whatsapp/meta-api';
 import {
@@ -393,6 +396,48 @@ export async function sendMessageToConversation(
           headerText: p.header || undefined,
           footerText: p.footer || undefined,
           sections: p.sections,
+          contextMessageId,
+        });
+        return result.messageId;
+      }
+      if (p.kind === 'product') {
+        const result = await sendInteractiveProduct({
+          phoneNumberId: config.phone_number_id,
+          accessToken,
+          to: phone,
+          bodyText: p.body,
+          footerText: p.footer || undefined,
+          catalogId: p.catalog_id,
+          productRetailerId: p.retailer_id,
+          contextMessageId,
+        });
+        return result.messageId;
+      }
+      if (p.kind === 'product_list') {
+        const result = await sendInteractiveProductList({
+          phoneNumberId: config.phone_number_id,
+          accessToken,
+          to: phone,
+          headerText: p.header,
+          bodyText: p.body,
+          footerText: p.footer || undefined,
+          catalogId: p.catalog_id,
+          sections: p.sections.map((section) => ({
+            title: section.title || undefined,
+            productRetailerIds: section.retailer_ids,
+          })),
+          contextMessageId,
+        });
+        return result.messageId;
+      }
+      if (p.kind === 'catalog') {
+        const result = await sendInteractiveCatalog({
+          phoneNumberId: config.phone_number_id,
+          accessToken,
+          to: phone,
+          bodyText: p.body,
+          footerText: p.footer || undefined,
+          thumbnailRetailerId: p.thumbnail_retailer_id || undefined,
           contextMessageId,
         });
         return result.messageId;

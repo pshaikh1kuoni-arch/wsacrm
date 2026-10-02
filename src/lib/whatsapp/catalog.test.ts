@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   effectivePrice,
   explainCatalogError,
+  formatCatalogPrice,
   normalizeAvailability,
   parsePriceAmount,
   toCatalogRow,
+  variantLabel,
 } from './catalog'
 
 describe('parsePriceAmount', () => {
@@ -76,6 +78,8 @@ describe('toCatalogRow', () => {
         availability: 'in stock',
         image_url: 'https://example.com/a.jpg',
         url: 'https://example.com/p',
+        size: ' 12x18in ',
+        color: 'Black',
       },
       NOW,
     )
@@ -92,6 +96,8 @@ describe('toCatalogRow', () => {
       availability: 'in_stock',
       image_url: 'https://example.com/a.jpg',
       product_url: 'https://example.com/p',
+      size: '12x18in',
+      color: 'Black',
       synced_at: NOW,
     })
   })
@@ -102,6 +108,8 @@ describe('toCatalogRow', () => {
     expect(row?.sale_price_amount).toBeNull()
     expect(row?.currency).toBeNull()
     expect(row?.group_id).toBeNull()
+    expect(row?.size).toBeNull()
+    expect(row?.color).toBeNull()
     expect(row?.availability).toBe('other')
   })
 
@@ -163,5 +171,40 @@ describe('explainCatalogError', () => {
     const r = explainCatalogError({ message: 'boom', code: 1 })
     expect(r.side).toBe('meta')
     expect(r.metaMessage).toBe('boom')
+  })
+})
+
+describe('variantLabel', () => {
+  it('joins size and colour', () => {
+    expect(variantLabel({ size: 'L', color: 'Black' })).toBe('L · Black')
+  })
+
+  it('shows whichever one exists', () => {
+    expect(variantLabel({ size: 'A4', color: null })).toBe('A4')
+    expect(variantLabel({ size: null, color: 'Red' })).toBe('Red')
+  })
+
+  it('is empty when there is neither', () => {
+    expect(variantLabel({ size: null, color: null })).toBe('')
+    expect(variantLabel({ size: ' ', color: undefined })).toBe('')
+  })
+})
+
+describe('formatCatalogPrice', () => {
+  it('drops the decimals on a whole amount', () => {
+    expect(formatCatalogPrice(1210, 'INR')).toBe('₹1,210')
+    expect(formatCatalogPrice(225, 'INR')).toBe('₹225')
+  })
+
+  it('keeps two decimals otherwise', () => {
+    expect(formatCatalogPrice(149.5, 'INR')).toBe('₹149.50')
+  })
+
+  it('falls back to a plain number without a currency', () => {
+    expect(formatCatalogPrice(300, null)).toBe('300')
+  })
+
+  it('does not throw on a currency code Intl does not know', () => {
+    expect(formatCatalogPrice(5, 'NOPE!')).toContain('5')
   })
 })

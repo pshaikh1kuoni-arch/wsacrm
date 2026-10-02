@@ -284,3 +284,24 @@ What the real data taught us:
 1. **149 of 326 items carry a lower `sale_price`.** None has sale dates. The price a customer sees in WhatsApp is the sale price, so the CRM stores both and uses `effectivePrice` (the sale price when it is lower, otherwise the normal price). Example: Magic Mug is ₹300 with a sale price of ₹225.
 2. The mockup used normal prices (Magic Mug ₹300, White Mug ₹200, Wooden Artistic Frames V1.2 ₹1,210). The picker and the basket card must show the sale price, with the normal price struck through. Update the mockup before Step 2 and Step 3.
 3. Open question for Step 3: which price does Meta put in a basket (`item_price`), the sale price or the normal one? We learn it from the first real basket. The check accepts the sale price, and flags anything that matches neither.
+
+### Step 2: send products from the inbox (built 2 Oct 2026, not yet pushed)
+
+Built:
+1. `supabase/migrations/053_catalog_item_variants.sql`: `size` and `color` on `catalog_items`. **Must be applied before this code is pushed**, because the sync now writes both columns and the picker reads them. After applying it, press Sync now once so the columns fill in. `verify-schema.sql` asserts it.
+2. Three new message kinds in the shared interactive payload: `product` (one card), `product_list` (up to 30 products in up to 10 sections) and `catalog` (a View catalogue button). Validation in `interactive.ts`. The payload keeps a `display` snapshot (name, variant, price, image) so the chat keeps drawing the card after the catalogue changes. The snapshot is never sent to Meta.
+3. Meta senders in `meta-api.ts`: `sendInteractiveProduct`, `sendInteractiveProductList`, `sendInteractiveCatalog`. Payload shapes are from Meta's single product, multi product and catalogue message pages.
+4. `src/lib/whatsapp/product-message.ts`: turns a picker selection into the right message. One product sends a card, two to thirty send a list, "Whole catalogue" sends the catalogue message.
+5. `src/components/inbox/product-picker.tsx` and a "Send products" item in the composer's plus menu. Search by name or ID, variant and ID on every row, the sale price with the normal price struck through, out of stock items disabled, up to 30 selected, an editable message and list title. It reuses the normal send route, so it follows the 24 hour window and the viewer rule like every other message.
+6. The chat bubble draws all three kinds, in four languages. The Interactive builder and Quick replies show a product payload read only. Automations refuse it for now (Step 4).
+7. Tests: 100 new. The full suite passes (1,240), plus `tsc` and `eslint`.
+
+Real data behind the design (read only):
+1. 74 product names are shared by several items, because variants carry the same name. Size or colour separates most of them. 41 of those 74 names stay identical even then, so every row also shows the item ID.
+2. Items with no size and no colour show the ID only.
+
+Still to confirm on a real phone (Phase 1 test list):
+1. That the single card, the list and the catalogue message open as designed on the customer's phone.
+2. Whether a catalogue message works without the shop icon on this number.
+3. Whether Meta accepts a product list with one section titled the same as the header.
+4. What Meta says when the 24 hour window is closed.
