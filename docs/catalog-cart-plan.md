@@ -285,7 +285,7 @@ What the real data taught us:
 2. The mockup used normal prices (Magic Mug ₹300, White Mug ₹200, Wooden Artistic Frames V1.2 ₹1,210). The picker and the basket card must show the sale price, with the normal price struck through. Update the mockup before Step 2 and Step 3.
 3. Open question for Step 3: which price does Meta put in a basket (`item_price`), the sale price or the normal one? We learn it from the first real basket. The check accepts the sale price, and flags anything that matches neither.
 
-### Step 2: send products from the inbox (built 2 Oct 2026, not yet pushed)
+### Step 2: send products from the inbox (built and pushed 2 Oct 2026)
 
 Built:
 1. `supabase/migrations/053_catalog_item_variants.sql`: `size` and `color` on `catalog_items`. **Must be applied before this code is pushed**, because the sync now writes both columns and the picker reads them. After applying it, press Sync now once so the columns fill in. `verify-schema.sql` asserts it.
@@ -299,6 +299,10 @@ Built:
 Real data behind the design (read only):
 1. 74 product names are shared by several items, because variants carry the same name. Size or colour separates most of them. 41 of those 74 names stay identical even then, so every row also shows the item ID.
 2. Items with no size and no colour show the ID only.
+
+Result on a real phone (2 Oct 2026, owner test): the single card, the list and the catalogue message all reached the customer's phone, and the picker looked right after one layout fix. Details below that the owner did not report are still open.
+
+Layout bug found in that test and fixed (commit 974aa9c): the dialog is a grid whose column grows to fit its widest line, and a long product name anywhere in the list pushed the search box, list and prices past the dialog's edge. The picker's dialog now has a column that may shrink. Reproduced in Chrome before fixing (265px overflow with a 110 character name) and checked after.
 
 Still to confirm on a real phone (Phase 1 test list):
 1. That the single card, the list and the catalogue message open as designed on the customer's phone.

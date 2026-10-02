@@ -1,6 +1,6 @@
 # WAGenie CRM: feature list
 
-Last checked: 2 Oct 2026, against the code on `main` (commit efd8d7d).
+Last checked: 2 Oct 2026, against the code on `main` (commit 974aa9c).
 Product name in the app: WAGenie. Code name: wacrm.
 
 ## How to use this file
@@ -35,6 +35,7 @@ Status words used below:
 | Number health | BUILT | `src/app/(dashboard)/number-health` |
 | Team and roles | BUILT | `src/lib/auth`, `src/components/settings/members-tab.tsx` |
 | Public API, webhooks, MCP | BUILT | `src/app/api/v1`, `mcp-server/` |
+| Catalogue and product messages | PARTIAL (sending built, receiving baskets not yet) | `src/components/settings/catalog-card.tsx`, `src/components/inbox/product-picker.tsx`, `src/lib/whatsapp/catalog*.ts` |
 | Orders and payments | PLANNED | `docs/orders-payments-plan.md` |
 
 ## 1. Shared inbox
@@ -61,6 +62,10 @@ BUILT:
   switched off).
 - Contact panel inside the chat: details, tags, deals, notes. Add a deal
   from the chat.
+- Send products from the plus menu: one product as a card, two to thirty as a
+  list, or the whole catalogue as a View catalogue message. Search by name or
+  ID, see the variant and the sale price, out of stock items cannot be picked
+  (see section 5a).
 - AI draft button, AI auto reply, take over and resume (see section 8).
 - Unread badge in the sidebar. Browser notifications. Presence dot for
   team members who are online.
@@ -154,6 +159,33 @@ NOT BUILT:
 - Media card carousel templates for broadcasts. The plan file marks this out
   of scope for now. (The interactive carousel in chats is built.)
 - Meta WhatsApp Flows forms (the in chat forms for bookings and data capture).
+
+## 5a. Catalogue (Meta product catalogue)
+
+BUILT:
+
+- Settings, Catalogue (its own section and an Overview tile): shows which
+  Meta catalogue is connected, how many items are copied, when it last
+  synced, and a Sync now button (admin and owner).
+- The CRM reads the catalogue from Meta and copies every item into its own
+  table: name, price, sale price, size, colour, stock, picture and link. It
+  only reads. It never changes the catalogue.
+- A read only check of the shop icon and basket button for the number. Meta
+  currently returns nothing for them, shown as "Not confirmed by Meta".
+- Send products from the inbox (see section 1). A product list carries a
+  snapshot of names and prices, so the chat keeps showing what was sent.
+- Real catalogue facts the design handles: 326 items, 149 with a lower sale
+  price, 74 product names shared by several variants, 9 out of stock.
+
+NOT BUILT:
+
+- Receiving a customer's basket. Today a basket shows in the inbox as
+  "Unsupported message type: order" (step 3 of `docs/catalog-cart-plan.md`).
+- A "Basket received" automation trigger, a "Send catalogue" automation step
+  and flow node (step 4).
+- Multi product broadcast templates and product carousels.
+- Turning on the shop icon. Meta refused the API call (HTTP 500). Raised
+  with Meta support.
 
 ## 6. Automations
 
@@ -329,10 +361,10 @@ NOT BUILT:
    The Supabase migration 048 and a live click test were still open when the
    plan was last updated.
 
-5. Catalogue and basket (`docs/catalog-cart-plan.md`, version 1.0). Send
-   Meta catalogue products from the inbox, receive a customer's basket, make
-   an order. The Meta catalogue is connected to +91 87794 71874. Nothing is
-   built in the CRM yet. The payment link comes from the orders plan.
+5. Catalogue and basket (`docs/catalog-cart-plan.md`, version 1.1). Steps 1
+   and 2 are built: the catalogue copy and sending products. Next are
+   receiving a basket (step 3) and the automation pieces (step 4). Turning a
+   basket into an order, and the payment link, belong to the orders plan.
 
 ## 16. Earlier competitor look
 
