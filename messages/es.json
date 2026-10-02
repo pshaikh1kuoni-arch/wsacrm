@@ -2061,7 +2061,7 @@
   },
   "Notifications": {
     "title": "Notificaciones",
-    "description": "Las conversaciones que otros compañeros te asignan aparecen aquí.",
+    "description": "Los chats que te asignan y los carritos de los clientes aparecen aquí.",
     "markAllRead": "Marcar todas como leídas",
     "markReadFailed": "Error al marcar la notificación como leída",
     "markAllFailed": "Error al marcar todas como leídas",

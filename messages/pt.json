@@ -2061,7 +2061,7 @@
   },
   "Notifications": {
     "title": "Notificações",
-    "description": "As conversas que outros colegas atribuem a você aparecem aqui.",
+    "description": "As conversas atribuídas a você e os carrinhos dos clientes aparecem aqui.",
     "markAllRead": "Marcar todas como lidas",
     "markReadFailed": "Falha ao marcar a notificação como lida",
     "markAllFailed": "Falha ao marcar todas como lidas",

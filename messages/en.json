@@ -2061,7 +2061,7 @@
   },
   "Notifications": {
     "title": "Notifications",
-    "description": "Conversations other teammates assign to you show up here.",
+    "description": "Chats assigned to you and baskets from customers show up here.",
     "markAllRead": "Mark all as read",
     "markReadFailed": "Failed to mark notification as read",
     "markAllFailed": "Failed to mark all as read",

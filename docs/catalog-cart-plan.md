@@ -310,7 +310,7 @@ Still to confirm on a real phone (Phase 1 test list):
 3. Whether Meta accepts a product list with one section titled the same as the header.
 4. What Meta says when the 24 hour window is closed.
 
-### Step 3: receive a basket (built 2 Oct 2026, not yet pushed)
+### Step 3: receive a basket (built and pushed 2 Oct 2026, commit bdf91d1, tested on a real phone)
 
 Built:
 1. `supabase/migrations/054_catalog_basket.sql`: `messages.content_type` allows `order`, `messages.basket_payload` (JSONB), and `notifications.type` allows `basket_received`. **Apply it before this code is pushed.** `verify-schema.sql` asserts all three.
@@ -327,8 +327,9 @@ Safety rules built in:
 4. A replayed delivery notifies nobody.
 5. An order with no usable items is stored the old way.
 
-Not covered by Meta's docs, so learned from the first real basket:
-1. Whether `item_price` is the sale price or the normal price. The check accepts either.
-2. Whether `item_price` is in rupees or in paise. If Meta sends paise, every line shows a price mismatch, and the saved raw order tells us.
+Result of the first real basket (2 Oct 2026, 18:09 UTC, one Box Frame Pendent, Silver):
+1. It reached the inbox as a basket card, with the right total (₹495), status "all items match", and a "Basket received" notification. The shop icon was not needed to get a basket. The product list sent from the CRM sits just above it in the chat.
+2. **`item_price` is in rupees, not paise.** Meta sent `495` for a ₹495 item.
+3. **Still unknown: for an item on sale, does Meta send the sale price or the normal price?** This item had no sale price, so the test cannot tell. The check accepts either, and the total is always from our catalogue. To learn it, send a basket with an item that has a sale price (149 of the 326 items do). The saved raw order (`messages.basket_payload.raw`) shows the answer.
 
 Not built (belongs to step 4 or the orders plan): a "Basket received" automation trigger, turning a basket into an order, and the payment link.

@@ -2061,7 +2061,7 @@
   },
   "Notifications": {
     "title": "알림",
-    "description": "다른 팀원이 나에게 배정한 대화가 여기에 표시됩니다.",
+    "description": "나에게 배정된 대화와 고객이 보낸 장바구니가 여기에 표시됩니다.",
     "markAllRead": "모두 읽음으로 표시",
     "markReadFailed": "알림을 읽음으로 표시하지 못했습니다",
     "markAllFailed": "모두 읽음으로 표시하지 못했습니다",
