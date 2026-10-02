@@ -41,6 +41,16 @@ const h = vi.hoisted(() => ({
     broadcastRecipient: null as { id: string; status: string } | null,
     /** Patches applied to that broadcast_recipients row. */
     recipientUpdates: [] as Record<string, unknown>[],
+    /** Errors the next message upserts resolve with, in order (basket tests). */
+    upsertErrors: [] as ({ message: string } | null)[],
+    /** Rows the basket's catalog_items lookup resolves, and its error. */
+    catalogRows: [] as Record<string, unknown>[],
+    catalogError: null as { message: string } | null,
+    /** Account members the basket notification picks recipients from. */
+    members: [] as { user_id: string; account_role: string | null }[],
+    /** Rows inserted into `notifications`, and the error that insert resolves with. */
+    notificationInserts: [] as Record<string, unknown>[],
+    notificationError: null as { message: string } | null,
   },
 }))
 
@@ -203,12 +213,41 @@ vi.mock('@supabase/supabase-js', () => ({
             upsert: (row: Record<string, unknown>, options: unknown) => {
               h.state.upsertCalls.push({ row, options })
               return {
-                select: () =>
-                  Promise.resolve({
-                    data: h.state.messageUpsertResult,
-                    error: null,
-                  }),
+                select: () => {
+                  const error = h.state.upsertErrors.shift() ?? null
+                  return Promise.resolve({
+                    data: error ? null : h.state.messageUpsertResult,
+                    error,
+                  })
+                },
               }
+            },
+          }
+        case 'catalog_items':
+          // buildBasketForMessage: select(cols).eq('account_id').in('retailer_id', ids)
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () =>
+                  Promise.resolve({
+                    data: h.state.catalogError ? null : h.state.catalogRows,
+                    error: h.state.catalogError,
+                  }),
+              }),
+            }),
+          }
+        case 'profiles':
+          // notifyBasketReceived: select('user_id, account_role').eq('account_id')
+          return {
+            select: () => ({
+              eq: () => Promise.resolve({ data: h.state.members, error: null }),
+            }),
+          }
+        case 'notifications':
+          return {
+            insert: (rows: Record<string, unknown>[]) => {
+              h.state.notificationInserts.push(...rows)
+              return Promise.resolve({ error: h.state.notificationError })
             },
           }
         default:
@@ -384,6 +423,12 @@ beforeEach(() => {
   h.state.messageUpdates = []
   h.state.broadcastRecipient = null
   h.state.recipientUpdates = []
+  h.state.upsertErrors = []
+  h.state.catalogRows = []
+  h.state.catalogError = null
+  h.state.members = []
+  h.state.notificationInserts = []
+  h.state.notificationError = null
   mockFindExistingContact.mockResolvedValue({
     id: 'contact-1',
     name: 'Ada',
@@ -1015,5 +1060,234 @@ describe('status webhook: failed statuses keep Meta\'s reason (#535)', () => {
     expect(h.state.recipientUpdates).toHaveLength(1)
     expect(h.state.recipientUpdates[0]).not.toHaveProperty('error_message')
     expect(h.state.recipientUpdates[0]).not.toHaveProperty('error_code')
+  })
+})
+
+describe('inbound webhook: customer baskets (catalogue plan, step 3)', () => {
+  const CATALOG_ROWS = [
+    {
+      retailer_id: 'mug',
+      name: 'Magic Mug',
+      size: null,
+      color: null,
+      price_amount: 300,
+      sale_price_amount: 225,
+      currency: 'INR',
+      availability: 'in_stock',
+      image_url: 'https://example.com/mug.jpg',
+    },
+    {
+      retailer_id: 'white',
+      name: 'White Mug',
+      size: null,
+      color: null,
+      price_amount: 200,
+      sale_price_amount: 149,
+      currency: 'INR',
+      availability: 'in_stock',
+      image_url: null,
+    },
+  ]
+
+  const BASKET_MESSAGE = {
+    id: 'wamid.BASKET1',
+    from: '15551230000',
+    timestamp: '1700000000',
+    type: 'order',
+    order: {
+      catalog_id: 'cat-1',
+      text: 'gift wrap please',
+      product_items: [
+        { product_retailer_id: 'mug', quantity: 2, item_price: 225, currency: 'INR' },
+        { product_retailer_id: 'white', quantity: 1, item_price: 149, currency: 'INR' },
+      ],
+    },
+  }
+
+  beforeEach(() => {
+    h.state.catalogRows = CATALOG_ROWS
+  })
+
+  it('stores the basket as an order, priced from our catalogue', async () => {
+    await runWebhook(BASKET_MESSAGE)
+
+    expect(h.state.upsertCalls).toHaveLength(1)
+    const row = h.state.upsertCalls[0].row
+    expect(row.content_type).toBe('order')
+    expect(row.content_text).toBe('Basket: 3 items, ₹599')
+    expect(row.sender_type).toBe('customer')
+    const basket = row.basket_payload as {
+      status: string
+      total: number
+      customer_note: string
+      raw: unknown
+      items: { name: string; line_total: number }[]
+    }
+    expect(basket.status).toBe('ok')
+    expect(basket.total).toBe(599)
+    expect(basket.customer_note).toBe('gift wrap please')
+    expect(basket.items.map((i) => [i.name, i.line_total])).toEqual([
+      ['Magic Mug', 450],
+      ['White Mug', 149],
+    ])
+    // The order is kept exactly as Meta sent it.
+    expect(basket.raw).toEqual(BASKET_MESSAGE.order)
+    // The conversation list shows the summary, not "[order]".
+    expect(h.state.rpcCalls[0].args.p_last_message_text).toBe('Basket: 3 items, ₹599')
+  })
+
+  it('flags an unknown item and a price that matches neither price', async () => {
+    h.state.catalogRows = [
+      { ...CATALOG_ROWS[0], retailer_id: 'frame', name: 'Frame', price_amount: 1210, sale_price_amount: 968 },
+    ]
+    await runWebhook({
+      ...BASKET_MESSAGE,
+      order: {
+        catalog_id: 'cat-1',
+        product_items: [
+          { product_retailer_id: 'frame', quantity: 1, item_price: 1150, currency: 'INR' },
+          { product_retailer_id: 'ghost', quantity: 1, item_price: 10, currency: 'INR' },
+        ],
+      },
+    })
+    const basket = h.state.upsertCalls[0].row.basket_payload as {
+      status: string
+      total: number | null
+      items: { issues: string[] }[]
+    }
+    expect(basket.status).toBe('needs_review')
+    expect(basket.items[0].issues).toEqual(['price_mismatch'])
+    expect(basket.items[1].issues).toEqual(['unknown_item'])
+    expect(basket.total).toBeNull()
+    expect(h.state.upsertCalls[0].row.content_text).toBe('Basket: 2 items (needs review)')
+  })
+
+  it('still stores the basket, flagged, when the catalogue lookup fails', async () => {
+    h.state.catalogError = { message: 'boom' }
+    await runWebhook(BASKET_MESSAGE)
+    const row = h.state.upsertCalls[0].row
+    expect(row.content_type).toBe('order')
+    const basket = row.basket_payload as { items: { issues: string[] }[] }
+    expect(basket.items.every((i) => i.issues.includes('catalog_unavailable'))).toBe(true)
+  })
+
+  it('tells only the assigned agent when the chat is assigned', async () => {
+    h.state.conversation = {
+      id: 'conv-1',
+      unread_count: 0,
+      account_id: 'acc-1',
+      assigned_agent_id: 'agent-9',
+    } as typeof h.state.conversation
+    h.state.members = [
+      { user_id: 'owner-1', account_role: 'owner' },
+      { user_id: 'agent-9', account_role: 'agent' },
+    ]
+    await runWebhook(BASKET_MESSAGE)
+
+    expect(h.state.notificationInserts).toHaveLength(1)
+    expect(h.state.notificationInserts[0]).toMatchObject({
+      account_id: 'acc-1',
+      user_id: 'agent-9',
+      type: 'basket_received',
+      conversation_id: 'conv-1',
+      contact_id: 'contact-1',
+      actor_user_id: null,
+      title: 'Basket received',
+      body: 'Ada sent a basket of 3 items.',
+    })
+  })
+
+  it('tells everyone who can answer, but never viewers, when nobody is assigned', async () => {
+    h.state.members = [
+      { user_id: 'owner-1', account_role: 'owner' },
+      { user_id: 'admin-1', account_role: 'admin' },
+      { user_id: 'agent-1', account_role: 'agent' },
+      { user_id: 'viewer-1', account_role: 'viewer' },
+    ]
+    await runWebhook(BASKET_MESSAGE)
+    expect(h.state.notificationInserts.map((n) => n.user_id)).toEqual([
+      'owner-1',
+      'admin-1',
+      'agent-1',
+    ])
+  })
+
+  it('does not feed the basket to flows, keyword automations or the AI bot', async () => {
+    await runWebhook(BASKET_MESSAGE)
+
+    expect(h.dispatchInboundToFlows).not.toHaveBeenCalled()
+    expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled()
+    const triggers = h.runAutomationsForTrigger.mock.calls.map(
+      (c) => (c[0] as { triggerType: string }).triggerType,
+    )
+    expect(triggers).toContain('new_message_received')
+    expect(triggers).not.toContain('keyword_match')
+    // The automation sees no text, so nothing can match on the summary line.
+    const first = h.runAutomationsForTrigger.mock.calls[0][0] as {
+      context: { message_text: string }
+    }
+    expect(first.context.message_text).toBe('')
+  })
+
+  it('tells the public webhook it was a basket, with the summary as text', async () => {
+    await runWebhook(BASKET_MESSAGE)
+    expect(h.dispatchWebhookEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      'acc-1',
+      'message.received',
+      expect.objectContaining({ content_type: 'order', text: 'Basket: 3 items, ₹599' }),
+    )
+  })
+
+  it('a replayed delivery notifies nobody and changes nothing', async () => {
+    h.state.messageUpsertResult = []
+    h.state.members = [{ user_id: 'owner-1', account_role: 'owner' }]
+    await runWebhook(BASKET_MESSAGE)
+    expect(h.state.notificationInserts).toHaveLength(0)
+    expect(h.state.rpcCalls).toHaveLength(0)
+  })
+
+  it('still delivers the message when the notification cannot be saved', async () => {
+    h.state.members = [{ user_id: 'owner-1', account_role: 'owner' }]
+    h.state.notificationError = { message: 'violates check constraint' }
+    await runWebhook(BASKET_MESSAGE)
+    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.dispatchWebhookEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('never loses the message when the database is not ready for baskets yet', async () => {
+    // First insert (as an order) is rejected, e.g. migration 054 not applied.
+    h.state.upsertErrors = [{ message: 'violates check constraint "messages_content_type_check"' }]
+    h.state.members = [{ user_id: 'owner-1', account_role: 'owner' }]
+    await runWebhook(BASKET_MESSAGE)
+
+    expect(h.state.upsertCalls).toHaveLength(2)
+    const retry = h.state.upsertCalls[1].row
+    expect(retry.content_type).toBe('text')
+    expect(retry.content_text).toBe('[Unsupported message type: order]')
+    expect('basket_payload' in retry).toBe(false)
+    // It behaves as it did before baskets: no notification, normal fan-out.
+    expect(h.state.notificationInserts).toHaveLength(0)
+    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.dispatchInboundToFlows).toHaveBeenCalledTimes(1)
+  })
+
+  it('stores an order with no usable items the way it was stored before', async () => {
+    await runWebhook({
+      ...BASKET_MESSAGE,
+      order: { catalog_id: 'cat-1', product_items: [] },
+    })
+    const row = h.state.upsertCalls[0].row
+    expect(row.content_type).toBe('text')
+    expect(row.content_text).toBe('[Unsupported message type: order]')
+    expect('basket_payload' in row).toBe(false)
+    expect(h.state.notificationInserts).toHaveLength(0)
+  })
+
+  it('never sends the basket column with an ordinary message', async () => {
+    // Sending it with every message would break every inbound insert on a
+    // database that has not run migration 054.
+    await runWebhook()
+    expect('basket_payload' in h.state.upsertCalls[0].row).toBe(false)
   })
 })

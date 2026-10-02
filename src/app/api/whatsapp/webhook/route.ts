@@ -26,6 +26,16 @@ import {
   handleNumberHealthWebhookChange,
   isNumberHealthWebhookField,
 } from '@/lib/whatsapp/number-health-webhook'
+import {
+  basketNotification,
+  basketSummary,
+  evaluateBasket,
+  parseOrder,
+  pickBasketRecipients,
+  type BasketCatalogItem,
+  type BasketPayload,
+} from '@/lib/whatsapp/basket'
+import { pickContactDisplayName } from '@/lib/notifications/browser-notify'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -90,6 +100,13 @@ interface WhatsAppMessage {
    * payload and mirrors the label into it).
    */
   button?: { text?: string; payload?: string }
+  /**
+   * Set when the customer sends a basket from the WhatsApp catalogue
+   * (`type: 'order'`): catalog_id, an optional note, and product_items with
+   * product_retailer_id, quantity, item_price and currency. Read with
+   * `parseOrder` in `@/lib/whatsapp/basket`.
+   */
+  order?: unknown
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string }
 }
@@ -733,12 +750,21 @@ async function processMessage(
   }
 
   // Parse message content based on type
-  const { contentText, mediaUrl, mediaType, interactiveReplyId } =
-    await parseMessageContent(
-      message,
-      accessToken,
-      mirrorMedia ? { accountId } : null
-    )
+  const parsed = await parseMessageContent(
+    message,
+    accessToken,
+    mirrorMedia ? { accountId } : null
+  )
+  const { mediaUrl, mediaType, interactiveReplyId } = parsed
+
+  // A customer's basket from the WhatsApp catalogue (type 'order'), checked
+  // against our own copy of the catalogue. Null for every other message, and
+  // for an order with no usable items, which is then stored as before.
+  const basket =
+    message.type === 'order' ? await buildBasketForMessage(accountId, message) : null
+  // What gets stored. A basket stores its one-line summary. If the basket
+  // cannot be saved, both fall back to the plain-text values below.
+  let contentText = basket ? basketSummary(basket) : parsed.contentText
 
   // Resolve swipe-reply context if present. A missing parent is fine —
   // we just store NULL and the UI renders the message without a quote.
@@ -771,7 +797,9 @@ async function processMessage(
     'text', 'image', 'document', 'audio', 'video',
     'location', 'template', 'interactive',
   ])
-  const contentType = ALLOWED_CONTENT_TYPES.has(message.type)
+  let contentType = basket
+    ? 'order'
+    : ALLOWED_CONTENT_TYPES.has(message.type)
     ? message.type
     : message.type === 'sticker'
       ? 'image'         // stickers are images
@@ -798,14 +826,12 @@ async function processMessage(
   // ONLY on a genuine first insert — an empty result means this delivery
   // was a replay. This is the single idempotency boundary that must sit
   // BEFORE the unread bump and all downstream fan-out below (issue #367).
-  const { data: insertedRows, error: msgError } = await supabaseAdmin()
-    .from('messages')
-    .upsert(
+  const inboundRow = (type: string, text: string | null) => (
       {
         conversation_id: conversation.id,
         sender_type: 'customer',
-        content_type: contentType,
-        content_text: contentText,
+        content_type: type,
+        content_text: text,
         media_url: mediaUrl,
         // Meta's MIME type for the attachment (migration 039). Was
         // discarded before, which forced the download path to guess an
@@ -820,10 +846,33 @@ async function processMessage(
         // the column; null for every other content_type so existing inserts
         // behave identically.
         interactive_reply_id: interactiveReplyId,
-      },
-      { onConflict: 'conversation_id,message_id', ignoreDuplicates: true }
-    )
-    .select('id')
+      }
+  )
+  const insertInbound = (row: Record<string, unknown>) =>
+    supabaseAdmin()
+      .from('messages')
+      .upsert(row, { onConflict: 'conversation_id,message_id', ignoreDuplicates: true })
+      .select('id')
+
+  // A basket's own column is sent only for a basket. Sending
+  // `basket_payload` with every message would make every inbound insert fail
+  // on a database that has not run migration 054 yet.
+  let basketStored: BasketPayload | null = basket
+  let { data: insertedRows, error: msgError } = await insertInbound({
+    ...inboundRow(contentType, contentText),
+    ...(basket ? { basket_payload: basket } : {}),
+  })
+  if (msgError && basket) {
+    // Most likely migration 054 is not applied yet. Never lose a customer's
+    // message over it: store it the way it was stored before baskets existed.
+    console.error('Error inserting basket message, storing it as plain text:', msgError)
+    basketStored = null
+    contentType = 'text'
+    contentText = parsed.contentText
+    ;({ data: insertedRows, error: msgError } = await insertInbound(
+      inboundRow(contentType, contentText)
+    ))
+  }
 
   if (msgError) {
     console.error('Error inserting message:', msgError)
@@ -872,6 +921,18 @@ async function processMessage(
   // trigger installed in migration 003).
   await flagBroadcastReplyIfAny(accountId, contactRecord.id)
 
+  // A basket tells the team straight away. After the idempotency check
+  // above, so a replayed delivery cannot notify twice.
+  if (basketStored) {
+    await notifyBasketReceived({
+      accountId,
+      conversation,
+      contactId: contactRecord.id,
+      contactName: pickContactDisplayName(contactRecord),
+      basket: basketStored,
+    })
+  }
+
   // ============================================================
   // Flow runner dispatch.
   //
@@ -891,7 +952,12 @@ async function processMessage(
   // no active flows take the runner's early-exit "no_match" path
   // basically for free (one indexed SELECT for the active run).
   // ============================================================
-  const flowResult = await dispatchInboundToFlows({
+  // A basket is not something the customer typed. Fed to the flow runner as
+  // text it would be taken for a wrong answer to the question a flow just
+  // asked, so a basket never reaches it.
+  const flowResult = basketStored
+    ? { consumed: false }
+    : await dispatchInboundToFlows({
     accountId,
     userId: configOwnerUserId,
     contactId: contactRecord.id,
@@ -918,7 +984,9 @@ async function processMessage(
   // message all exist before any step — including send_message — runs.
   // Fire-and-forget: a slow or failing automation must not block the
   // webhook's 200 OK response to Meta.
-  const inboundText = contentText ?? message.text?.body ?? ''
+  // A basket carries no words, so keyword automations and the AI bot have
+  // nothing to read: its summary line is for people, not for matching.
+  const inboundText = basketStored ? '' : (contentText ?? message.text?.body ?? '')
   const automationTriggers: (
     | 'new_contact_created'
     | 'first_inbound_message'
@@ -929,7 +997,8 @@ async function processMessage(
   // Content-level triggers are suppressed when a flow consumed the
   // message — see the comment block above.
   if (!flowConsumed) {
-    automationTriggers.push('new_message_received', 'keyword_match')
+    automationTriggers.push('new_message_received')
+    if (!basketStored) automationTriggers.push('keyword_match')
     // Interactive tap → fire the interactive_reply trigger too (only
     // meaningful when a button/list reply actually arrived). Enables
     // automation-only chained menus; when a Flow owns the menu it will
@@ -1001,6 +1070,87 @@ async function processMessage(
     content_type: contentType,
     text: contentText,
   })
+}
+
+/**
+ * Check a customer's basket against our copy of the catalogue. Never throws:
+ * on any problem it returns null and the message is stored the way it was
+ * before baskets were understood.
+ */
+async function buildBasketForMessage(
+  accountId: string,
+  message: WhatsAppMessage
+): Promise<BasketPayload | null> {
+  try {
+    const order = parseOrder(message.order)
+    if (!order) return null
+
+    const ids = [...new Set(order.product_items.map((i) => i.product_retailer_id))]
+    const { data, error } = await supabaseAdmin()
+      .from('catalog_items')
+      .select(
+        'retailer_id, name, size, color, price_amount, sale_price_amount, currency, availability, image_url'
+      )
+      .eq('account_id', accountId)
+      .in('retailer_id', ids)
+    if (error) {
+      console.error('[webhook] basket catalogue lookup failed:', error)
+      return evaluateBasket(order, new Map(), { lookupFailed: true, raw: message.order })
+    }
+
+    const catalog = new Map<string, BasketCatalogItem>(
+      ((data ?? []) as BasketCatalogItem[]).map((row) => [row.retailer_id, row])
+    )
+    return evaluateBasket(order, catalog, { raw: message.order })
+  } catch (err) {
+    console.error('[webhook] could not read the basket:', err)
+    return null
+  }
+}
+
+/**
+ * Tell the team a basket arrived: the agent the chat is assigned to, or
+ * everyone who can answer it when nobody is. Never throws, so a failed
+ * notification cannot hold up the rest of the inbound message.
+ */
+async function notifyBasketReceived(args: {
+  accountId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  conversation: any
+  contactId: string
+  contactName: string | null
+  basket: BasketPayload
+}): Promise<void> {
+  try {
+    const { data: members } = await supabaseAdmin()
+      .from('profiles')
+      .select('user_id, account_role')
+      .eq('account_id', args.accountId)
+    const recipients = pickBasketRecipients(
+      args.conversation.assigned_agent_id,
+      (members ?? []) as { user_id: string; account_role: string | null }[]
+    )
+    if (recipients.length === 0) return
+
+    const { title, body } = basketNotification(args.contactName, args.basket)
+    const { error } = await supabaseAdmin()
+      .from('notifications')
+      .insert(
+        recipients.map((userId) => ({
+          account_id: args.accountId,
+          user_id: userId,
+          type: 'basket_received',
+          conversation_id: args.conversation.id,
+          contact_id: args.contactId,
+          actor_user_id: null,
+          title,
+          body,
+        }))
+      )
+    if (error) console.error('[webhook] basket notification insert failed:', error)
+  } catch (err) {
+    console.error('[webhook] basket notification failed:', err)
+  }
 }
 
 async function parseMessageContent(

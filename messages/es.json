@@ -2298,6 +2298,24 @@
       "clear": "Limpiar",
       "sendProducts": "Enviar {count, plural, =1 {1 producto} other {# productos}}",
       "sendCatalogue": "Enviar catálogo"
+    },
+    "basket": {
+      "title": "Carrito del cliente",
+      "note": "Nota del cliente",
+      "each": "{price} c/u",
+      "qty": "x {count}",
+      "unknownItem": "Artículo desconocido",
+      "total": "Total según los precios del catálogo",
+      "totalUnconfirmed": "No se puede confirmar el total",
+      "totalSoFar": "{amount} hasta ahora",
+      "issueUnknown": "ID {id}. No está en tu catálogo.",
+      "issueOutOfStock": "Agotado en tu catálogo.",
+      "issuePrice": "Precio del carrito {basket}. Precio del catálogo {catalogue}.",
+      "issueNoPrice": "Sin precio en tu catálogo.",
+      "issueQuantity": "La cantidad parece incorrecta.",
+      "issueLookup": "No se pudo comprobar el catálogo.",
+      "statusOk": "Todos los artículos coinciden con el catálogo. Requiere seguimiento.",
+      "statusReview": "Requiere revisión. {count, plural, =1 {1 problema} other {# problemas}}."
     }
   }
 }

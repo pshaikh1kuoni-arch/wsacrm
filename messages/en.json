@@ -2298,6 +2298,24 @@
       "clear": "Clear",
       "sendProducts": "Send {count, plural, =1 {1 product} other {# products}}",
       "sendCatalogue": "Send catalogue"
+    },
+    "basket": {
+      "title": "Basket from customer",
+      "note": "Customer note",
+      "each": "{price} each",
+      "qty": "x {count}",
+      "unknownItem": "Unknown item",
+      "total": "Total from catalogue prices",
+      "totalUnconfirmed": "Total can not be confirmed",
+      "totalSoFar": "{amount} so far",
+      "issueUnknown": "ID {id}. Not found in your catalogue.",
+      "issueOutOfStock": "Out of stock in your catalogue.",
+      "issuePrice": "Basket price {basket}. Catalogue price {catalogue}.",
+      "issueNoPrice": "No price in your catalogue.",
+      "issueQuantity": "The quantity looks wrong.",
+      "issueLookup": "Could not check the catalogue.",
+      "statusOk": "All items match the catalogue. Needs follow up.",
+      "statusReview": "Needs review. {count, plural, =1 {1 issue} other {# issues}}."
     }
   }
 }

@@ -35,7 +35,7 @@ Status words used below:
 | Number health | BUILT | `src/app/(dashboard)/number-health` |
 | Team and roles | BUILT | `src/lib/auth`, `src/components/settings/members-tab.tsx` |
 | Public API, webhooks, MCP | BUILT | `src/app/api/v1`, `mcp-server/` |
-| Catalogue and product messages | PARTIAL (sending built, receiving baskets not yet) | `src/components/settings/catalog-card.tsx`, `src/components/inbox/product-picker.tsx`, `src/lib/whatsapp/catalog*.ts` |
+| Catalogue and product messages | BUILT (basket automations not yet) | `src/components/settings/catalog-card.tsx`, `src/components/inbox/product-picker.tsx`, `src/lib/whatsapp/catalog*.ts` |
 | Orders and payments | PLANNED | `docs/orders-payments-plan.md` |
 
 ## 1. Shared inbox
@@ -177,10 +177,19 @@ BUILT:
 - Real catalogue facts the design handles: 326 items, 149 with a lower sale
   price, 74 product names shared by several variants, 9 out of stock.
 
+- Receiving a customer's basket from the WhatsApp catalogue: the chat shows a
+  basket card with the items, quantities, sale prices and a total worked out
+  from our own catalogue prices. It flags unknown items, items out of stock,
+  items with no price, a basket price that matches neither price, and a
+  strange quantity. The team gets a notification (the assigned agent, or the
+  owner, admins and agents if nobody is assigned).
+- A basket never reaches the AI bot, keyword automations or the flow runner.
+- A basket is not an order. It needs follow up by hand until the orders plan
+  is built.
+
 NOT BUILT:
 
-- Receiving a customer's basket. Today a basket shows in the inbox as
-  "Unsupported message type: order" (step 3 of `docs/catalog-cart-plan.md`).
+- Turning a basket into an order, and the payment link (orders plan).
 - A "Basket received" automation trigger, a "Send catalogue" automation step
   and flow node (step 4).
 - Multi product broadcast templates and product carousels.
@@ -362,8 +371,8 @@ NOT BUILT:
    plan was last updated.
 
 5. Catalogue and basket (`docs/catalog-cart-plan.md`, version 1.1). Steps 1
-   and 2 are built: the catalogue copy and sending products. Next are
-   receiving a basket (step 3) and the automation pieces (step 4). Turning a
+   to 3 are built: the catalogue copy, sending products and receiving a
+   basket. Next are the automation pieces (step 4). Turning a
    basket into an order, and the payment link, belong to the orders plan.
 
 ## 16. Earlier competitor look

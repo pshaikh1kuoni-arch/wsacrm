@@ -23,6 +23,7 @@ import {
   MediaVideoBubble,
 } from "./message-media";
 import { InteractivePreview } from "@/components/interactive/interactive-preview";
+import { BasketCard } from "./basket-card";
 import { useTranslations } from "next-intl";
 
 interface MessageBubbleProps {
@@ -194,6 +195,16 @@ function MessageContent({
           <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span>{message.content_text || t("locationShared")}</span>
         </div>
+      );
+
+    case "order":
+      // A basket the customer sent from the WhatsApp catalogue. Rows from
+      // before the basket was saved (or if it could not be) carry only the
+      // summary text.
+      return message.basket_payload ? (
+        <BasketCard basket={message.basket_payload} />
+      ) : (
+        <p className="whitespace-pre-wrap break-words text-sm">{message.content_text}</p>
       );
 
     case "interactive": {

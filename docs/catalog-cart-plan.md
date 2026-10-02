@@ -309,3 +309,26 @@ Still to confirm on a real phone (Phase 1 test list):
 2. Whether a catalogue message works without the shop icon on this number.
 3. Whether Meta accepts a product list with one section titled the same as the header.
 4. What Meta says when the 24 hour window is closed.
+
+### Step 3: receive a basket (built 2 Oct 2026, not yet pushed)
+
+Built:
+1. `supabase/migrations/054_catalog_basket.sql`: `messages.content_type` allows `order`, `messages.basket_payload` (JSONB), and `notifications.type` allows `basket_received`. **Apply it before this code is pushed.** `verify-schema.sql` asserts all three.
+2. `src/lib/whatsapp/basket.ts` (pure): reads Meta's `order` object, checks each line against our `catalog_items` copy, works out the total from catalogue prices, and flags problems: unknown item, out of stock, no price, price mismatch, bad quantity (1 to 99), catalogue lookup failed. The raw order is kept on the basket.
+3. The webhook (`src/app/api/whatsapp/webhook/route.ts`) saves a basket as a message of type `order` with the checked basket, shows "Basket: 3 items, ₹599" in the conversation list, and notifies the team.
+4. `src/components/inbox/basket-card.tsx`: the basket card in the chat, as in the approved mockup, with sale prices, flags, the total and a status line. Four languages.
+5. Notifications: the assigned agent when the chat has one, otherwise the owner, admins and agents. Never viewers. The notifications page has a shop-bag icon for it.
+6. Tests: 49 new, plus 12 for the webhook. The full suite passes (1,289), plus `tsc` and `eslint`.
+
+Safety rules built in:
+1. **A basket never feeds the AI bot, keyword automations or the flow runner.** It is not text the customer typed. Before this step the webhook fed "[Unsupported message type: order]" to all three. `new_message_received`, `first_inbound_message` and `new_contact_created` automations still fire, with an empty message text.
+2. **The total is always from our catalogue prices.** A basket price that matches neither the sale price nor the normal price is flagged "price mismatch". It is never trusted.
+3. **If the database is not ready (migration 054 missing), the basket is stored the old way** (as plain text, "[Unsupported message type: order]") and the rest of the message handling runs as before. The `basket_payload` column is sent only for a basket, so ordinary messages are unaffected either way.
+4. A replayed delivery notifies nobody.
+5. An order with no usable items is stored the old way.
+
+Not covered by Meta's docs, so learned from the first real basket:
+1. Whether `item_price` is the sale price or the normal price. The check accepts either.
+2. Whether `item_price` is in rupees or in paise. If Meta sends paise, every line shows a price mismatch, and the saved raw order tells us.
+
+Not built (belongs to step 4 or the orders plan): a "Basket received" automation trigger, turning a basket into an order, and the payment link.

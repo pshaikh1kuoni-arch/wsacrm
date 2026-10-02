@@ -348,6 +348,10 @@ delivery uuid you can dedupe on, and `data` varies by `event`:
 { "whatsapp_message_id": "wamid.…", "conversation_id": "…", "status": "delivered" }
 ```
 
+For `message.received`, `content_type` is `order` when the customer sent a basket
+from your WhatsApp catalogue. `text` is then a one-line summary such as
+`Basket: 3 items, ₹599`. The items are not in the event.
+
 Headers: `X-Wacrm-Event`, `X-Wacrm-Webhook-Id`, and `X-Wacrm-Signature`.
 
 ### Verifying the signature

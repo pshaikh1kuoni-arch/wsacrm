@@ -1,5 +1,6 @@
 import type { AccountRole } from "@/lib/auth/roles";
 import type { InteractiveMessagePayload } from "@/lib/whatsapp/interactive";
+import type { BasketPayload } from "@/lib/whatsapp/basket";
 
 export type {
   InteractiveMessagePayload,
@@ -198,7 +199,7 @@ export interface Conversation {
 // Notifications (migration 027)
 // ============================================================
 
-export type NotificationType = 'conversation_assigned';
+export type NotificationType = 'conversation_assigned' | 'basket_received';
 
 export interface Notification {
   id: string;
@@ -226,7 +227,9 @@ export type ContentType =
   | 'location'
   | 'template'
   /** Customer tapped a reply button or list row on a message we sent. */
-  | 'interactive';
+  | 'interactive'
+  /** Customer sent a basket from the WhatsApp catalogue. */
+  | 'order';
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface Message {
@@ -262,6 +265,12 @@ export interface Message {
    * 'interactive'` and `sender_type` is agent/bot. Migration 035.
    */
   interactive_payload?: InteractiveMessagePayload;
+  /**
+   * Only set when `content_type === 'order'` — the customer's basket,
+   * checked against our copy of the catalogue, with the raw order Meta sent.
+   * Migration 054.
+   */
+  basket_payload?: BasketPayload | null;
   /**
    * True when the AI auto-reply bot generated + sent this message (as
    * opposed to a human agent or a deterministic Flow/automation send,

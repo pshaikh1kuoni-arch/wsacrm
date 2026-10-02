@@ -102,6 +102,27 @@ BEGIN
       'catalog_items.size/color are missing — migration 053 did not apply';
   END IF;
 
+  -- 054 lets a basket be stored and announced. A typo in either constraint
+  -- name would apply cleanly and still reject every basket at runtime, so
+  -- assert that the installed definitions really accept the new values.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'messages'
+      AND column_name = 'basket_payload'
+  ) THEN
+    RAISE EXCEPTION 'messages.basket_payload is missing — migration 054 did not apply';
+  END IF;
+  IF (SELECT pg_get_constraintdef(oid) FROM pg_constraint
+      WHERE conname = 'messages_content_type_check'
+        AND conrelid = 'public.messages'::regclass) NOT LIKE '%''order''%' THEN
+    RAISE EXCEPTION 'messages.content_type does not allow order — migration 054 did not apply';
+  END IF;
+  IF (SELECT pg_get_constraintdef(oid) FROM pg_constraint
+      WHERE conname = 'notifications_type_check'
+        AND conrelid = 'public.notifications'::regclass) NOT LIKE '%basket_received%' THEN
+    RAISE EXCEPTION 'notifications.type does not allow basket_received — migration 054 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;
