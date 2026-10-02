@@ -62,7 +62,10 @@ export function ProductPicker({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      {/* The dialog is a grid whose column grows to fit its widest line, so one
+          long variant line pushed the search box, list and prices past the
+          edge. A column that may shrink to 0 lets `truncate` do its job. */}
+      <DialogContent className="grid-cols-[minmax(0,1fr)] sm:max-w-2xl">
         <PickerBody onClose={() => onOpenChange(false)} onSend={onSend} />
       </DialogContent>
     </Dialog>
@@ -355,7 +358,11 @@ function PickerBody({
             ) : null}
             <Button onClick={send} disabled={!canSend}>
               <Send className="mr-1 size-4" />
-              {mode === 'catalog' ? t('sendCatalogue') : t('sendProducts', { count })}
+              {mode === 'catalog'
+                ? t('sendCatalogue')
+                : count === 0
+                  ? t('title')
+                  : t('sendProducts', { count })}
             </Button>
           </div>
         </DialogFooter>
