@@ -1,0 +1,286 @@
+# Catalogue and basket: plan
+
+Version 1.1, 2 Oct 2026. Draft for owner approval. Nothing is built yet.
+Change from 1.0: the first build leaves out payments, order creation and order tracking. See section 4a.
+This file: `docs/catalog-cart-plan.md`
+Related plan: `docs/orders-payments-plan.md` (payments and orders). This plan feeds into it.
+Feature list: `docs/crm-features.md`
+
+## 1. What we are building
+
+A customer opens your product catalogue inside WhatsApp, adds items to a basket and sends it. The CRM reads the basket and makes an order. When Razorpay is approved, the same order gets a payment link.
+
+Three jobs:
+1. Show. An agent, an automation or a flow sends products to a customer from the CRM.
+2. Receive. The CRM understands the basket the customer sends back.
+3. Order. The basket becomes an order with the right names, quantities and prices.
+
+## 2. How it works, in plain words
+
+1. Your website (WooCommerce) feeds its products into your Meta catalogue.
+2. The catalogue is connected to your WhatsApp number.
+3. The customer sees the products in the chat. They add some to a basket and send it.
+4. Meta sends the basket to our webhook as a message of type `order`.
+5. The CRM saves the basket, checks every item against the catalogue, and creates the order with the status "awaiting payment".
+6. Later, the payment link goes out (orders plan). Razorpay confirms. The order becomes Paid.
+
+Your website cart and the WhatsApp basket are two separate carts. They share one thing: the product list.
+
+## 3. Where we are today (checked 2 Oct 2026)
+
+1. Catalogue "Products for MJA Print-n-Gift". Meta's real catalogue ID is `371059440191188`. The long number in its name, `1267630016737746`, is not the catalogue ID. Commerce Manager shows 134 products. Meta lists 326 items, because every variant is an item, and the item data holds 165 distinct groups. I do not know why Commerce Manager says 134. Data sources: WooCommerce and a product feed.
+2. Connected in WhatsApp Manager to +91 87794 71874. Both switches are On: the catalogue icon in the chat header, and the Add to basket button.
+3. The shop icon does not show yet on that number. +91 88504 71874 shows it. The cause is not known. See section 9.
+4. The CRM does not understand baskets. From the code, a basket would show in the inbox as "[Unsupported message type: order]" (`parseMessageContent` in `src/app/api/whatsapp/webhook/route.ts`, the `default` case). This is read from the code and not yet tested on a real basket.
+5. Two notices in Commerce Manager:
+   1. "Products not matching ad events". This is about the website pixel and ads. It does not affect this work.
+   2. "Product details are not being updated". The data file "Products for MJA Print-n-Gift – Feed" has had no uploads since 9 Jan 2024. Prices may be old. Check before go live (Phase 0).
+6. The orders tables from the orders plan are not built yet.
+
+## 4. Decisions
+
+1. WooCommerce stays the master for products. The CRM only reads the catalogue. It never writes to it.
+2. The join key is the item ID that Meta sends in the basket (`product_retailer_id`). We store it on our product record.
+3. WooCommerce variants are separate catalogue items that share a group ID. The basket carries the variant ID. We keep the group ID to show the product name properly.
+4. We never trust the price inside the basket. We compare it with our own copy of the catalogue. If they differ, or the item is unknown, or the item is out of stock, the order goes to "needs review" and no payment link is sent.
+5. We do not depend on the shop icon. The CRM sends a catalogue message with a button, which works on any number.
+6. Meta allows one catalogue per WhatsApp Business Account. The CRM stores one catalogue ID per account, like the WhatsApp connection.
+7. The payment link comes from the orders plan. Until Razorpay is live, an order stays "awaiting payment" and an agent follows up by hand.
+8. Catalogue messages are sent inside the 24 hour window (the customer wrote first). Outside the window an agent uses an approved template. I expect this, and we confirm it in Phase 1.
+
+## 4a. Scope for the first build (decided by the owner, 2 Oct 2026)
+
+Left out for now, because they belong to the orders plan:
+1. Razorpay keys, payment links and the Paid step.
+2. Creating order records and the Orders page.
+3. Order tracking, shipping details and the AI "where is my order" answers.
+4. The Orders API, the Google Sheet sync and stock tracking.
+
+Built now:
+1. Connect to the catalogue and read its items into a cache.
+2. Send products from the inbox.
+3. Receive a basket, show it as a basket card in the chat, and notify the team.
+4. A trigger, a step and a flow node for Automations and Flows.
+
+What changes because of this:
+1. A basket is saved and shown as a card. It is not turned into an order. The agent follows up by hand.
+2. The card shows items, quantities and a total worked out from our own copy of the catalogue. It flags unknown items, changed prices and out of stock items.
+3. The catalogue copy goes in a small new table, `catalog_items`, instead of the `products` table from the orders plan. When the orders plan starts, orders link to it.
+4. The saved basket (`basket_payload`) is what the orders plan turns into an order later, so no work is lost.
+5. In section 7, items 2 and 4 are not part of the first build. In section 8, Phase 2 steps 3 and 4 (match to products, create the order) move to the orders plan. The rest of Phase 2 stays.
+
+## 5. Rules that never change
+
+1. The order total comes from our data, never from the basket.
+2. A basket is saved once, by Meta's message ID. A repeat delivery changes nothing and sends nothing.
+3. A basket never creates a payment link when anything is unknown, out of stock or different in price.
+4. Quantities follow the basket, up to 99 per item (Meta's limit).
+5. Tokens stay encrypted. Catalogue calls are read only.
+6. Only agent, admin and owner can send products. Viewer cannot. Same rule as sending messages today (`canSendMessages` in `src/lib/auth/roles.ts`).
+7. The basket must never be mixed with orders from the website. Website orders do not appear in the CRM (orders plan decision 1).
+
+## 6. Screens
+
+Every screen below gets a mockup in the Design canvas, approved by you, before any code.
+
+1. Inbox: a "Send products" item in the plus menu. A picker with search. Choose one product, a group of up to 30, or the whole catalogue.
+2. Inbox: a basket card in the chat. Items, quantities, total, and a status line (awaiting payment or needs review).
+3. Products page: a Catalogue block. Connected or not, product count, last sync time, a Sync now button.
+4. Settings, WhatsApp: a catalogue row. Catalogue ID, cart on or off, icon on or off, and a Check catalogue settings button.
+5. Automations: new trigger "Basket received" and new step "Send catalogue". Flows: new node "Send catalogue".
+6. Orders list: the source "WhatsApp basket".
+
+## 7. Data and database changes
+
+1. `whatsapp_config`: add `catalog_id` and `catalog_checked_at`. The CRM finds the ID by asking Meta for the catalogues of the WhatsApp account.
+2. `products` (planned in the orders plan): add `meta_retailer_id`, `meta_group_id`, `image_url`, `availability`. Add the source value `meta_catalog`. One row per catalogue item.
+3. `messages`: widen the `content_type` CHECK to allow `order` (the same job migration 010 did for `interactive`). Add a `basket_payload` JSONB column for the raw basket.
+4. `orders` (planned): source value `whatsapp_basket`. A unique key on Meta's message ID per account, so one basket makes one order.
+5. `flow_nodes`: widen the `node_type` CHECK to allow `send_catalog` (the same job as migrations 046 and 048).
+6. Automations: `trigger_type` and `step_type` are plain text columns with no CHECK, so no migration. Only app code changes.
+7. Lesson from the carousel work: before calling any phase done, search `supabase/migrations/` for a CHECK constraint on the column we widen. `tsc` and the tests do not touch a real database.
+
+Code places to change:
+- `src/lib/whatsapp/meta-api.ts`: read catalogue, send product, send product list, send catalogue message.
+- `src/lib/whatsapp/interactive.ts`: new payload kinds and limits (30 products, 10 sections).
+- `src/lib/whatsapp/send-message.ts`: the send path, and `VALID_MESSAGE_TYPES`.
+- `src/app/api/whatsapp/webhook/route.ts`: parse the `order` message.
+- `src/components/inbox/`: picker, basket card.
+- `src/lib/automations/` and `src/lib/flows/`: trigger, step and node, plus the engine and the validators.
+- `messages/*.json`: all four languages. A test enforces matching keys.
+- Read the Next.js docs in `node_modules/next/dist/docs/` before writing any route code, as `AGENTS.md` requires.
+
+## 8. Phases
+
+Sizes are my judgment, not measured.
+
+| Phase | Goal | Size |
+|---|---|---|
+| 0 | Checks and setup | Small |
+| 1 | Send products from the inbox | Medium |
+| 2 | Receive a basket and make an order | Medium |
+| 3 | Automations and Flows | Small to medium |
+| 4 | Later items | Chosen one by one |
+
+### Phase 0: Checks and setup (Small)
+
+You do:
+1. Check the 2 notices in Commerce Manager. Compare 3 product prices in the catalogue with your website. Check the last upload date under Catalogue, Data sources.
+2. From a second phone, open the chat with +91 87794 71874 and tap the business name. Note if a Catalogue section shows.
+3. Send a basket from that phone, if you can, and tell me what the inbox shows. We save the real payload as a test sample.
+4. Give me your OK to run one read only check of the commerce settings for +91 87794 71874.
+
+I do:
+1. Run that read only check. It returns whether the cart and the catalogue icon are on.
+2. Find out which token permission is needed to read the catalogue, and whether yours has it.
+3. Confirm the Graph API version to use.
+
+Done when: we know the catalogue is connected on the API number, the token can read it, and the prices are right.
+
+Results so far (2 Oct 2026). A read only check against Meta, using the token saved in the CRM. Nothing was changed. The results were the same on Graph versions v21.0 and v23.0, so the version is not the cause.
+1. The CRM connection is +91 87794 71874, "MJA Print N Gift", status connected.
+2. Commerce settings for that number came back empty (`data: []`). Meta has no cart or catalogue setting saved for it through the API. Meta's defaults are cart on and catalogue icon off. This is the most likely reason the shop icon does not show. It does not match the On switches in WhatsApp Manager, so the Manager switches may not have been saved the way the API reads them. This is a likely cause, not a proven one.
+3. The token has these permissions: `business_management`, `whatsapp_business_management`, `whatsapp_business_messaging`, `public_profile`. It has no catalogue permission.
+4. The first token could not read the catalogue. Meta answered "missing permission or reviewable feature". Asking the WhatsApp account for its catalogues gave "this application has not been approved to use this api".
+5. So reading the product list from Meta does not work yet. Sending product messages may still work, because that uses the messaging permission and the catalogue ID. We find out in Phase 1.
+
+What this changes:
+1. To read the catalogue from Meta we need the system user to have access to the catalogue as an asset, and a token that includes the catalogue permission (`catalog_management`). If Meta will not offer that permission to this app, we use another source for the product list: the WooCommerce store, or a CSV export from Commerce Manager.
+2. Turning the catalogue icon on through the API is a write to the live number. We do it only with the owner's OK.
+
+Update after the new token (2 Oct 2026):
+1. The new token has `catalog_management`. Asking the WhatsApp account for its catalogues now works. It returns one catalogue, ID `371059440191188`. So the CRM can find the catalogue ID by itself and needs no manual entry.
+2. The CRM can read the catalogue. Meta reports 326 items. Each item gives `retailer_id`, name, price, availability and a group ID. Three items read back: "Wooden Artistic Frames V1.2" (₹1,210, in stock), "Magic Mug" (₹300, in stock), "White Mug" (₹200, in stock).
+3. The item IDs come in two styles. WooCommerce items look like `13738612713_2713`. Others look like `1556110071pages_commerce_sell…`, which looks like an older Facebook shop. Check for duplicates, because one product could be in the catalogue twice.
+4. Phase 1 plan note: Meta's paging links are on Graph v26.0. The code uses v21.0. Raise the version early.
+5. The icon write failed. Three attempts to set `is_catalog_visible` and `is_cart_enabled` returned HTTP 500, code 1, "An unknown error has occurred". Meta trace IDs: `AbUsK1rVJNDvd431VxxJq5K` and `AoI2q6HVKyphKnv8cZ17xhJ`. The setting is unchanged (still empty), so nothing changed on the live number.
+6. Next try: switch the two options Off, save, then On again in WhatsApp Manager, and read the setting back through the API. If it is still empty, raise it with Meta support using the trace IDs.
+7. Result of that try: the owner switched both options Off and On again. The API setting stayed empty, and a fourth write attempt failed the same way (trace ID `AOQBXhHb_2RWXX5fRyLrUpv`). We stop retrying. The catalogue is still connected to the WhatsApp account (`371059440191188`). The API answer being empty may only mean the API does not mirror the Manager switches, so the real test is the second phone. If the icon is still missing there, raise it with Meta support using the three trace IDs.
+
+### Phase 1: Send products (Medium)
+
+I build:
+1. Read the catalogue from Meta into `products` (read only), with a Sync now button.
+2. The three message types: one product, a product list, and the catalogue message.
+3. The inbox "Send products" picker and the chat bubbles for what was sent.
+4. Tests, and the four language files.
+
+You test:
+1. Send one product to your phone. Expect a card with a View and Add to basket button.
+2. Send three products. Expect a list that opens.
+3. Send the whole catalogue. Expect the catalogue message with a button.
+4. Try it as a Viewer. Expect the menu item greyed.
+5. Try after 24 hours of silence. Note what Meta says.
+
+Done when: all five checks pass and you sign off.
+
+### Phase 2: Receive a basket, make an order (Medium)
+
+Needs the orders tables from Phase 1 of the orders plan.
+
+I build:
+1. Webhook parsing for the `order` message. Save `basket_payload`.
+2. The basket card in the inbox.
+3. Match each item to our product by `meta_retailer_id`. Check price, stock and unknown items.
+4. Create the order as "awaiting payment", or "needs review".
+5. A notification "Basket received".
+6. Tests for repeat delivery, unknown item, wrong price, out of stock and quantity limit.
+
+You test:
+1. Add 2 items on your phone and send. Expect the card and the order within seconds, with the right prices.
+2. Redeliver the same webhook from Meta. Expect one order.
+3. Send a basket with an item you removed from the catalogue. Expect "needs review" and an alert.
+4. Change a price in WooCommerce, sync, send a basket. Expect the new price.
+
+Done when: all four checks pass and you sign off.
+
+### Phase 3: Automations and Flows (Small to medium)
+
+I build:
+1. Automation trigger "Basket received", with the variables `{{vars.order_number}}`, `{{vars.items}}` and `{{vars.total}}`.
+2. Automation step "Send catalogue".
+3. Flow node "Send catalogue", with the database change in section 7.
+4. A default automation that sends the order summary when a basket arrives.
+
+You test:
+1. Type "catalogue" to your number. Expect the catalogue.
+2. Send a basket. Expect the order summary message.
+
+Done when: both checks pass. The payment link arrives in this message once the orders plan Phase 1 is live.
+
+### Phase 4: Later
+
+Choose one at a time:
+1. Multi product broadcast templates (Meta must approve them).
+2. Product carousel messages.
+3. A scheduled catalogue sync.
+4. A stock check from the availability field.
+
+## 9. The shop icon (open question)
+
+What we know:
+1. Meta's default for the catalogue icon is off. The WhatsApp Manager switch for +91 87794 71874 shows On.
+2. Meta says the cart icon is not shown in the chat header for messages sent through the Cloud API. That is the cart icon, not the shop icon.
+3. A Meta community thread reports the catalogue icon disappearing while the setting still said visible. It had no answer.
+4. Meta's docs say nothing about a delay.
+5. +91 88504 71874 shows the icon. We do not yet know if it is a WhatsApp Business app number and the other an API number.
+
+What we do:
+1. Phase 0 check of what Meta really saved.
+2. If both settings are true and the icon is still missing, it is a Meta display matter. We carry on, because we send the catalogue ourselves. We can raise it with Meta support.
+3. If a setting is false, we set it through Meta's API, with your OK first.
+
+The icon does not block any phase.
+
+## 10. Open items
+
+1. Which token permission reads the catalogue. I expect a catalogue permission. Confirm in Phase 0.
+2. Does a catalogue message or product message need the 24 hour window? I expect yes. Phase 1 test.
+3. The exact shape of the basket message. Capture a real one in Phase 0.
+4. Do WooCommerce variants show properly in product lists? Phase 1.
+5. Is the basket price tax inclusive? Check against GST on the website. Phase 2.
+6. Is the WooCommerce sync current, and is the old feed file a leftover? Phase 0.
+7. The Graph API version in the code is old (orders plan open item 9). Raise it in Phase 0.
+8. India online selling rules for the catalogue. Meta says India businesses must follow them.
+
+## 11. Sources
+
+- Catalogues overview: https://developers.facebook.com/documentation/business-messaging/whatsapp/catalogs/catalogs-overview/
+- Set commerce settings: https://developers.facebook.com/documentation/business-messaging/whatsapp/catalogs/set-commerce-settings
+- Receive responses from customers: https://developers.facebook.com/documentation/business-messaging/whatsapp/catalogs/receive-responses
+- Multi product message templates: https://developers.facebook.com/documentation/business-messaging/whatsapp/catalogs/mpm-template-messages
+- Single and multi product messages (360dialog): https://docs.360dialog.com/docs/messaging/catalogs/single-and-multi-product-messages
+- Products and catalogues (360dialog): https://docs.360dialog.com/docs/messaging/products-and-catalogs
+- Community thread, icon not showing: https://developers.secure.facebook.com/community/threads/296085003435053/
+
+## 12. Approval and sign off
+
+Plan approved by: ____________________  Date: ____________
+
+| Phase | Date | Result | Notes |
+|---|---|---|---|
+| 0 | | | |
+| 1 | | | |
+| 2 | | | |
+| 3 | | | |
+| 4 | | | |
+
+## 13. Build log
+
+### Step 1: connect and read the catalogue (built 2 Oct 2026, not yet pushed)
+
+Built:
+1. `supabase/migrations/052_catalog_items.sql`: the `catalog_items` table and the `catalog_id`, `catalog_name` and `catalog_synced_at` columns on `whatsapp_config`. **Must be applied in the Supabase SQL editor before the card works.** The CI "Migrations" check replays it on push. `supabase/ci/verify-schema.sql` now asserts it.
+2. `src/lib/whatsapp/catalog.ts`: price parsing, availability, the row mapping, `effectivePrice`, and plain-words error text.
+3. `src/lib/whatsapp/meta-api.ts`: `getWabaCatalogs`, `getCatalogProducts` and `getCommerceSettings`, all read only.
+4. `src/lib/whatsapp/catalog-sync.ts`: copies the whole catalogue first, then writes. An empty answer from Meta never wipes the stored copy. A catalogue over 5,000 items is refused.
+5. Routes: `GET /api/catalog` (any member), `POST /api/catalog/sync` (admin and owner), `GET /api/catalog/settings` (admin and owner).
+6. `src/components/settings/catalog-card.tsx`, shown under the WhatsApp connection in Settings. Translations added in all four languages.
+7. Tests: 39 new. The full suite passes (1,190), plus `tsc` and `eslint`.
+
+Checked on the real catalogue, read only, with the new code and nothing written to the database: 326 items read in 5 pages, 326 rows built, 0 skipped, 0 duplicates, every item has a price, an image and a group, 317 in stock and 9 out of stock, all INR.
+
+What the real data taught us:
+1. **149 of 326 items carry a lower `sale_price`.** None has sale dates. The price a customer sees in WhatsApp is the sale price, so the CRM stores both and uses `effectivePrice` (the sale price when it is lower, otherwise the normal price). Example: Magic Mug is ₹300 with a sale price of ₹225.
+2. The mockup used normal prices (Magic Mug ₹300, White Mug ₹200, Wooden Artistic Frames V1.2 ₹1,210). The picker and the basket card must show the sale price, with the normal price struck through. Update the mockup before Step 2 and Step 3.
+3. Open question for Step 3: which price does Meta put in a basket (`item_price`), the sale price or the normal one? We learn it from the first real basket. The check accepts the sale price, and flags anything that matches neither.

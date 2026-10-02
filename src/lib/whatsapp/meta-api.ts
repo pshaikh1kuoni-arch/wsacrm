@@ -11,6 +11,7 @@
 
 import { isBusinessScopedUserId } from './wa-identity'
 import type { UsageDataPoint } from './usage'
+import { CATALOG_PRODUCT_FIELDS, type MetaCatalogProduct } from './catalog'
 
 const META_API_VERSION = 'v21.0'
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
@@ -195,6 +196,126 @@ export async function getWabaUsage(args: GetWabaUsageArgs): Promise<WabaUsage> {
   return {
     currency: typeof data.currency === 'string' ? data.currency : null,
     dataPoints: (data.pricing_analytics?.data ?? []).flatMap((d) => d.data_points ?? []),
+  }
+}
+
+// ============================================================
+// Catalogue (commerce) — read only
+// ============================================================
+//
+// The CRM only ever reads the catalogue. Reading needs a token whose
+// system user has the catalogue as an asset and the `catalog_management`
+// permission. See docs/catalog-cart-plan.md.
+
+export interface CatalogSummary {
+  id: string
+  name: string | null
+}
+
+export interface GetWabaCatalogsArgs {
+  wabaId: string
+  accessToken: string
+}
+
+/**
+ * The catalogues connected to a WhatsApp Business Account. Meta allows
+ * one per account, so this normally has zero or one entry.
+ */
+export async function getWabaCatalogs(args: GetWabaCatalogsArgs): Promise<CatalogSummary[]> {
+  const { wabaId, accessToken } = args
+  const response = await fetch(`${META_API_BASE}/${wabaId}/product_catalogs`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const body = (await response.json()) as { data?: { id?: string; name?: string }[] }
+  return (body.data ?? [])
+    .filter((c): c is { id: string; name?: string } => typeof c.id === 'string')
+    .map((c) => ({ id: c.id, name: typeof c.name === 'string' ? c.name : null }))
+}
+
+export interface GetCatalogProductsArgs {
+  catalogId: string
+  accessToken: string
+  /** Cursor from the previous page's `nextCursor`. */
+  after?: string | null
+  /** Items per page. Default 100. */
+  limit?: number
+}
+
+export interface CatalogProductsPage {
+  products: MetaCatalogProduct[]
+  /** Null on the last page. */
+  nextCursor: string | null
+}
+
+/**
+ * One page of catalogue items. The cursor is passed back to Meta on our
+ * own API version, rather than following Meta's `paging.next` link, which
+ * can point at a different version.
+ */
+export async function getCatalogProducts(
+  args: GetCatalogProductsArgs,
+): Promise<CatalogProductsPage> {
+  const { catalogId, accessToken, after, limit = 100 } = args
+  const params = new URLSearchParams({
+    fields: CATALOG_PRODUCT_FIELDS,
+    limit: String(limit),
+  })
+  if (after) params.set('after', after)
+  const response = await fetch(`${META_API_BASE}/${catalogId}/products?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const body = (await response.json()) as {
+    data?: MetaCatalogProduct[]
+    paging?: { cursors?: { after?: string }; next?: string }
+  }
+  const cursor = body.paging?.cursors?.after
+  return {
+    products: body.data ?? [],
+    nextCursor: body.paging?.next && cursor ? cursor : null,
+  }
+}
+
+export interface GetCommerceSettingsArgs {
+  phoneNumberId: string
+  accessToken: string
+}
+
+export interface CommerceSettings {
+  /** True or false when Meta reports it, null when Meta returns nothing. */
+  cartEnabled: boolean | null
+  catalogVisible: boolean | null
+}
+
+/**
+ * Whether the basket button and the shop icon are on for a number.
+ * Meta returns an empty list when nothing has been saved through the API,
+ * which this reports as null ("not confirmed").
+ */
+export async function getCommerceSettings(
+  args: GetCommerceSettingsArgs,
+): Promise<CommerceSettings> {
+  const { phoneNumberId, accessToken } = args
+  const url = `${META_API_BASE}/${phoneNumberId}/whatsapp_commerce_settings?fields=id,is_cart_enabled,is_catalog_visible`
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const body = (await response.json()) as {
+    data?: { is_cart_enabled?: boolean; is_catalog_visible?: boolean }[]
+  }
+  const row = body.data?.[0]
+  return {
+    cartEnabled: typeof row?.is_cart_enabled === 'boolean' ? row.is_cart_enabled : null,
+    catalogVisible:
+      typeof row?.is_catalog_visible === 'boolean' ? row.is_catalog_visible : null,
   }
 }
 

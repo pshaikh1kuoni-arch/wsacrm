@@ -75,6 +75,22 @@ BEGIN
       'messages.error_code/error_title/error_details are missing — migration 042 did not apply';
   END IF;
 
+  -- 052 adds the catalogue copy. The sync route upserts on
+  -- (account_id, retailer_id), so a missing unique constraint would turn
+  -- every sync into a PostgREST error at runtime, and the columns on
+  -- whatsapp_config are written by an untyped update.
+  IF to_regclass('public.catalog_items') IS NULL THEN
+    RAISE EXCEPTION 'public.catalog_items is missing — migration 052 did not apply';
+  END IF;
+  IF (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'whatsapp_config'
+      AND column_name IN ('catalog_id', 'catalog_name', 'catalog_synced_at')
+  ) <> 3 THEN
+    RAISE EXCEPTION
+      'whatsapp_config.catalog_id/catalog_name/catalog_synced_at are missing — migration 052 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;
