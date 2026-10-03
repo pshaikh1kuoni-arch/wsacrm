@@ -242,6 +242,8 @@ The icon does not block any phase.
 6. Is the WooCommerce sync current, and is the old feed file a leftover? Phase 0.
 7. The Graph API version in the code is old (orders plan open item 9). Raise it in Phase 0.
 8. India online selling rules for the catalogue. Meta says India businesses must follow them.
+9. Why Meta will not send some items it lists as published (Step 2b). Lead: the per-item WhatsApp status is Outdated. Confirm after a WooCommerce product sync.
+10. Commerce Manager shows 134 products and the API returns 326. Still unexplained. The 39 hidden items and the three feeds may be part of it.
 
 ## 11. Sources
 
@@ -300,7 +302,7 @@ Real data behind the design (read only):
 1. 74 product names are shared by several items, because variants carry the same name. Size or colour separates most of them. 41 of those 74 names stay identical even then, so every row also shows the item ID.
 2. Items with no size and no colour show the ID only.
 
-Result on a real phone (2 Oct 2026, owner test): the single card, the list and the catalogue message all reached the customer's phone, and the picker looked right after one layout fix. Details below that the owner did not report are still open.
+Result on a real phone (2 Oct 2026, owner test): a product list reached the customer's phone, and the picker looked right after one layout fix. The database shows only lists were sent that day, so a single card and the catalogue message were not yet confirmed. Single cards later failed for some items, see Step 2b.
 
 Layout bug found in that test and fixed (commit 974aa9c): the dialog is a grid whose column grows to fit its widest line, and a long product name anywhere in the list pushed the search box, list and prices past the dialog's edge. The picker's dialog now has a column that may shrink. Reproduced in Chrome before fixing (265px overflow with a 110 character name) and checked after.
 
@@ -330,6 +332,28 @@ Safety rules built in:
 Result of the first real basket (2 Oct 2026, 18:09 UTC, one Box Frame Pendent, Silver):
 1. It reached the inbox as a basket card, with the right total (₹495), status "all items match", and a "Basket received" notification. The shop icon was not needed to get a basket. The product list sent from the CRM sits just above it in the chat.
 2. **`item_price` is in rupees, not paise.** Meta sent `495` for a ₹495 item.
-3. **Still unknown: for an item on sale, does Meta send the sale price or the normal price?** This item had no sale price, so the test cannot tell. The check accepts either, and the total is always from our catalogue. To learn it, send a basket with an item that has a sale price (149 of the 326 items do). The saved raw order (`messages.basket_payload.raw`) shows the answer.
+3. **For an item on sale, Meta sends the sale price.** Second real basket (2 Oct 2026, 18:28 UTC): Couple Name String Art Frame, normal price ₹2,100, sale price ₹1,749. Meta sent `item_price: 1749`. The customer's cart showed ₹1,749 with ₹2,100 struck through and "You save ₹351", and the CRM card showed the same with a total of ₹1,749. The check still accepts either price, and the total is still worked out from our catalogue.
 
 Not built (belongs to step 4 or the orders plan): a "Basket received" automation trigger, turning a basket into an order, and the payment link.
+
+### Step 2b: items Meta will not send (found 3 Oct 2026, owner test)
+
+What happened:
+1. A single product card failed with Meta error `#131009 Parameter value is not valid`. With the details line now shown (commit bc01c11) the reason reads: "product not found for product_retailer_id 3598 in catalog_id 371059440191188". Another single send said: "None of the products provided could be sent. Please check your catalog."
+2. A list of two products reached the phone with only one of them. The CRM bubble drew both, because it draws from our own copy of the catalogue, and Meta still reported the message as delivered. Meta drops items it cannot find from a list without saying so. It complains only when nothing in the message can be sent.
+3. Meta's own product list shows the failing items (3598, 2008) as published and in stock. Reading the catalogue and sending a message disagree about them.
+
+What we found in the catalogue (read only, 326 items):
+1. 200 items have a short ID (digits only, the website's product number) and 126 have a long ID (with an underscore). Only 52 short items have a long twin. 148 exist only as a short ID. "Use the long ID" is therefore not a general fix.
+2. Meta keeps a separate WhatsApp review status per item (`capability_to_review_status`, key `WHATSAPP`). Across the catalogue: 210 approved, 106 outdated, 10 no review. Short IDs: 125 approved, 73 outdated, 2 no review. Long IDs: 85 approved, 33 outdated, 8 no review. The ID shape does not decide it.
+3. The two items that failed (3598, 2008) are Outdated. The item that went through in a list (`TG0FRM00001212001CAD_2727`) is Approved. "Outdated" usually means the item changed after Meta last reviewed it, for example a new price.
+4. What does not fit: the long Advocate Pen (`65589172579_2579`) is Outdated yet was sent fine as a single card, and one cushion item failed once although both of its IDs are Approved (the details line did not exist yet, and it is not known which ID was picked). So this is a lead, not a proven cause.
+5. The catalogue has three feeds. Two come from the Facebook for WooCommerce plugin (145 items, last upload 22 Jun 2026, and 90 items, last upload 21 Aug 2026). The third is the "Products for MJA Print-n-Gift" feed, with no upload details. 39 items have visibility "hidden".
+
+Built:
+1. The send path now shows Meta's `details` line, so the next rejection names the bad parameter (commit bc01c11).
+
+Next:
+1. Owner: run the product sync in WordPress (Marketing, Facebook, Shops tab, Troubleshooting, Sync products), then press Sync now on the CRM Catalogue page. Then count the Outdated items again. If the count drops and item 3598 sends, the lead is confirmed.
+2. Proposed, waiting for the owner's go-ahead (needs a migration and a small change to the picker rows): save each item's WhatsApp status when the catalogue syncs, and show a "Not approved for WhatsApp yet" warning on those rows in the picker. Warn only, never block, because of the Advocate Pen result.
+
