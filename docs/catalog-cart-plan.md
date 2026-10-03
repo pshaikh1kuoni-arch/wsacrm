@@ -362,7 +362,7 @@ Retest after the WooCommerce product sync (3 Oct 2026, owner test, confirmed on 
 
 Next, waiting for the owner's go-ahead (needs a migration and a small change to the picker rows, so a mockup first): save each item's WhatsApp status when the catalogue syncs, and show a "Not approved for WhatsApp yet" warning on those rows in the picker. Warn only. The warning stops the CRM bubble from promising products the customer will not see.
 
-### Step 4: automations and flows (built 3 Oct 2026)
+### Step 4: automations and flows (built and pushed 3 Oct 2026, commit 4946ffd; migration 056 applied by the owner; phone test pending)
 
 Built:
 1. `supabase/migrations/056_flow_send_catalog_node_type.sql`: adds `send_catalog` to the `flow_nodes.node_type` allow-list (same job as migrations 046 and 048). Without it, saving a flow that has the new node fails. Automations need no migration, because their trigger and step types are free text. `verify-schema.sql` asserts it.
@@ -379,7 +379,7 @@ Safety:
 3. Nothing is turned on by default. The starter template is a draft until the owner activates it.
 
 To test on a real phone:
-1. Apply migration 056 in Supabase.
+1. Migration 056 is applied (owner confirmed, 3 Oct 2026).
 2. Automations, Basket Thank You: pick it, press Save Draft, switch Active on, Save.
 3. From the customer phone, send a basket. Expect the thank you message with the items and total, and the basket card in the CRM.
 4. Add a Send catalogue step after it, send another basket, expect the View catalogue button too.

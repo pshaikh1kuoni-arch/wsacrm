@@ -35,7 +35,7 @@ Status words used below:
 | Number health | BUILT | `src/app/(dashboard)/number-health` |
 | Team and roles | BUILT | `src/lib/auth`, `src/components/settings/members-tab.tsx` |
 | Public API, webhooks, MCP | BUILT | `src/app/api/v1`, `mcp-server/` |
-| Catalogue and product messages | BUILT (migration 056 for the flow node) | `src/components/settings/catalog-card.tsx`, `src/components/inbox/product-picker.tsx`, `src/lib/whatsapp/catalog*.ts` |
+| Catalogue and product messages | BUILT | `src/components/settings/catalog-card.tsx`, `src/components/inbox/product-picker.tsx`, `src/lib/whatsapp/catalog*.ts` |
 | Billing (the WAGenie subscription) | BUILT, needs migration 055 and Razorpay keys | `src/components/settings/billing-panel.tsx`, `src/lib/billing`, `src/lib/razorpay` |
 | Public pages (pricing, terms, privacy, refunds, delivery, about, contact) | BUILT | `src/app/(site)`, `src/components/marketing/site-chrome.tsx` |
 | Orders and payments | PLANNED | `docs/orders-payments-plan.md` |
