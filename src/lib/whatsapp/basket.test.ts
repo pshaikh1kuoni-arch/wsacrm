@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  basketAutomationVars,
   basketIssueCount,
   basketNotification,
   basketSummary,
@@ -228,6 +229,31 @@ describe('basketNotification', () => {
   it('says when it needs review, and has a fallback name', () => {
     const b = evaluateBasket(order([{ id: 'nope', q: 1 }]), catalog)
     expect(basketNotification(null, b).body).toBe('A customer sent a basket of 1 item. It needs review.')
+  })
+})
+
+describe('basketAutomationVars', () => {
+  it('gives plain text for every variable', () => {
+    const b = evaluateBasket(order([{ id: 'mug', q: 2 }, { id: 'frame', q: 1 }]), catalog)
+    expect(basketAutomationVars('Rahul S.', b)).toEqual({
+      name: 'Rahul S.',
+      item_count: '3',
+      items: '2 x Magic Mug\n1 x Frame (12x18in)',
+      total: '₹1,418',
+    })
+  })
+
+  it('says "there" when the customer has no name', () => {
+    const b = evaluateBasket(order([{ id: 'mug', q: 1 }]), catalog)
+    expect(basketAutomationVars(null, b).name).toBe('there')
+    expect(basketAutomationVars('   ', b).name).toBe('there')
+  })
+
+  it('shows the item ID for an item the catalogue does not know, and never states a wrong total', () => {
+    const b = evaluateBasket(order([{ id: 'mug', q: 1 }, { id: 'nope', q: 2 }]), catalog)
+    const vars = basketAutomationVars('Rahul', b)
+    expect(vars.items).toBe('1 x Magic Mug\n2 x Item nope')
+    expect(vars.total).toBe('to be confirmed')
   })
 })
 

@@ -593,6 +593,7 @@ function AddNodeButton({ onAdd, t }: { onAdd: (type: NodeType) => void; t: Retur
     'send_message',
     'send_media',
     'send_template',
+    'send_catalog',
     'wait_followup',
     'collect_input',
     'condition',

@@ -2,6 +2,7 @@ import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
 import {
   engineSendInteractiveButtons,
+  engineSendInteractiveCatalog,
   engineSendInteractiveList,
 } from '@/lib/flows/meta-send'
 import { decrypt } from '@/lib/whatsapp/encryption'
@@ -104,13 +105,21 @@ export async function engineSendInteractive(
       sections: payload.sections,
     })
   }
+  if (payload.kind === 'catalog') {
+    return engineSendInteractiveCatalog({
+      ...common,
+      bodyText: payload.body,
+      footerText: payload.footer,
+      thumbnailRetailerId: payload.thumbnail_retailer_id,
+    })
+  }
   // Carousel ships in Flows only (see docs/carousel-messages-plan.md), and
-  // product messages reach Automations in a later step of
-  // docs/catalog-cart-plan.md. Automations' send_buttons/send_list steps
-  // never produce these kinds today, but fail loudly instead of silently
-  // mis-sending as a list if that ever changes.
+  // single product and product list messages are sent by an agent from the
+  // inbox (docs/catalog-cart-plan.md). No automation step produces these
+  // kinds today, but fail loudly instead of silently mis-sending as a list
+  // if that ever changes.
   throw new Error(
-    'Carousel and product messages are not supported from Automations yet.',
+    'Carousel, single product and product list messages are not supported from Automations.',
   )
 }
 

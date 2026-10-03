@@ -118,6 +118,21 @@ export interface SendTemplateNodeConfig {
   next_node_key: string;
 }
 
+/**
+ * Sends a "View catalogue" message that opens the WhatsApp catalogue
+ * connected to the number, then auto-advances. Mirrors Automations'
+ * `send_catalog` step (docs/catalog-cart-plan.md). Like `send_message` it is
+ * session-only: it needs the customer's 24-hour window to be open.
+ */
+export interface SendCatalogNodeConfig {
+  /** Text above the View catalogue button. `{{vars.*}}` fills in. */
+  body: string;
+  /** Optional footer (≤ 60 chars). */
+  footer?: string;
+  /** Auto-advance target after the send lands at Meta. */
+  next_node_key: string;
+}
+
 export interface HandoffNodeConfig {
   /** Optional internal note written to flow_run_events.payload.note. */
   note?: string;
@@ -368,6 +383,7 @@ export type FlowNodeConfig =
   | { node_type: "send_carousel"; config: SendCarouselNodeConfig }
   | { node_type: "send_media"; config: SendMediaNodeConfig }
   | { node_type: "send_template"; config: SendTemplateNodeConfig }
+  | { node_type: "send_catalog"; config: SendCatalogNodeConfig }
   | { node_type: "wait_followup"; config: WaitFollowupNodeConfig }
   | { node_type: "collect_input"; config: CollectInputNodeConfig }
   | { node_type: "condition"; config: ConditionNodeConfig }

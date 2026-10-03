@@ -24,6 +24,7 @@
  */
 
 import { INTERACTIVE_LIMITS } from "@/lib/whatsapp/meta-api";
+import { validateInteractivePayload } from "@/lib/whatsapp/interactive";
 
 export interface ValidationIssue {
   severity: "error" | "warning";
@@ -297,6 +298,48 @@ function validateNode(
           node_key: node.node_key,
           field: "next_node_key",
           message: `Send-media points to non-existent node "${cfg.next_node_key}".`,
+        });
+      }
+      break;
+    }
+
+    case "send_catalog": {
+      const cfg = node.config as {
+        body?: string;
+        footer?: string;
+        next_node_key?: string;
+      };
+      // The same limits Meta applies to every interactive message, checked
+      // here so the editor flags a bad node before the run does.
+      const check = validateInteractivePayload({
+        kind: "catalog",
+        body: cfg.body,
+        footer: cfg.footer?.trim() ? cfg.footer : undefined,
+      });
+      if (!check.ok) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "body",
+          message: `Send-catalogue node: ${check.error}`,
+        });
+      }
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: "Send-catalogue node must point to a next node.",
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Send-catalogue points to non-existent node "${cfg.next_node_key}".`,
         });
       }
       break;
@@ -1075,6 +1118,7 @@ function outgoingEdges(node: NodeInput): string[] {
     case "send_message":
     case "send_media":
     case "send_template":
+    case "send_catalog":
     case "wait_followup":
     case "collect_input":
     case "set_tag":

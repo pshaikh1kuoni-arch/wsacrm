@@ -956,6 +956,7 @@
         "send_buttons": "Send Buttons",
         "send_list": "Send List",
         "send_template": "Send Template",
+        "send_catalog": "Send Catalogue",
         "add_tag": "Add Tag",
         "remove_tag": "Remove Tag",
         "assign_conversation": "Assign Conversation",
@@ -983,6 +984,10 @@
           "label": "Button / List Reply",
           "hint": "Customer taps a button or list row whose id matches — chain menus across automations"
         },
+        "basket_received": {
+          "label": "Basket Received",
+          "hint": "When a customer sends a basket from your WhatsApp catalogue"
+        },
         "new_contact_created": {
           "label": "New Contact Created",
           "hint": "When a contact is auto-created from an incoming message"
@@ -1002,6 +1007,14 @@
       },
       "trigger": "Trigger",
       "triggerType": "Trigger type",
+      "basketVars": {
+        "title": "Variables for this trigger",
+        "help": "Use these in your messages. They fill in from the basket.",
+        "name": "Customer name",
+        "item_count": "Number of items",
+        "items": "Items and quantities",
+        "total": "Total from catalogue prices"
+      },
       "keywords": "Keywords",
       "keywordsHint": "Comma-separated list (e.g. hello, help, buy)",
       "replyIds": "Reply IDs",
@@ -1110,7 +1123,11 @@
         "matchWord": "Whole word",
         "matchWordHint": "Matches the keyword only as a standalone word, so \"k\" no longer fires on \"thanks\". Best for short keywords in space-separated languages; use Contains for languages written without spaces.",
         "matchExact": "Exact",
-        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed."
+        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed.",
+        "catalogBody": "Text above the button",
+        "placeholderCatalogBody": "Take a look at our catalogue.",
+        "catalogFooter": "Footer (optional, 60 chars)",
+        "catalogHelp": "The customer gets a View catalogue button that opens your whole catalogue. Your catalogue must be connected to this WhatsApp number."
       }
     }
   },
@@ -1297,7 +1314,8 @@
         "loadedFromQuickReply": "Loaded from Quick Reply — {title}",
         "changeSource": "Change",
         "loadCarouselHint": "Picking one copies its body and cards into this node — everything stays editable below.",
-        "carouselCardsMeta": "{count} cards · {buttonType}"
+        "carouselCardsMeta": "{count} cards · {buttonType}",
+        "catalogHelp": "The customer gets a View catalogue button that opens your whole catalogue. Your catalogue must be connected to this WhatsApp number."
       },
       "categories": {
         "messaging": "Messaging",
@@ -1332,6 +1350,10 @@
         "send_template": {
           "label": "Send template",
           "blurb": "Sends an approved WhatsApp template message"
+        },
+        "send_catalog": {
+          "label": "Send catalogue",
+          "blurb": "Sends a View catalogue button that opens your catalogue"
         },
         "wait_followup": {
           "label": "Wait & follow up",

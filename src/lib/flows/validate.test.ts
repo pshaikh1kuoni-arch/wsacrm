@@ -823,6 +823,55 @@ describe("validateFlowForActivation — send_template", () => {
   });
 });
 
+describe("validateFlowForActivation — send_catalog", () => {
+  const baseFlow = { ...validFlow, entry_node_id: "s" };
+  const nodesWith = (catalogConfig: Record<string, unknown>) => [
+    { node_key: "s", node_type: "start", config: { next_node_key: "c" } },
+    { node_key: "c", node_type: "send_catalog", config: catalogConfig },
+    { node_key: "h", node_type: "handoff", config: {} },
+  ];
+
+  it("passes on a node with text and a next node", () => {
+    expect(
+      validateFlowForActivation(baseFlow, nodesWith({ body: "Take a look", next_node_key: "h" })),
+    ).toEqual([]);
+    expect(
+      validateFlowForActivation(
+        baseFlow,
+        nodesWith({ body: "Hi", footer: "Free delivery", next_node_key: "h" }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags missing text", () => {
+    const issues = validateFlowForActivation(baseFlow, nodesWith({ body: " ", next_node_key: "h" }));
+    expect(issues.some((i) => i.node_key === "c" && i.field === "body")).toBe(true);
+  });
+
+  it("flags a footer over Meta's limit", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWith({ body: "Hi", footer: "x".repeat(61), next_node_key: "h" }),
+    );
+    expect(issues.some((i) => i.node_key === "c" && i.field === "body")).toBe(true);
+  });
+
+  it("flags a missing or unknown next node", () => {
+    const missing = validateFlowForActivation(baseFlow, nodesWith({ body: "Hi" }));
+    expect(missing.some((i) => i.node_key === "c" && i.field === "next_node_key")).toBe(true);
+    const ghost = validateFlowForActivation(baseFlow, nodesWith({ body: "Hi", next_node_key: "ghost" }));
+    expect(
+      ghost.some((i) => i.node_key === "c" && i.field === "next_node_key" && i.message.includes("ghost")),
+    ).toBe(true);
+  });
+
+  it("contributes its next_node_key to reachability", () => {
+    expect(reachableFromEntry("s", nodesWith({ body: "Hi", next_node_key: "h" }))).toEqual(
+      new Set(["s", "c", "h"]),
+    );
+  });
+});
+
 describe("validateFlowForActivation — wait_followup", () => {
   const baseFlow = { ...validFlow, entry_node_id: "s" };
   const nodesWith = (waitConfig: Record<string, unknown>) => [

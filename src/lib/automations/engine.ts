@@ -11,6 +11,7 @@ import type {
   SendButtonsStepConfig,
   SendListStepConfig,
   SendTemplateStepConfig,
+  SendCatalogStepConfig,
   SendWebhookStepConfig,
   TagStepConfig,
   UpdateContactFieldStepConfig,
@@ -393,6 +394,29 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         payload,
       })
       return `interactive sent via Meta (${whatsapp_message_id})`
+    }
+
+    case 'send_catalog': {
+      const cfg = step.step_config as SendCatalogStepConfig
+      if (!args.contactId) throw new Error('send_catalog needs a contact')
+      // Same `{{vars.*}}` as a Send Message step, so a "Basket received"
+      // automation can greet the customer by name above the button.
+      const payload = {
+        kind: 'catalog' as const,
+        body: interpolate(cfg.body ?? '', args),
+        footer: cfg.footer?.trim() || undefined,
+      }
+      const check = validateInteractivePayload(payload)
+      if (!check.ok) throw new Error(check.error)
+      const conversationId = await resolveConversationId(args)
+      const { whatsapp_message_id } = await engineSendInteractive({
+        accountId: args.automation.account_id,
+        userId: args.automation.user_id,
+        conversationId,
+        contactId: args.contactId,
+        payload,
+      })
+      return `catalogue sent via Meta (${whatsapp_message_id})`
     }
 
     case 'send_template': {

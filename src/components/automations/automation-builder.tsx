@@ -33,6 +33,7 @@ import {
   ArrowUp,
   MousePointerClick,
   List,
+  ShoppingBag,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -111,6 +112,7 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
   send_buttons: { label: "send_buttons", icon: MousePointerClick, accent: "bg-primary" },
   send_list: { label: "send_list", icon: List, accent: "bg-primary" },
   send_template: { label: "send_template", icon: FileText, accent: "bg-primary" },
+  send_catalog: { label: "send_catalog", icon: ShoppingBag, accent: "bg-primary" },
   add_tag: { label: "add_tag", icon: Tag, accent: "bg-primary" },
   remove_tag: { label: "remove_tag", icon: TagIcon, accent: "bg-primary" },
   assign_conversation: { label: "assign_conversation", icon: UserCheck, accent: "bg-primary" },
@@ -127,6 +129,7 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   "send_buttons",
   "send_list",
   "send_template",
+  "send_catalog",
   "add_tag",
   "remove_tag",
   "assign_conversation",
@@ -143,6 +146,7 @@ const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
   { value: "first_inbound_message" },
   { value: "keyword_match" },
   { value: "interactive_reply" },
+  { value: "basket_received" },
   { value: "new_contact_created" },
   { value: "conversation_assigned" },
   { value: "tag_added" },
@@ -180,6 +184,8 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return toStepConfig(blankListPayload())
     case "send_template":
       return { template_name: "", language: "en_US" }
+    case "send_catalog":
+      return { body: "", footer: "" }
     case "add_tag":
     case "remove_tag":
       return { tag_id: "" }
@@ -859,6 +865,7 @@ function TriggerCard({
             {type === "interactive_reply" && (
               <InteractiveReplyConfig config={config} onChange={onConfigChange} t={t} />
             )}
+            {type === "basket_received" && <BasketVariables t={t} />}
             {type === "tag_added" && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -892,6 +899,27 @@ function TriggerCard({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+const BASKET_VARIABLES = ["name", "item_count", "items", "total"] as const
+
+function BasketVariables({ t }: { t: ReturnType<typeof useTranslations> }) {
+  return (
+    <div>
+      <div className="text-xs font-medium text-muted-foreground">{t("basketVars.title")}</div>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">{t("basketVars.help")}</p>
+      <ul className="mt-2 space-y-1">
+        {BASKET_VARIABLES.map((v) => (
+          <li key={v} className="flex items-center justify-between gap-3 text-[11px]">
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
+              {`{{vars.${v}}}`}
+            </code>
+            <span className="text-muted-foreground">{t(`basketVars.${v}`)}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -1323,6 +1351,27 @@ function StepEditor({
           }
         />
       )
+    case "send_catalog":
+      return (
+        <>
+          <FieldBlock label={t("config.catalogBody")}>
+            <Textarea
+              value={(cfg.body as string) ?? ""}
+              onChange={(e) => set({ body: e.target.value })}
+              placeholder={t("config.placeholderCatalogBody")}
+              className="min-h-20 bg-muted text-foreground"
+            />
+          </FieldBlock>
+          <FieldBlock label={t("config.catalogFooter")}>
+            <Input
+              value={(cfg.footer as string) ?? ""}
+              onChange={(e) => set({ footer: e.target.value })}
+              className="bg-muted text-foreground"
+            />
+          </FieldBlock>
+          <p className="text-[11px] text-muted-foreground">{t("config.catalogHelp")}</p>
+        </>
+      )
     case "send_template":
       return (
         <SendTemplateFields
@@ -1532,6 +1581,8 @@ function previewFor(step: BuilderStep): string {
     case "send_buttons":
     case "send_list":
       return interactivePayloadPreviewText(asInteractive(step.step_config)) || "no body yet"
+    case "send_catalog":
+      return (step.step_config.body as string) || "no text yet"
     case "send_template":
       return (step.step_config.template_name as string) || "pick a template"
     case "wait":

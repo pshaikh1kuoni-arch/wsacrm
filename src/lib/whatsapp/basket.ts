@@ -252,6 +252,41 @@ export function basketNotification(
 }
 
 /**
+ * What an automation can use from a basket, as the `{{vars.*}}` of a
+ * "Basket received" trigger. Every value is plain text, because the engine
+ * pastes them into a message.
+ *
+ * - `name`: the customer's name, or "there" when we have none ("Hi there!").
+ * - `item_count`: units in the basket, as a number in text.
+ * - `items`: one line per item, "2 x Magic Mug (Gold)". An item the catalogue
+ *   copy does not know shows its item ID instead of a name.
+ * - `total`: from our catalogue prices, like the card. "to be confirmed" when
+ *   any line cannot be priced, so a message never states a wrong total.
+ */
+export function basketAutomationVars(
+  contactName: string | null,
+  basket: BasketPayload,
+): Record<'name' | 'item_count' | 'items' | 'total', string> {
+  const lines = basket.items.map((item) => {
+    const label = item.name
+      ? item.variant
+        ? `${item.name} (${item.variant})`
+        : item.name
+      : `Item ${item.retailer_id}`
+    return `${item.quantity} x ${label}`
+  })
+  return {
+    name: contactName?.trim() || 'there',
+    item_count: String(basket.item_count),
+    items: lines.join('\n'),
+    total:
+      basket.total != null
+        ? formatCatalogPrice(basket.total, basket.currency)
+        : 'to be confirmed',
+  }
+}
+
+/**
  * Who is told about a basket: the agent the chat is assigned to, or when
  * nobody is, everyone who can answer it (owner, admins and agents). Viewers
  * are never notified.

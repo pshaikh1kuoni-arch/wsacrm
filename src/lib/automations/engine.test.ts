@@ -105,6 +105,7 @@ vi.mock("./meta-send", () => ({
 }));
 
 import { runAutomationsForTrigger, triggerMatches } from "./engine";
+import { engineSendInteractive } from "./meta-send";
 import type { Automation, KeywordMatchTriggerConfig } from "@/types";
 
 const ACCOUNT = "acct-1";
@@ -347,6 +348,117 @@ function customStep(field: string, value: string) {
     step_config: { field, value },
   };
 }
+
+describe("send_catalog step", () => {
+  function catalogStep(config: Record<string, unknown>) {
+    return {
+      id: "s1",
+      automation_id: "a1",
+      step_type: "send_catalog",
+      position: 0,
+      parent_step_id: null,
+      step_config: config,
+    };
+  }
+  const basketAutomation = {
+    id: "a1",
+    account_id: ACCOUNT,
+    user_id: "u1",
+    trigger_type: "basket_received",
+    trigger_config: {},
+    is_active: true,
+  };
+  const lastStepResult = () => {
+    const update = h.state.logUpdates.at(-1) as { steps_executed?: { status: string; detail?: string }[] };
+    return update?.steps_executed?.[0];
+  };
+
+  it("sends a catalogue message with the basket variables filled in", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [basketAutomation];
+    h.state.steps = [catalogStep({ body: "Hi {{vars.name}}, more like this?", footer: "Free delivery" })];
+    vi.mocked(engineSendInteractive).mockClear();
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "basket_received",
+      contactId: "c1",
+      context: { conversation_id: "cv1", vars: { name: "Rahul" } },
+    });
+
+    expect(engineSendInteractive).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(engineSendInteractive).mock.calls[0][0]).toMatchObject({
+      accountId: ACCOUNT,
+      conversationId: "cv1",
+      contactId: "c1",
+      payload: { kind: "catalog", body: "Hi Rahul, more like this?", footer: "Free delivery" },
+    });
+    expect(lastStepResult()?.status).toBe("success");
+  });
+
+  it("leaves the footer out when it is blank", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [basketAutomation];
+    h.state.steps = [catalogStep({ body: "Take a look", footer: "   " })];
+    vi.mocked(engineSendInteractive).mockClear();
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "basket_received",
+      contactId: "c1",
+      context: { conversation_id: "cv1" },
+    });
+
+    const payload = vi.mocked(engineSendInteractive).mock.calls[0][0].payload;
+    expect(payload).toEqual({ kind: "catalog", body: "Take a look", footer: undefined });
+  });
+
+  it("fails the step, without calling Meta, when the footer is over Meta's limit", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [basketAutomation];
+    h.state.steps = [catalogStep({ body: "Hi", footer: "x".repeat(61) })];
+    vi.mocked(engineSendInteractive).mockClear();
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "basket_received",
+      contactId: "c1",
+      context: { conversation_id: "cv1" },
+    });
+
+    expect(engineSendInteractive).not.toHaveBeenCalled();
+    expect(lastStepResult()?.status).toBe("failed");
+  });
+
+  it("fails the step when the text is empty after the variables fill in", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [basketAutomation];
+    h.state.steps = [catalogStep({ body: "{{vars.missing}}" })];
+    vi.mocked(engineSendInteractive).mockClear();
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "basket_received",
+      contactId: "c1",
+      context: { conversation_id: "cv1", vars: {} },
+    });
+
+    expect(engineSendInteractive).not.toHaveBeenCalled();
+    expect(lastStepResult()?.status).toBe("failed");
+  });
+});
+
+describe("triggerMatches — basket_received", () => {
+  it("has no settings, so every basket matches", () => {
+    const automation = {
+      id: "a1",
+      trigger_type: "basket_received",
+      trigger_config: {},
+    } as unknown as Automation;
+    expect(triggerMatches(automation, undefined)).toBe(true);
+    expect(triggerMatches(automation, { vars: { item_count: "2" } })).toBe(true);
+  });
+});
 
 describe("triggerMatches — interactive_reply", () => {
   function automation(reply_ids: string[]): Automation {

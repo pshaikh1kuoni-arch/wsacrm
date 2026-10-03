@@ -362,3 +362,25 @@ Retest after the WooCommerce product sync (3 Oct 2026, owner test, confirmed on 
 
 Next, waiting for the owner's go-ahead (needs a migration and a small change to the picker rows, so a mockup first): save each item's WhatsApp status when the catalogue syncs, and show a "Not approved for WhatsApp yet" warning on those rows in the picker. Warn only. The warning stops the CRM bubble from promising products the customer will not see.
 
+### Step 4: automations and flows (built 3 Oct 2026)
+
+Built:
+1. `supabase/migrations/056_flow_send_catalog_node_type.sql`: adds `send_catalog` to the `flow_nodes.node_type` allow-list (same job as migrations 046 and 048). Without it, saving a flow that has the new node fails. Automations need no migration, because their trigger and step types are free text. `verify-schema.sql` asserts it.
+2. Automation trigger **Basket received** (`basket_received`). It has no settings. The webhook fires it only for a basket that was really stored, after the idempotency check, so a replayed delivery never thanks a customer twice, and the plain-text fallback never fires it. Variables: `{{vars.name}}` (the customer's name, or "there"), `{{vars.item_count}}`, `{{vars.items}}` (one line per item, "2 x Magic Mug (Gold)") and `{{vars.total}}` (from our catalogue prices, or "to be confirmed" when any line cannot be priced, so a message never states a wrong total). They come from `basketAutomationVars` in `basket.ts`. `{{vars.order_number}}` from the first plan is not built, because there is no order yet.
+3. Automation step **Send catalogue** (`send_catalog`): text above a View catalogue button, optional footer, `{{vars.*}}` fills in. Checked against Meta's limits at save time and again before sending.
+4. Flow node **Send catalogue** (`send_catalog`): the same message, then it moves on to the next node, like Send template.
+5. One shared sender, `engineSendInteractiveCatalog` in `src/lib/flows/meta-send.ts`, used by both. It saves the message in the chat with its payload, so the bubble draws like one sent from the inbox.
+6. Starter template **Basket Thank You** on the Automations page: Basket received, then a message that thanks the customer and lists the basket and total. It starts as a draft. The page's template row is now 5 wide on large screens.
+7. Four languages. Tests: new ones for the helper, the engine step, the validators, the flow node (running it, the blank footer, a failed send), the edges and the webhook trigger. The full suite passes (1,362), plus `tsc`, `eslint` and a production build.
+
+Safety:
+1. The trigger fires in addition to `new_message_received`, as before. An account that has a "reply to every message" automation will send that reply and the basket thank you. Turn the first one off, or give it a condition, if that is not wanted.
+2. A Send catalogue step or node only works inside the 24 hour window, and only when the catalogue is connected to the sending number. Otherwise the step fails and the run log says why.
+3. Nothing is turned on by default. The starter template is a draft until the owner activates it.
+
+To test on a real phone:
+1. Apply migration 056 in Supabase.
+2. Automations, Basket Thank You: pick it, press Save Draft, switch Active on, Save.
+3. From the customer phone, send a basket. Expect the thank you message with the items and total, and the basket card in the CRM.
+4. Add a Send catalogue step after it, send another basket, expect the View catalogue button too.
+5. Flows: add a Send catalogue node between two nodes, activate, and run the flow.

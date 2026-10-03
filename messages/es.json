@@ -956,6 +956,7 @@
         "send_buttons": "Enviar botones",
         "send_list": "Enviar lista",
         "send_template": "Enviar plantilla",
+        "send_catalog": "Enviar catálogo",
         "add_tag": "Agregar etiqueta",
         "remove_tag": "Quitar etiqueta",
         "assign_conversation": "Asignar conversación",
@@ -983,6 +984,10 @@
           "label": "Respuesta de botón / lista",
           "hint": "El cliente toca un botón o fila de lista cuyo id coincide; encadena menús entre automatizaciones"
         },
+        "basket_received": {
+          "label": "Carrito recibido",
+          "hint": "Cuando un cliente envía un carrito desde tu catálogo de WhatsApp"
+        },
         "new_contact_created": {
           "label": "Nuevo contacto creado",
           "hint": "Cuando un contacto se crea automáticamente a partir de un mensaje entrante"
@@ -1002,6 +1007,14 @@
       },
       "trigger": "Disparador",
       "triggerType": "Tipo de disparador",
+      "basketVars": {
+        "title": "Variables de este disparador",
+        "help": "Úsalas en tus mensajes. Se rellenan con los datos del carrito.",
+        "name": "Nombre del cliente",
+        "item_count": "Número de artículos",
+        "items": "Artículos y cantidades",
+        "total": "Total según los precios del catálogo"
+      },
       "keywords": "Palabras clave",
       "keywordsHint": "Lista separada por comas (p. ej. hola, ayuda, comprar)",
       "replyIds": "IDs de respuesta",
@@ -1110,7 +1123,11 @@
         "matchWord": "Palabra completa",
         "matchWordHint": "Coincide con la palabra clave solo como palabra independiente, así \"k\" ya no se activa con \"thanks\". Ideal para palabras clave cortas en idiomas con espacios; usa Contiene para idiomas que se escriben sin espacios.",
         "matchExact": "Exacta",
-        "closeConversationHint": "Cambia el estado de la conversación a \"cerrada\". No requiere configuración."
+        "closeConversationHint": "Cambia el estado de la conversación a \"cerrada\". No requiere configuración.",
+        "catalogBody": "Texto sobre el botón",
+        "placeholderCatalogBody": "Echa un vistazo a nuestro catálogo.",
+        "catalogFooter": "Pie (opcional, 60 caracteres)",
+        "catalogHelp": "El cliente recibe un botón Ver catálogo que abre todo tu catálogo. Tu catálogo debe estar conectado a este número de WhatsApp."
       }
     }
   },
@@ -1297,7 +1314,8 @@
         "loadedFromQuickReply": "Cargado desde la respuesta rápida — {title}",
         "changeSource": "Cambiar",
         "loadCarouselHint": "Al elegir uno se copian su texto y sus tarjetas en este nodo — todo sigue siendo editable abajo.",
-        "carouselCardsMeta": "{count} tarjetas · {buttonType}"
+        "carouselCardsMeta": "{count} tarjetas · {buttonType}",
+        "catalogHelp": "El cliente recibe un botón Ver catálogo que abre todo tu catálogo. Tu catálogo debe estar conectado a este número de WhatsApp."
       },
       "categories": {
         "messaging": "Mensajería",
@@ -1332,6 +1350,10 @@
         "send_template": {
           "label": "Enviar plantilla",
           "blurb": "Envía un mensaje de plantilla aprobado de WhatsApp"
+        },
+        "send_catalog": {
+          "label": "Enviar catálogo",
+          "blurb": "Envía un botón Ver catálogo que abre tu catálogo"
         },
         "wait_followup": {
           "label": "Esperar y hacer seguimiento",

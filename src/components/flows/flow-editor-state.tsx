@@ -178,6 +178,8 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       };
     case "send_template":
       return { template_name: "", language: "en_US", next_node_key: "" };
+    case "send_catalog":
+      return { body: "", footer: "", next_node_key: "" };
     case "wait_followup":
       return { wait_minutes: 120, followup_text: "", next_node_key: "" };
     case "collect_input":

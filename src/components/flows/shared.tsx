@@ -28,6 +28,7 @@ import {
   MessageCircle,
   Paperclip,
   PlayCircle,
+  ShoppingBag,
   Sparkles,
   Tag,
   UserPlus,
@@ -52,6 +53,7 @@ export type NodeType =
   | 'send_carousel'
   | 'send_media'
   | 'send_template'
+  | 'send_catalog'
   | 'wait_followup'
   | 'collect_input'
   | 'condition'
@@ -147,6 +149,12 @@ export const NODE_META: Record<
     color: 'text-orange-400',
     category: 'messaging',
   },
+  send_catalog: {
+    slugSeed: 'Send catalogue',
+    icon: ShoppingBag,
+    color: 'text-emerald-400',
+    category: 'messaging',
+  },
   wait_followup: {
     slugSeed: 'Wait & follow up',
     icon: Hourglass,
@@ -226,6 +234,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   send_carousel: { l: 0.68, c: 0.14, h: 128 }, // lime — distinct from every other hue in this set
   send_media: { l: 0.65, c: 0.12, h: 210 }, // sky
   send_template: { l: 0.68, c: 0.15, h: 45 }, // orange — an approved, pre-written message
+  send_catalog: { l: 0.66, c: 0.14, h: 150 }, // green — your shop window
   wait_followup: { l: 0.64, c: 0.14, h: 235 }, // blue-violet — pauses, then nudges
   collect_input: { l: 0.65, c: 0.1, h: 185 }, // teal — capture
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
@@ -419,6 +428,10 @@ export function summarizeNode(
       return caption
         ? `${label}: ${truncate(name, 30)} · ${truncate(caption, 40)}`
         : `${label}: ${truncate(name, 60)}`;
+    }
+    case 'send_catalog': {
+      const body = typeof cfg.body === 'string' ? cfg.body : '';
+      return body.length > 0 ? truncate(body, 60) : null;
     }
     case 'send_template': {
       const name = typeof cfg.template_name === 'string' ? cfg.template_name : '';

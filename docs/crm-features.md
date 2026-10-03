@@ -35,7 +35,7 @@ Status words used below:
 | Number health | BUILT | `src/app/(dashboard)/number-health` |
 | Team and roles | BUILT | `src/lib/auth`, `src/components/settings/members-tab.tsx` |
 | Public API, webhooks, MCP | BUILT | `src/app/api/v1`, `mcp-server/` |
-| Catalogue and product messages | BUILT (basket automations not yet) | `src/components/settings/catalog-card.tsx`, `src/components/inbox/product-picker.tsx`, `src/lib/whatsapp/catalog*.ts` |
+| Catalogue and product messages | BUILT (migration 056 for the flow node) | `src/components/settings/catalog-card.tsx`, `src/components/inbox/product-picker.tsx`, `src/lib/whatsapp/catalog*.ts` |
 | Billing (the WAGenie subscription) | BUILT, needs migration 055 and Razorpay keys | `src/components/settings/billing-panel.tsx`, `src/lib/billing`, `src/lib/razorpay` |
 | Public pages (pricing, terms, privacy, refunds, delivery, about, contact) | BUILT | `src/app/(site)`, `src/components/marketing/site-chrome.tsx` |
 | Orders and payments | PLANNED | `docs/orders-payments-plan.md` |
@@ -189,11 +189,13 @@ BUILT:
 - A basket is not an order. It needs follow up by hand until the orders plan
   is built.
 
+- Automations: a "Basket received" trigger with the variables name, item
+  count, items and total, a "Send catalogue" step, and a starter template
+  "Basket Thank You". Flows: a "Send catalogue" node.
+
 NOT BUILT:
 
 - Turning a basket into an order, and the payment link (orders plan).
-- A "Basket received" automation trigger, a "Send catalogue" automation step
-  and flow node (step 4).
 - Multi product broadcast templates and product carousels.
 - Turning on the shop icon. Meta refused the API call (HTTP 500). Raised
   with Meta support.
@@ -203,15 +205,16 @@ NOT BUILT:
 BUILT:
 
 - Visual builder with yes and no branches, a run log page and duplicate.
-- 8 triggers: new message, first message, keyword match, new contact, chat
-  assigned, tag added, time based, button or list reply.
-- 13 steps: send text, send buttons, send list, send template, add tag,
+- 9 triggers: new message, first message, keyword match, new contact, chat
+  assigned, tag added, time based, button or list reply, basket received.
+- 14 steps: send text, send buttons, send list, send template, send
+  catalogue, add tag,
   remove tag, assign chat (a specific person or round robin), update a
   contact field, create a deal, wait (minutes, hours, days), condition,
   call a webhook, close the chat.
 - Conditions on contact field, tag, message text, or time of day.
-- 4 starter templates: Welcome Message, Out of Office, Lead Qualifier,
-  Follow-up Reminder.
+- 5 starter templates: Welcome Message, Out of Office, Lead Qualifier,
+  Follow-up Reminder, Basket Thank You.
 
 NOT BUILT:
 
@@ -225,8 +228,9 @@ BUILT (shown with a Beta chip in the sidebar):
 
 - Drag and drop canvas with auto layout. Draft, active and archived states.
 - Triggers: keyword, first message, any message, manual.
-- 14 node types: start, send message, send buttons, send list, send
-  carousel, send media, send template, wait and follow up, collect input,
+- 15 node types: start, send message, send buttons, send list, send
+  carousel, send media, send template, send catalogue, wait and follow up,
+  collect input,
   condition, set tag, AI agent, hand off to a human, end.
 - Wait and follow up has an AI written reminder inside the 24 hour window.
 - Fallback rules: reprompt, hand off or ignore. Timeout sweep for old runs.
@@ -374,9 +378,9 @@ NOT BUILT:
    plan was last updated.
 
 5. Catalogue and basket (`docs/catalog-cart-plan.md`, version 1.1). Steps 1
-   to 3 are built: the catalogue copy, sending products and receiving a
-   basket. Next are the automation pieces (step 4). Turning a
-   basket into an order, and the payment link, belong to the orders plan.
+   to 4 are built: the catalogue copy, sending products, receiving a basket
+   and the automation pieces. Turning a basket into an order, and the
+   payment link, belong to the orders plan.
 
 ## 16. Earlier competitor look
 

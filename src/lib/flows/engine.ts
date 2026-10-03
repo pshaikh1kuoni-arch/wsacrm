@@ -37,6 +37,7 @@ import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
   engineSendInteractiveCarousel,
+  engineSendInteractiveCatalog,
   engineSendMedia,
   engineSendText,
 } from "./meta-send";
@@ -77,6 +78,7 @@ import {
   type SendMediaNodeConfig,
   type SendMessageNodeConfig,
   type SendTemplateNodeConfig,
+  type SendCatalogNodeConfig,
   type SetTagNodeConfig,
   type StartNodeConfig,
   type KeywordTriggerConfig,
@@ -179,6 +181,7 @@ export function isAutoAdvancing(
     node_type === "send_message" ||
     node_type === "send_media" ||
     node_type === "send_template" ||
+    node_type === "send_catalog" ||
     node_type === "condition" ||
     node_type === "set_tag"
   );
@@ -1299,6 +1302,33 @@ async function advanceFromNodeKey(
           detail: err instanceof Error ? err.message : String(err),
         });
         await endRun(db, run.id, "failed", "send_template_failed");
+        return { outcome: "completed" };
+      }
+      currentKey = cfg.next_node_key;
+      continue;
+    }
+    if (node.node_type === "send_catalog") {
+      const cfg = node.config as unknown as SendCatalogNodeConfig;
+      try {
+        const { whatsapp_message_id } = await engineSendInteractiveCatalog({
+          accountId: run.account_id,
+          userId: run.user_id,
+          conversationId: run.conversation_id!,
+          contactId: run.contact_id!,
+          bodyText: interpolateVars(cfg.body ?? "", run.vars),
+          footerText: cfg.footer?.trim() || undefined,
+        });
+        await logEvent(db, run.id, "message_sent", node.node_key, {
+          node_type: "send_catalog",
+          whatsapp_message_id,
+        });
+        sentSomethingThisAdvance = true;
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_catalog_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_catalog_failed");
         return { outcome: "completed" };
       }
       currentKey = cfg.next_node_key;

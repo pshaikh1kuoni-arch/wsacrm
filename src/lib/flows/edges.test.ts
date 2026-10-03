@@ -119,6 +119,40 @@ describe("deriveCanvasEdges — single-outgoing node types", () => {
   });
 });
 
+describe("send_catalog — one outgoing `next`, like send_template", () => {
+  const catalog = (config: Record<string, unknown>): BuilderNode => ({
+    node_key: "c",
+    node_type: "send_catalog",
+    config,
+  });
+
+  it("derives a next edge", () => {
+    const edges = deriveCanvasEdges(
+      nodes(catalog({ body: "Hi", next_node_key: "e" }), { node_key: "e", node_type: "end", config: {} }),
+    );
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ source: "c", target: "e", sourceHandle: "next" });
+  });
+
+  it("has a single next slot", () => {
+    expect(outgoingSlots(catalog({})).map((slot) => slot.id)).toEqual(["next"]);
+  });
+
+  it("connects through next, and refuses any other handle", () => {
+    expect(applyEdgeConnection(catalog({ body: "Hi" }), "next", "e")).toEqual({ next_node_key: "e" });
+    expect(applyEdgeConnection(catalog({ body: "Hi" }), "true", "e")).toBeNull();
+  });
+
+  it("clears the link when the node it points to is deleted", () => {
+    const out = unlinkNodeReferences(
+      nodes(catalog({ body: "Hi", next_node_key: "e" }), { node_key: "e", node_type: "end", config: {} }),
+      "e",
+    );
+    const patched = out.find((n) => n.node_key === "c");
+    expect(patched?.config).toMatchObject({ body: "Hi", next_node_key: "" });
+  });
+});
+
 describe("deriveCanvasEdges — condition (true/false branches)", () => {
   it("produces a labeled edge for each branch", () => {
     const edges = deriveCanvasEdges(

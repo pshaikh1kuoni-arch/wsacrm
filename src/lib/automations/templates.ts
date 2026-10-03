@@ -10,6 +10,7 @@ export type TemplateSlug =
   | 'out_of_office'
   | 'lead_qualifier'
   | 'follow_up_reminder'
+  | 'basket_thank_you'
 
 export interface TemplateStepSeed {
   step_type: AutomationStepType
@@ -121,6 +122,22 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
         step_config: {
           text:
             "Just circling back — did you have any other questions for us? Happy to help!",
+        },
+      },
+    ],
+  },
+  basket_thank_you: {
+    slug: 'basket_thank_you',
+    name: 'Basket Thank You',
+    description: 'Thank a customer and list their basket when they send one from your catalogue.',
+    trigger_type: 'basket_received',
+    trigger_config: {},
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text:
+            'Hi {{vars.name}}! Thanks for your basket.\n\n{{vars.items}}\n\nTotal: {{vars.total}}\n\nWe will confirm your order with you shortly.',
         },
       },
     ],

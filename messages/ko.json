@@ -956,6 +956,7 @@
         "send_buttons": "버튼 보내기",
         "send_list": "목록 보내기",
         "send_template": "템플릿 보내기",
+        "send_catalog": "카탈로그 보내기",
         "add_tag": "태그 추가",
         "remove_tag": "태그 제거",
         "assign_conversation": "대화 담당자 지정",
@@ -983,6 +984,10 @@
           "label": "버튼 / 목록 응답",
           "hint": "고객이 id가 일치하는 버튼이나 목록 행을 탭했을 때 — 자동화 간 메뉴를 연결할 수 있습니다"
         },
+        "basket_received": {
+          "label": "장바구니 수신",
+          "hint": "고객이 WhatsApp 카탈로그에서 장바구니를 보냈을 때"
+        },
         "new_contact_created": {
           "label": "새 연락처 생성됨",
           "hint": "수신 메시지로 연락처가 자동 생성되었을 때"
@@ -1002,6 +1007,14 @@
       },
       "trigger": "트리거",
       "triggerType": "트리거 유형",
+      "basketVars": {
+        "title": "이 트리거의 변수",
+        "help": "메시지에서 사용하세요. 장바구니 내용으로 채워집니다.",
+        "name": "고객 이름",
+        "item_count": "상품 수",
+        "items": "상품과 수량",
+        "total": "카탈로그 가격 기준 합계"
+      },
       "keywords": "키워드",
       "keywordsHint": "쉼표로 구분된 목록 (예: hello, help, buy)",
       "replyIds": "응답 ID",
@@ -1110,7 +1123,11 @@
         "matchWord": "단어 단위 일치",
         "matchWordHint": "키워드가 독립된 단어일 때만 일치하므로 \"k\"가 \"thanks\"에서 실행되지 않습니다. 공백으로 단어를 구분하는 언어의 짧은 키워드에 적합하며, 공백 없이 표기하는 언어에는 \"포함\"을 사용하세요.",
         "matchExact": "정확히 일치",
-        "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다."
+        "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다.",
+        "catalogBody": "버튼 위 텍스트",
+        "placeholderCatalogBody": "저희 카탈로그를 살펴보세요.",
+        "catalogFooter": "푸터 (선택, 60자)",
+        "catalogHelp": "고객에게 전체 카탈로그를 여는 카탈로그 보기 버튼이 전달됩니다. 카탈로그가 이 WhatsApp 번호에 연결되어 있어야 합니다."
       }
     }
   },
@@ -1297,7 +1314,8 @@
         "loadedFromQuickReply": "빠른 답장에서 불러옴 — {title}",
         "changeSource": "변경",
         "loadCarouselHint": "선택하면 본문과 카드가 이 노드로 복사됩니다 — 아래에서 계속 편집할 수 있습니다.",
-        "carouselCardsMeta": "카드 {count}개 · {buttonType}"
+        "carouselCardsMeta": "카드 {count}개 · {buttonType}",
+        "catalogHelp": "고객에게 전체 카탈로그를 여는 카탈로그 보기 버튼이 전달됩니다. 카탈로그가 이 WhatsApp 번호에 연결되어 있어야 합니다."
       },
       "categories": {
         "messaging": "메시징",
@@ -1332,6 +1350,10 @@
         "send_template": {
           "label": "템플릿 보내기",
           "blurb": "승인된 WhatsApp 템플릿 메시지를 보냅니다"
+        },
+        "send_catalog": {
+          "label": "카탈로그 보내기",
+          "blurb": "카탈로그를 여는 카탈로그 보기 버튼을 보냅니다"
         },
         "wait_followup": {
           "label": "대기 및 후속 조치",

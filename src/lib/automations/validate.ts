@@ -69,6 +69,19 @@ function validateOne(step: StepLike, path: string, issues: ValidationIssue[]): v
       }
       break
     }
+    case 'send_catalog': {
+      // The step_config is a catalogue message minus its `kind`; check it
+      // against Meta's limits, the same check the engine runs before send.
+      const result = validateInteractivePayload({
+        kind: 'catalog',
+        body: c.body,
+        footer: nonEmpty(c.footer) ? c.footer : undefined,
+      })
+      if (!result.ok) {
+        issues.push({ path: `${path}.interactive`, message: result.error })
+      }
+      break
+    }
     case 'send_template':
       if (!nonEmpty(c.template_name)) {
         issues.push({ path: `${path}.template_name`, message: 'template name is required' })

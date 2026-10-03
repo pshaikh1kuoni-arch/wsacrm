@@ -38,6 +38,11 @@ const h = vi.hoisted(() => ({
       args: Parameters<typeof engineSendInteractiveCarousel>[0],
     ) => Promise<{ whatsapp_message_id: string }>
   >(async () => ({ whatsapp_message_id: "wamid.5" })),
+  sendCatalog: vi.fn<
+    (
+      args: Parameters<typeof engineSendInteractiveCatalog>[0],
+    ) => Promise<{ whatsapp_message_id: string }>
+  >(async () => ({ whatsapp_message_id: "wamid.6" })),
 }));
 
 vi.mock("./admin-client", () => {
@@ -93,6 +98,7 @@ vi.mock("./meta-send", () => ({
   engineSendInteractiveButtons: h.sendButtons,
   engineSendInteractiveList: h.sendList,
   engineSendInteractiveCarousel: h.sendCarousel,
+  engineSendInteractiveCatalog: h.sendCatalog,
 }));
 
 vi.mock("@/lib/automations/meta-send", () => ({
@@ -114,6 +120,7 @@ import type {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
   engineSendInteractiveCarousel,
+  engineSendInteractiveCatalog,
 } from "./meta-send";
 import type { ParsedInbound } from "./types";
 
@@ -287,6 +294,7 @@ describe("node classification helpers", () => {
     expect(isAutoAdvancing("send_message")).toBe(true);
     expect(isAutoAdvancing("send_media")).toBe(true);
     expect(isAutoAdvancing("send_template")).toBe(true);
+    expect(isAutoAdvancing("send_catalog")).toBe(true);
     expect(isAutoAdvancing("condition")).toBe(true);
     expect(isAutoAdvancing("set_tag")).toBe(true);
     expect(isAutoAdvancing("ai_agent")).toBe(false);
@@ -346,6 +354,7 @@ describe("node classification helpers", () => {
       "send_carousel",
       "send_media",
       "send_template",
+      "send_catalog",
       "wait_followup",
       "collect_input",
       "condition",
@@ -771,6 +780,101 @@ describe("a human takeover silences an already-active flow", () => {
       expect.objectContaining({
         table: "flow_pending_executions",
         row: expect.objectContaining({ status: "cancelled" }),
+      }),
+    );
+  });
+});
+
+describe("send_catalog node", () => {
+  const CATALOG_NODE = {
+    id: "n4",
+    flow_id: "flow-1",
+    node_key: "shop",
+    node_type: "send_catalog",
+    config: {
+      body: "Hi {{vars.name}}, take a look.",
+      footer: "Free delivery",
+      next_node_key: "done",
+    },
+  };
+  const nodes = () => [
+    {
+      id: "n1",
+      flow_id: "flow-1",
+      node_key: "ask_name",
+      node_type: "collect_input",
+      config: { prompt_text: "What's your name?", var_key: "name", next_node_key: "shop" },
+    },
+    CATALOG_NODE,
+    { id: "n9", flow_id: "flow-1", node_key: "done", node_type: "end", config: {} },
+  ];
+
+  beforeEach(() => {
+    h.sendCatalog.mockClear();
+    h.state.activeRuns = [{ ...RUN, vars: {} }];
+    h.state.flows = [FLOW];
+    h.state.nodes = nodes();
+    h.state.events = [];
+    h.state.updates = [];
+    h.state.conversation = { assigned_agent_id: null };
+  });
+
+  it("sends the catalogue with the variables filled in, then moves on", async () => {
+    const result = await dispatch(text("Alice"));
+
+    expect(result).toMatchObject({ consumed: true });
+    expect(h.sendCatalog).toHaveBeenCalledTimes(1);
+    expect(h.sendCatalog.mock.calls[0][0]).toMatchObject({
+      accountId: "acct-1",
+      conversationId: "cv-1",
+      contactId: "ct-1",
+      bodyText: "Hi Alice, take a look.",
+      footerText: "Free delivery",
+    });
+    expect(h.state.events).toContainEqual(
+      expect.objectContaining({
+        event_type: "message_sent",
+        node_key: "shop",
+        payload: expect.objectContaining({ node_type: "send_catalog" }),
+      }),
+    );
+    // It auto-advanced to the end node instead of waiting for a reply.
+    expect(h.state.updates).toContainEqual(
+      expect.objectContaining({
+        table: "flow_runs",
+        row: expect.objectContaining({ status: "completed" }),
+      }),
+    );
+  });
+
+  it("leaves the footer out when it is blank", async () => {
+    h.state.nodes = nodes().map((n) =>
+      n.node_key === "shop" ? { ...n, config: { ...CATALOG_NODE.config, footer: "  " } } : n,
+    );
+    await dispatch(text("Alice"));
+    expect(h.sendCatalog.mock.calls[0][0].footerText).toBeUndefined();
+  });
+
+  it("logs a failed send and fails the run, like the other send nodes", async () => {
+    h.sendCatalog.mockRejectedValueOnce(new Error("Meta API error: catalogue not connected"));
+
+    const result = await dispatch(text("Alice"));
+
+    expect(result).toMatchObject({ consumed: true, outcome: "completed" });
+    expect(h.state.events).toContainEqual(
+      expect.objectContaining({
+        event_type: "error",
+        node_key: "shop",
+        payload: {
+          reason: "send_catalog_failed",
+          detail: expect.stringContaining("catalogue not connected"),
+        },
+      }),
+    );
+    expect(h.state.updates).toContainEqual(
+      expect.objectContaining({
+        table: "flow_runs",
+        row: expect.objectContaining({ status: "failed", end_reason: "send_catalog_failed" }),
       }),
     );
   });

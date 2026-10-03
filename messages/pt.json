@@ -956,6 +956,7 @@
         "send_buttons": "Enviar botões",
         "send_list": "Enviar lista",
         "send_template": "Enviar modelo",
+        "send_catalog": "Enviar catálogo",
         "add_tag": "Adicionar tag",
         "remove_tag": "Remover tag",
         "assign_conversation": "Atribuir conversa",
@@ -983,6 +984,10 @@
           "label": "Resposta de botão / lista",
           "hint": "O cliente toca em um botão ou item de lista cujo id corresponde — encadeie menus entre automações"
         },
+        "basket_received": {
+          "label": "Carrinho recebido",
+          "hint": "Quando um cliente envia um carrinho do seu catálogo do WhatsApp"
+        },
         "new_contact_created": {
           "label": "Novo contato criado",
           "hint": "Quando um contato é criado automaticamente a partir de uma mensagem recebida"
@@ -1002,6 +1007,14 @@
       },
       "trigger": "Gatilho",
       "triggerType": "Tipo de gatilho",
+      "basketVars": {
+        "title": "Variáveis deste gatilho",
+        "help": "Use-as nas suas mensagens. Elas são preenchidas com os dados do carrinho.",
+        "name": "Nome do cliente",
+        "item_count": "Número de itens",
+        "items": "Itens e quantidades",
+        "total": "Total pelos preços do catálogo"
+      },
       "keywords": "Palavras-chave",
       "keywordsHint": "Lista separada por vírgulas (ex.: olá, ajuda, comprar)",
       "replyIds": "IDs de resposta",
@@ -1110,7 +1123,11 @@
         "matchWord": "Palavra inteira",
         "matchWordHint": "Corresponde à palavra-chave apenas como palavra isolada, então \"k\" não dispara mais em \"thanks\". Ideal para palavras-chave curtas em idiomas com espaços; use Contém para idiomas escritos sem espaços.",
         "matchExact": "Exata",
-        "closeConversationHint": "Define o status da conversa como \"fechada\". Nenhuma configuração necessária."
+        "closeConversationHint": "Define o status da conversa como \"fechada\". Nenhuma configuração necessária.",
+        "catalogBody": "Texto acima do botão",
+        "placeholderCatalogBody": "Dê uma olhada no nosso catálogo.",
+        "catalogFooter": "Rodapé (opcional, 60 caracteres)",
+        "catalogHelp": "O cliente recebe um botão Ver catálogo que abre todo o seu catálogo. Seu catálogo deve estar conectado a este número do WhatsApp."
       }
     }
   },
@@ -1297,7 +1314,8 @@
         "loadedFromQuickReply": "Carregado da Resposta rápida — {title}",
         "changeSource": "Alterar",
         "loadCarouselHint": "Ao escolher um, o texto e os cartões são copiados para este nó — tudo continua editável abaixo.",
-        "carouselCardsMeta": "{count} cartões · {buttonType}"
+        "carouselCardsMeta": "{count} cartões · {buttonType}",
+        "catalogHelp": "O cliente recebe um botão Ver catálogo que abre todo o seu catálogo. Seu catálogo deve estar conectado a este número do WhatsApp."
       },
       "categories": {
         "messaging": "Mensagens",
@@ -1332,6 +1350,10 @@
         "send_template": {
           "label": "Enviar modelo",
           "blurb": "Envia uma mensagem de modelo aprovado do WhatsApp"
+        },
+        "send_catalog": {
+          "label": "Enviar catálogo",
+          "blurb": "Envia um botão Ver catálogo que abre o seu catálogo"
         },
         "wait_followup": {
           "label": "Aguardar e fazer follow-up",

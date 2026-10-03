@@ -2,6 +2,7 @@ import {
   sendInteractiveButtons,
   sendInteractiveList,
   sendInteractiveCarousel,
+  sendInteractiveCatalog,
   sendMediaMessage,
   sendTextMessage,
   type InteractiveButton,
@@ -361,10 +362,32 @@ export async function engineSendInteractiveCarousel(
   return sendInteractiveViaMeta({ ...args, kind: 'carousel' })
 }
 
+interface SendInteractiveCatalogEngineArgs {
+  accountId: string
+  userId: string
+  conversationId: string
+  contactId: string
+  bodyText: string
+  footerText?: string
+  thumbnailRetailerId?: string
+}
+
+/**
+ * Send a "View catalogue" message from the Flows or Automations engine.
+ * It opens the catalogue connected to the sending number, so it needs no
+ * catalogue ID. Used by the `send_catalog` flow node and automation step.
+ */
+export async function engineSendInteractiveCatalog(
+  args: SendInteractiveCatalogEngineArgs,
+): Promise<{ whatsapp_message_id: string }> {
+  return sendInteractiveViaMeta({ ...args, kind: 'catalog' })
+}
+
 type SendInput =
   | (SendInteractiveButtonsEngineArgs & { kind: 'buttons' })
   | (SendInteractiveListEngineArgs & { kind: 'list' })
   | (SendInteractiveCarouselEngineArgs & { kind: 'carousel' })
+  | (SendInteractiveCatalogEngineArgs & { kind: 'catalog' })
 
 async function sendInteractiveViaMeta(
   input: SendInput,
@@ -422,6 +445,17 @@ async function sendInteractiveViaMeta(
         sections: input.sections,
         headerText: input.headerText,
         footerText: input.footerText,
+      })
+      return r.messageId
+    }
+    if (input.kind === 'catalog') {
+      const r = await sendInteractiveCatalog({
+        phoneNumberId,
+        accessToken,
+        to: phone,
+        bodyText: input.bodyText,
+        footerText: input.footerText,
+        thumbnailRetailerId: input.thumbnailRetailerId,
       })
       return r.messageId
     }
@@ -490,18 +524,25 @@ async function sendInteractiveViaMeta(
             button_label: input.buttonLabel,
             sections: input.sections,
           }
-        : {
-            kind: 'carousel',
-            body: input.bodyText,
-            button_mode: input.buttonMode,
-            cards: input.cards.map((c) => ({
-              header: { type: c.headerType, url: c.headerUrl },
-              body: c.bodyText,
-              button_label: c.buttonLabel,
-              button_url: c.buttonUrl,
-              button_id: c.buttonId,
-            })),
-          }
+        : input.kind === 'catalog'
+          ? {
+              kind: 'catalog',
+              body: input.bodyText,
+              footer: input.footerText,
+              thumbnail_retailer_id: input.thumbnailRetailerId,
+            }
+          : {
+              kind: 'carousel',
+              body: input.bodyText,
+              button_mode: input.buttonMode,
+              cards: input.cards.map((c) => ({
+                header: { type: c.headerType, url: c.headerUrl },
+                body: c.bodyText,
+                button_label: c.buttonLabel,
+                button_url: c.buttonUrl,
+                button_id: c.buttonId,
+              })),
+            }
 
   const { error: msgErr } = await db.from('messages').insert({
     conversation_id: input.conversationId,

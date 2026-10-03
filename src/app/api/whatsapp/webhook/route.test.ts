@@ -1229,6 +1229,46 @@ describe('inbound webhook: customer baskets (catalogue plan, step 3)', () => {
     expect(first.context.message_text).toBe('')
   })
 
+  it('fires the basket_received trigger with the basket as variables', async () => {
+    await runWebhook(BASKET_MESSAGE)
+
+    const calls = h.runAutomationsForTrigger.mock.calls.map(
+      (c) => c[0] as { triggerType: string; context: { vars?: Record<string, string> } },
+    )
+    const basketCalls = calls.filter((c) => c.triggerType === 'basket_received')
+    expect(basketCalls).toHaveLength(1)
+    expect(basketCalls[0].context.vars).toMatchObject({
+      item_count: '3',
+      items: '2 x Magic Mug\n1 x White Mug',
+      total: '₹599',
+    })
+    expect(typeof basketCalls[0].context.vars?.name).toBe('string')
+    expect(basketCalls[0].context.vars?.name).not.toBe('')
+  })
+
+  it('does not fire basket_received for an ordinary message', async () => {
+    await runWebhook()
+    const triggers = h.runAutomationsForTrigger.mock.calls.map(
+      (c) => (c[0] as { triggerType: string }).triggerType,
+    )
+    expect(triggers).not.toContain('basket_received')
+  })
+
+  it('does not fire basket_received again for a replayed delivery', async () => {
+    h.state.messageUpsertResult = []
+    await runWebhook(BASKET_MESSAGE)
+    expect(h.runAutomationsForTrigger).not.toHaveBeenCalled()
+  })
+
+  it('does not fire basket_received when the basket had to be stored as plain text', async () => {
+    h.state.upsertErrors = [{ message: 'violates check constraint "messages_content_type_check"' }]
+    await runWebhook(BASKET_MESSAGE)
+    const triggers = h.runAutomationsForTrigger.mock.calls.map(
+      (c) => (c[0] as { triggerType: string }).triggerType,
+    )
+    expect(triggers).not.toContain('basket_received')
+  })
+
   it('tells the public webhook it was a basket, with the summary as text', async () => {
     await runWebhook(BASKET_MESSAGE)
     expect(h.dispatchWebhookEvent).toHaveBeenCalledWith(

@@ -493,13 +493,18 @@ export type AutomationTriggerType =
   | 'time_based'
   /** Customer tapped a reply button / list row whose id matches; lets
    *  multi-step menus be chained across automations. */
-  | 'interactive_reply';
+  | 'interactive_reply'
+  /** Customer sent a basket from the WhatsApp catalogue (docs/catalog-cart-plan.md).
+   *  Fills `{{vars.name}}`, `{{vars.item_count}}`, `{{vars.items}}`, `{{vars.total}}`. */
+  | 'basket_received';
 
 export type AutomationStepType =
   | 'send_message'
   | 'send_buttons'
   | 'send_list'
   | 'send_template'
+  /** A "View catalogue" message that opens the whole WhatsApp catalogue. */
+  | 'send_catalog'
   | 'add_tag'
   | 'remove_tag'
   | 'assign_conversation'
@@ -567,6 +572,15 @@ export interface SendTemplateStepConfig {
   variables?: Record<string, string>;
 }
 
+/**
+ * `send_catalog` step: the text above the "View catalogue" button, and an
+ * optional footer. `{{vars.*}}` fills in like a Send Message step.
+ */
+export interface SendCatalogStepConfig {
+  body: string;
+  footer?: string;
+}
+
 export interface TagStepConfig {
   tag_id: string;
 }
@@ -626,6 +640,7 @@ export type AutomationStepConfig =
   | SendButtonsStepConfig
   | SendListStepConfig
   | SendTemplateStepConfig
+  | SendCatalogStepConfig
   | TagStepConfig
   | AssignConversationStepConfig
   | UpdateContactFieldStepConfig

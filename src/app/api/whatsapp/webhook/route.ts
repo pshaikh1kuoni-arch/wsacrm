@@ -27,6 +27,7 @@ import {
   isNumberHealthWebhookField,
 } from '@/lib/whatsapp/number-health-webhook'
 import {
+  basketAutomationVars,
   basketNotification,
   basketSummary,
   evaluateBasket,
@@ -993,6 +994,7 @@ async function processMessage(
     | 'new_message_received'
     | 'keyword_match'
     | 'interactive_reply'
+    | 'basket_received'
   )[] = []
   // Content-level triggers are suppressed when a flow consumed the
   // message — see the comment block above.
@@ -1015,6 +1017,14 @@ async function processMessage(
   // listens to only one trigger runs only when that trigger matches.
   if (contactOutcome.wasCreated) automationTriggers.unshift('new_contact_created')
   if (isFirstInboundMessage) automationTriggers.unshift('first_inbound_message')
+  // A basket fires its own trigger, with the basket's details as variables.
+  // Only a basket that was really stored: the plain-text fallback is not one,
+  // and a replayed delivery never reaches this point (the idempotency check
+  // above), so a customer is never thanked twice.
+  const basketVars = basketStored
+    ? basketAutomationVars(pickContactDisplayName(contactRecord), basketStored)
+    : undefined
+  if (basketStored) automationTriggers.push('basket_received')
   // Awaited — not fire-and-forget. We're inside the route's `after()`
   // block, which only keeps the function alive for promises it can see, so
   // a detached dispatch can be frozen part-way through: the log row is
@@ -1034,6 +1044,9 @@ async function processMessage(
         // Only set on interactive taps; drives the interactive_reply
         // trigger's exact-id match.
         interactive_reply_id: interactiveReplyId ?? undefined,
+        // Only set for a basket: {{vars.name}}, {{vars.item_count}},
+        // {{vars.items}}, {{vars.total}}.
+        vars: basketVars,
       },
     }).catch((err) => console.error('[automations] dispatch failed:', err))
   }

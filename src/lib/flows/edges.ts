@@ -48,6 +48,7 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "send_message":
       case "send_media":
       case "send_template":
+    case "send_catalog":
       case "wait_followup":
       case "collect_input":
       case "set_tag":
@@ -223,6 +224,7 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
     case "send_message":
     case "send_media":
     case "send_template":
+    case "send_catalog":
     case "wait_followup":
     case "collect_input":
     case "set_tag":
@@ -317,6 +319,7 @@ export function applyEdgeConnection(
     case "send_message":
     case "send_media":
     case "send_template":
+    case "send_catalog":
     case "wait_followup":
     case "collect_input":
     case "set_tag":
@@ -433,6 +436,7 @@ function patchedConfigWithoutKey(
     case "send_message":
     case "send_media":
     case "send_template":
+    case "send_catalog":
     case "wait_followup":
     case "collect_input":
     case "set_tag":

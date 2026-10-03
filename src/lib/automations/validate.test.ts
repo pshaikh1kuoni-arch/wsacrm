@@ -207,6 +207,33 @@ describe("validateStepsForActivation", () => {
   });
 });
 
+describe("validateStepsForActivation: send_catalog", () => {
+  it("passes a body, with or without a footer", () => {
+    expect(
+      validateStepsForActivation([
+        { step_type: "send_catalog", step_config: { body: "Take a look {{vars.name}}" } },
+        { step_type: "send_catalog", step_config: { body: "Hi", footer: "Free delivery" } },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("needs a body", () => {
+    const issues = validateStepsForActivation([
+      { step_type: "send_catalog", step_config: { body: "  " } },
+    ]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].path).toBe("steps[0].interactive");
+  });
+
+  it("refuses a footer over Meta's limit", () => {
+    const issues = validateStepsForActivation([
+      { step_type: "send_catalog", step_config: { body: "Hi", footer: "x".repeat(61) } },
+    ]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].path).toBe("steps[0].interactive");
+  });
+});
+
 describe("validateTriggerForActivation", () => {
   it("accepts a valid keyword_match config", () => {
     expect(
@@ -292,6 +319,10 @@ describe("validateTriggerForActivation", () => {
     expect(empties.map((i) => i.message)).toContain(
       "reply ids cannot be empty strings",
     );
+  });
+
+  it("needs no settings on a basket_received trigger", () => {
+    expect(validateTriggerForActivation("basket_received", {})).toEqual([]);
   });
 
   it("does not flag unknown trigger types (handled elsewhere)", () => {

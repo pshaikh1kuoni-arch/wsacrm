@@ -145,6 +145,14 @@ BEGIN
     RAISE EXCEPTION 'billing_payments.razorpay_order_id must be nullable — migration 055 did not apply';
   END IF;
 
+  -- 056 widens the flow node type allow-list with 'send_catalog'. A flow with
+  -- that node fails to save (23514) if the constraint was not rebuilt.
+  IF (SELECT pg_get_constraintdef(oid) FROM pg_constraint
+      WHERE conname = 'flow_nodes_node_type_check'
+        AND conrelid = 'public.flow_nodes'::regclass) NOT LIKE '%send_catalog%' THEN
+    RAISE EXCEPTION 'flow_nodes.node_type does not allow send_catalog — migration 056 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

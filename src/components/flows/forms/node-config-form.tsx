@@ -153,6 +153,31 @@ export function NodeConfigForm({
         />
       );
 
+    case "send_catalog":
+      return (
+        <>
+          <TextRow
+            label={t("bodyText")}
+            value={(cfg as { body?: string }).body ?? ""}
+            onChange={(v) => onUpdateConfig({ body: v })}
+            rows={3}
+          />
+          <TextRow
+            label={t("footerText")}
+            value={(cfg as { footer?: string }).footer ?? ""}
+            onChange={(v) => onUpdateConfig({ footer: v })}
+          />
+          <p className="text-[11px] text-muted-foreground">{t("catalogHelp")}</p>
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </>
+      );
+
     case "send_template":
       return (
         <SendTemplateForm
