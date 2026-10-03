@@ -126,7 +126,7 @@ Why: Meta quietly drops those products from a list, or rejects a single product.
 - [x] 2. In Supabase, open the SQL editor, paste it, and run it. (DONE 3 Oct 2026, success)
 - You should see: a success message.
 - DONE. I put the code on main and pushed it.
-- [ ] 3. After Vercel finishes deploying (about 2 minutes after I push), in the CRM open Settings, then Catalogue, and click **Sync now**. This fills in each product's WhatsApp status.
+- [ ] 3. In the CRM open Settings, then Catalogue, and click **Sync now** again. This fills in each product's WhatsApp status. (Your first try at 9:44 pm ran about 80 seconds after my push, before Vercel finished deploying, so the old code ran and saved no statuses. I checked: all 327 were still empty. Wait until the deploy is finished, then press it once more.)
 - [ ] 4. Open the chat with Shaikh Parvez, tap **+**, then **Send products**.
 - You should see: an amber tag, "Not ready on WhatsApp yet", under the products Meta marks Outdated. Hover over the tag to see why.
 - [ ] 5. Tick one product that has the tag.
