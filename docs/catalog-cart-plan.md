@@ -1,6 +1,6 @@
 # Catalogue and basket: plan
 
-Version 1.6, 3 Oct 2026. **This plan is COMPLETE.** Steps 1 to 4 are built, pushed to GitHub and tested on a real phone. Only optional items remain (see the board).
+Version 1.7, 3 Oct 2026. Steps 1 to 4 are built, pushed to GitHub and tested on a real phone. **Step 5 (the picker warning) was added by the owner and is in progress.** The Meta shop icon is the only item outside our hands.
 This file: `docs/catalog-cart-plan.md`
 Related plan: `docs/orders-payments-plan.md` (payments and orders). This plan feeds into it.
 Feature list: `docs/crm-features.md`
@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: nothing is required. Do not run the WooCommerce sync again today (see Task 6). Optional: decide on the picker warning, further down.
+### NEXT STEP FOR YOU: Task 7 below (look at the mockup of the picker warning and say if it is right). Also: do not run the WooCommerce sync again today.
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -107,8 +107,25 @@ The Send Catalogue step in Basket Thank You sends the catalogue right after the 
 - What to do: nothing. Do not sync again. Wait several hours, then ask me to count again. Until the count goes down, many products will not send on WhatsApp.
 - This will happen again every time a product changes on the website, for example a new price. That is the reason for the picker warning below.
 
-**Decision waiting for you**
-- [ ] Picker warning: a small amber tag "Not ready on WhatsApp yet" on the product rows that Meta will not send, so you know before you press Send. It only warns and never blocks. Say yes or no. If yes, I show you a mockup first, then build it, then you run one more SQL.
+**Step 5: the picker warning** (the owner said yes on 3 Oct 2026)
+
+What it is: in the Send products window, a product that Meta marks "Outdated" gets a small amber tag, **Not ready on WhatsApp yet**. When such a product is ticked, an amber note above the Send button says "1 of the 2 selected products is not ready on WhatsApp yet. Your customer may not see it. You can still send." It only warns. It never blocks, and out of stock products stay greyed out as before.
+
+Why: Meta quietly drops those products from a list, or rejects a single product. Today you only find out after you press Send. 161 of 327 products were Outdated on 3 Oct 2026, and any price change on the website makes a product Outdated again for a few hours.
+
+**Task 7: Look at the mockup** (about 2 minutes)
+- [ ] 1. Open the design canvas: https://claude.ai/artifact/PXD8JqQgkiehFnZ4sBykhU
+- [ ] 2. Find the board named "6. Product picker: not ready on WhatsApp" (to the right of board 2, the approved picker).
+- [ ] 3. Look at the amber tag on the Glitter Mug and the Cushion, and the amber note above the Send button.
+- You should see: the same picker as before, with only those two additions.
+- Send me: "looks good", or tell me what to change (the words, the colour, where it sits).
+
+**Task 8: After I build it** (not yet)
+- [ ] 1. I tell you when the code is ready. I will give you one SQL file (057).
+- [ ] 2. You run it in the Supabase SQL editor and tell me it said success. Then I push.
+- [ ] 3. After Vercel deploys, open Settings, Catalogue, and click **Sync now**. This fills in each product's WhatsApp status.
+- [ ] 4. Open Send products. Products Meta marks Outdated show the amber tag. Tick one and check that the amber note appears and Send still works.
+- Send me: a screenshot of the picker.
 
 **Waiting on Meta (not in our hands). This is the only thing left open.**
 - [ ] Meta must show the shop (catalogue) icon in the chat header on +91 87794 71874. The Meta support ticket is open. Nothing in the CRM waits for it: sending products, baskets, automations and flows all work without the icon. When Meta replies, tell me what they said.
@@ -117,7 +134,8 @@ The Send Catalogue step in Basket Thank You sends the catalogue right after the 
 - [x] Tasks 1 to 5 have passed. Step 4 and this whole plan are marked complete.
 - [ ] If any task fails, I fix it from your screenshot, then give you the next step.
 - [ ] Several hours after your Task 6 sync, when you ask me, I count the Outdated products again and tell you the result.
-- [ ] If you say yes to the picker warning, I mockup, build, push and give you the SQL.
+- [x] Picker warning: mockup made (board 6 on the design canvas) and shown to you.
+- [ ] Picker warning: after you say the mockup is right, I build it: migration 057 (a new column on the catalogue copy), read each product's WhatsApp status during Sync now, the tag and the note in the picker, tests, four languages. Then I give you the SQL and push after you run it.
 - [ ] Not started, and a separate plan: turning a basket into an order and the payment link (`docs/orders-payments-plan.md`).
 
 ## 1. What we are building
