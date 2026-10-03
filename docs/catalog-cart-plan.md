@@ -77,15 +77,15 @@ The Send Catalogue step in Basket Thank You sends the catalogue right after the 
 - Send me: nothing. Tell me "removed" or "keep it".
 - The Send Catalogue step is still useful elsewhere, for example an automation that sends the catalogue when a customer types the word "catalogue".
 
-**Task 4: Test the Send Catalogue flow node** (only if Task 2 worked)
-- [ ] 1. In the chat, open the assigned-to dropdown at the top right. It shows MJA WACRM. Unassign the chat. Flows do not start on a chat that is assigned to a person.
-- [ ] 2. Open Flows, create a new flow, and name it Catalogue test.
-- [ ] 3. Set the trigger keyword to: shoptest
-- [ ] 4. Add three nodes: Start, Send catalogue, End.
-- [ ] 5. Set Start as the entry node.
-- [ ] 6. On Start, set "Advances to" to Send catalogue.
-- [ ] 7. On Send catalogue, type: Here is our catalogue. Set "Advances to" to End.
-- [ ] 8. Click Save, then Activate. If a list of problems appears, send me a screenshot.
+**Task 4: Test the Send Catalogue flow node** (IN PROGRESS: the owner built the flow correctly, which I checked in the database. The first try at 9:07 pm got no reply because the chat was still assigned to MJA WACRM, and flows never start on an assigned chat. Next: do step 1 properly, then step 9 again.)
+- [ ] 1. In the CRM chat with Shaikh Parvez, open the assigned-to dropdown at the top right. It shows MJA WACRM. Choose **Unassign**. Reload the page and check the dropdown no longer shows MJA WACRM. Flows do not start on a chat that is assigned to a person.
+- [x] 2. Open Flows, create a new flow, and name it Catalogue test.
+- [x] 3. Set the trigger keyword to: shoptest
+- [x] 4. Add three nodes: Start, Send catalogue, End.
+- [x] 5. Set Start as the entry node.
+- [x] 6. On Start, set "Advances to" to Send catalogue.
+- [x] 7. On Send catalogue, type: Here is our catalogue. Set "Advances to" to End.
+- [x] 8. Click Save, then Activate. If a list of problems appears, send me a screenshot.
 - [ ] 9. On the phone, send: shoptest
 - You should see: the View catalogue message arrives. In Flows, the run for Catalogue test says completed.
 - Send me: a screenshot of the phone and of the run.
