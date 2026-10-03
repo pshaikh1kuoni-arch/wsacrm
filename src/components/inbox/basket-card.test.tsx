@@ -14,11 +14,9 @@ function messages(locale: string) {
 
 function render(locale: string, basket: ReturnType<typeof evaluateBasket>): string {
   return renderToStaticMarkup(
-    React.createElement(NextIntlClientProvider, {
-      locale,
-      messages: messages(locale),
-      children: React.createElement(BasketCard, { basket }),
-    }),
+    <NextIntlClientProvider locale={locale} messages={messages(locale)}>
+      <BasketCard basket={basket} />
+    </NextIntlClientProvider>,
   )
 }
 
