@@ -25,6 +25,7 @@ How to read this board:
 - [x] Found why some products would not send: Meta marks them "Outdated" for WhatsApp.
 - [x] All of it is pushed to GitHub. 1,362 tests pass. The production build works.
 - [x] Checked your Task 1, 2 and 3 results in the database myself.
+- [x] Fixed a hidden problem of mine: the GitHub check (CI) had been failing on every push since 2 Oct because of one lint error in a test file I wrote. Your live site was never affected. It is fixed and CI is green (commit 3a1556d). From now on I run the whole lint, type check, tests and build before every push, and look at the CI result after it.
 - [x] Step 5, the picker warning: built, 1,376 tests pass, production build works. It is on main and pushed (after you ran SQL 057).
 
 ### Done by you (owner)
@@ -126,7 +127,7 @@ Why: Meta quietly drops those products from a list, or rejects a single product.
 - [x] 2. In Supabase, open the SQL editor, paste it, and run it. (DONE 3 Oct 2026, success)
 - You should see: a success message.
 - DONE. I put the code on main and pushed it.
-- [ ] 3. In the CRM open Settings, then Catalogue, and click **Sync now** again. This fills in each product's WhatsApp status. (Your first try at 9:44 pm ran about 80 seconds after my push, before Vercel finished deploying, so the old code ran and saved no statuses. I checked: all 327 were still empty. Wait until the deploy is finished, then press it once more.)
+- [ ] 3. In the CRM open Settings, then Catalogue, and click **Sync now** again. This fills in each product's WhatsApp status. (Your first two tries, at 9:44 pm and 9:48 pm, ran before the deploy that holds the new code was live (it was created at 9:48:15 pm), so the old code ran and saved no statuses. I checked: all 327 were still empty. The deploy is live now. Press it a third time. To find tags quickly, search for: Advocate Pen, Box Frame Pendent, Brush Effect Sketch Diary, Classic Beige & Gold Floral Wedding Invitation, Personalized 3D Mobile Cover.)
 - [ ] 4. Open the chat with Shaikh Parvez, tap **+**, then **Send products**.
 - You should see: an amber tag, "Not ready on WhatsApp yet", under the products Meta marks Outdated. Hover over the tag to see why.
 - [ ] 5. Tick one product that has the tag.
