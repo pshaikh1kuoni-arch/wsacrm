@@ -2356,7 +2356,12 @@
       "titleDefault": "Our products",
       "clear": "Clear",
       "sendProducts": "Send {count, plural, =1 {1 product} other {# products}}",
-      "sendCatalogue": "Send catalogue"
+      "sendCatalogue": "Send catalogue",
+      "notReadyTag": "Not ready on WhatsApp yet",
+      "notReadyTooltip": "Meta has not approved this product for WhatsApp yet. Meta checks it again a few hours after you change it on your website.",
+      "notReadyTitleSingle": "This product is not ready on WhatsApp yet.",
+      "notReadyTitle": "{notReady, plural, one {# of the {count} selected products is not ready on WhatsApp yet.} other {# of the {count} selected products are not ready on WhatsApp yet.}}",
+      "notReadyHint": "{notReady, plural, one {Your customer may not see it. You can still send.} other {Your customer may not see them. You can still send.}}"
     },
     "basket": {
       "title": "Basket from customer",

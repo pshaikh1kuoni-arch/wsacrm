@@ -8,9 +8,17 @@
 
 /** The fields we ask Meta for on every catalogue item. */
 export const CATALOG_PRODUCT_FIELDS =
-  'retailer_id,retailer_product_group_id,name,price,sale_price,currency,availability,image_url,url,size,color'
+  'retailer_id,retailer_product_group_id,name,price,sale_price,currency,availability,image_url,url,size,color,capability_to_review_status'
 
 export type CatalogAvailability = 'in_stock' | 'out_of_stock' | 'other'
+
+/**
+ * Meta's own WhatsApp review of one item. Meta will not send an item whose
+ * status is `outdated` (it changed after the last review): a list drops it
+ * silently and a single product is refused. See docs/catalog-cart-plan.md,
+ * Step 2b.
+ */
+export type WhatsAppStatus = 'approved' | 'outdated' | 'no_review' | 'other'
 
 /** One item as the Graph API returns it for `CATALOG_PRODUCT_FIELDS`. */
 export interface MetaCatalogProduct {
@@ -29,9 +37,11 @@ export interface MetaCatalogProduct {
   /** Variant attributes. Variants of one product share a name. */
   size?: string
   color?: string
+  /** Review status per Meta channel, e.g. `{ key: 'WHATSAPP', value: 'OUTDATED' }`. */
+  capability_to_review_status?: { key?: string; value?: string }[]
 }
 
-/** A row of `catalog_items` (migrations 052 and 053). */
+/** A row of `catalog_items` (migrations 052, 053 and 057). */
 export interface CatalogItemRow {
   account_id: string
   catalog_id: string
@@ -47,6 +57,8 @@ export interface CatalogItemRow {
   product_url: string | null
   size: string | null
   color: string | null
+  /** Null until Meta has told us (before the first sync after migration 057). */
+  whatsapp_status: WhatsAppStatus | null
   synced_at: string
 }
 
@@ -97,6 +109,38 @@ export function normalizeAvailability(raw: string | null | undefined): CatalogAv
 }
 
 /**
+ * The WhatsApp entry of Meta's per-channel review list, as one of four
+ * states. Null when Meta did not send the list or has no WhatsApp entry, so
+ * an unknown item is never warned about.
+ */
+export function normalizeWhatsAppStatus(
+  list: { key?: string; value?: string }[] | null | undefined,
+): WhatsAppStatus | null {
+  if (!Array.isArray(list)) return null
+  const entry = list.find((c) => c?.key?.trim().toUpperCase() === 'WHATSAPP')
+  const value = entry?.value?.trim().toUpperCase().replace(/[\s-]+/g, '_')
+  if (!value) return null
+  if (value === 'APPROVED') return 'approved'
+  if (value === 'OUTDATED') return 'outdated'
+  if (value === 'NO_REVIEW') return 'no_review'
+  // PENDING, REJECTED and any status Meta adds later.
+  return 'other'
+}
+
+/**
+ * True when Meta will probably not send this item on WhatsApp. Approved,
+ * never reviewed and unknown items are not flagged.
+ */
+export function isNotReadyOnWhatsApp(status: WhatsAppStatus | null | undefined): boolean {
+  return status === 'outdated' || status === 'other'
+}
+
+/** How many of these items Meta will probably not send. */
+export function countNotReady(items: { whatsapp_status?: WhatsAppStatus | null }[]): number {
+  return items.reduce((n, i) => n + (isNotReadyOnWhatsApp(i.whatsapp_status) ? 1 : 0), 0)
+}
+
+/**
  * One Meta item → a `catalog_items` row. Returns null for an item that
  * cannot be used: no retailer ID (a basket could never point at it) or no
  * name.
@@ -127,6 +171,7 @@ export function toCatalogRow(
     product_url: product.url || null,
     size: product.size?.trim() || null,
     color: product.color?.trim() || null,
+    whatsapp_status: normalizeWhatsAppStatus(product.capability_to_review_status),
     synced_at: syncedAt,
   }
 }

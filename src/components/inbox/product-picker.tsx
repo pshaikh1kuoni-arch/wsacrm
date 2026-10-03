@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { ImageIcon, Loader2, Search, Send } from 'lucide-react';
+import { ImageIcon, Loader2, Search, Send, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -18,7 +18,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { createClient } from '@/lib/supabase/client';
-import { effectivePrice, formatCatalogPrice, variantLabel } from '@/lib/whatsapp/catalog';
+import {
+  countNotReady,
+  effectivePrice,
+  formatCatalogPrice,
+  isNotReadyOnWhatsApp,
+  variantLabel,
+} from '@/lib/whatsapp/catalog';
 import {
   validateInteractivePayload,
   type InteractiveMessagePayload,
@@ -34,7 +40,7 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 40;
 const COLUMNS =
-  'retailer_id, name, size, color, price_amount, sale_price_amount, currency, availability, image_url';
+  'retailer_id, name, size, color, price_amount, sale_price_amount, currency, availability, image_url, whatsapp_status';
 
 type CatalogStatus =
   | { status: 'ok'; catalogId: string; catalogName: string | null; itemCount: number }
@@ -173,6 +179,8 @@ function PickerBody({
   const body = bodyEdit ?? defaultBody;
   const title = titleEdit ?? t('titleDefault');
   const count = selected.size;
+  // Meta will probably not send these. A warning only: the agent may still send.
+  const notReady = countNotReady([...selected.values()]);
   const atLimit = count >= PRODUCT_LIST_MAX;
   // A list needs a title; a single product card does not have one.
   const titleOk = count <= 1 || title.trim() !== '';
@@ -288,6 +296,8 @@ function PickerBody({
                         }
                         onToggle={() => toggle(item)}
                         outOfStockLabel={t('outOfStock')}
+                        notReadyLabel={t('notReadyTag')}
+                        notReadyTooltip={t('notReadyTooltip')}
                       />
                     ))}
                   </ul>
@@ -333,6 +343,21 @@ function PickerBody({
               />
             </div>
           ) : null}
+
+          {mode === 'products' && notReady > 0 ? (
+            <div
+              role="status"
+              className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-sm text-amber-700 dark:text-amber-400"
+            >
+              <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+              <p>
+                <span className="font-semibold">
+                  {count === 1 ? t('notReadyTitleSingle') : t('notReadyTitle', { notReady, count })}
+                </span>{' '}
+                {t('notReadyHint', { notReady })}
+              </p>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -371,23 +396,28 @@ function PickerBody({
   );
 }
 
-function ProductRow({
+export function ProductRow({
   item,
   checked,
   disabled,
   onToggle,
   outOfStockLabel,
+  notReadyLabel,
+  notReadyTooltip,
 }: {
   item: PickerItem;
   checked: boolean;
   disabled: boolean;
   onToggle: () => void;
   outOfStockLabel: string;
+  notReadyLabel: string;
+  notReadyTooltip: string;
 }) {
   const price = effectivePrice(item);
   const sale = price != null && item.price_amount != null && price < item.price_amount;
   const variant = variantLabel(item);
   const outOfStock = item.availability === 'out_of_stock';
+  const notReady = isNotReadyOnWhatsApp(item.whatsapp_status);
 
   return (
     <li>
@@ -419,6 +449,17 @@ function ProductRow({
             {[variant, `#${item.retailer_id}`].filter(Boolean).join(' · ')}
             {outOfStock ? ` · ${outOfStockLabel}` : ''}
           </span>
+          {notReady ? (
+            <span className="mt-1 block">
+              <span
+                title={notReadyTooltip}
+                className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400"
+              >
+                <TriangleAlert className="size-3 shrink-0" />
+                {notReadyLabel}
+              </span>
+            </span>
+          ) : null}
         </span>
         {price != null ? (
           <span className="flex shrink-0 flex-col items-end">

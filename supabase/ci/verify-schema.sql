@@ -153,6 +153,16 @@ BEGIN
     RAISE EXCEPTION 'flow_nodes.node_type does not allow send_catalog — migration 056 did not apply';
   END IF;
 
+  -- 057 adds Meta's WhatsApp review status to catalogue items. The sync
+  -- writes it and the picker reads it.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'catalog_items'
+      AND column_name = 'whatsapp_status'
+  ) THEN
+    RAISE EXCEPTION 'catalog_items.whatsapp_status is missing — migration 057 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

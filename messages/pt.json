@@ -2356,7 +2356,12 @@
       "titleDefault": "Nossos produtos",
       "clear": "Limpar",
       "sendProducts": "Enviar {count, plural, =1 {1 produto} other {# produtos}}",
-      "sendCatalogue": "Enviar catálogo"
+      "sendCatalogue": "Enviar catálogo",
+      "notReadyTag": "Ainda não pronto no WhatsApp",
+      "notReadyTooltip": "A Meta ainda não aprovou este produto para o WhatsApp. A Meta o verifica novamente algumas horas depois de você alterá-lo no seu site.",
+      "notReadyTitleSingle": "Este produto ainda não está pronto no WhatsApp.",
+      "notReadyTitle": "{notReady, plural, one {# dos {count} produtos selecionados ainda não está pronto no WhatsApp.} other {# dos {count} produtos selecionados ainda não estão prontos no WhatsApp.}}",
+      "notReadyHint": "{notReady, plural, one {Seu cliente pode não vê-lo. Você ainda pode enviar.} other {Seu cliente pode não vê-los. Você ainda pode enviar.}}"
     },
     "basket": {
       "title": "Carrinho do cliente",

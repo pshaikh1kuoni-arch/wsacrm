@@ -78,7 +78,7 @@ describe('getCatalogProducts', () => {
     expect(url.origin + url.pathname).toBe('https://graph.facebook.com/v21.0/cat-1/products')
     expect(url.searchParams.get('limit')).toBe('100')
     expect(url.searchParams.get('fields')).toBe(
-      'retailer_id,retailer_product_group_id,name,price,sale_price,currency,availability,image_url,url,size,color',
+      'retailer_id,retailer_product_group_id,name,price,sale_price,currency,availability,image_url,url,size,color,capability_to_review_status',
     )
     expect(url.searchParams.has('after')).toBe(false)
     expect(capturedInit?.headers).toMatchObject({ Authorization: 'Bearer tok' })

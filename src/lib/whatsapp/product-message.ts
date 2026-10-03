@@ -8,7 +8,12 @@
  * Plan: docs/catalog-cart-plan.md
  */
 
-import { effectivePrice, formatCatalogPrice, variantLabel } from './catalog'
+import {
+  effectivePrice,
+  formatCatalogPrice,
+  variantLabel,
+  type WhatsAppStatus,
+} from './catalog'
 import type {
   InteractiveMessagePayload,
   InteractiveProductDisplay,
@@ -26,6 +31,8 @@ export interface PickerItem {
   currency: string | null
   availability: 'in_stock' | 'out_of_stock' | 'other'
   image_url: string | null
+  /** Meta's WhatsApp review. Only used to warn in the picker; never sent to Meta. */
+  whatsapp_status?: WhatsAppStatus | null
 }
 
 /** How many products one message can carry. */

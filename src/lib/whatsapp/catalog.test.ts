@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  countNotReady,
   effectivePrice,
   explainCatalogError,
   formatCatalogPrice,
+  isNotReadyOnWhatsApp,
   normalizeAvailability,
+  normalizeWhatsAppStatus,
   parsePriceAmount,
   toCatalogRow,
   variantLabel,
@@ -80,6 +83,10 @@ describe('toCatalogRow', () => {
         url: 'https://example.com/p',
         size: ' 12x18in ',
         color: 'Black',
+        capability_to_review_status: [
+          { key: 'MARKETPLACE', value: 'NO_REVIEW' },
+          { key: 'WHATSAPP', value: 'OUTDATED' },
+        ],
       },
       NOW,
     )
@@ -98,6 +105,7 @@ describe('toCatalogRow', () => {
       product_url: 'https://example.com/p',
       size: '12x18in',
       color: 'Black',
+      whatsapp_status: 'outdated',
       synced_at: NOW,
     })
   })
@@ -110,6 +118,7 @@ describe('toCatalogRow', () => {
     expect(row?.group_id).toBeNull()
     expect(row?.size).toBeNull()
     expect(row?.color).toBeNull()
+    expect(row?.whatsapp_status).toBeNull()
     expect(row?.availability).toBe('other')
   })
 
@@ -117,6 +126,58 @@ describe('toCatalogRow', () => {
     expect(toCatalogRow('a', 'c', { name: 'Mug' }, NOW)).toBeNull()
     expect(toCatalogRow('a', 'c', { retailer_id: '  ', name: 'Mug' }, NOW)).toBeNull()
     expect(toCatalogRow('a', 'c', { retailer_id: 'r1' }, NOW)).toBeNull()
+  })
+})
+
+describe('normalizeWhatsAppStatus', () => {
+  it('reads the WhatsApp entry out of Meta\'s per channel list', () => {
+    const list = (value: string) => [
+      { key: 'MINI_SHOPS', value: 'APPROVED' },
+      { key: 'WHATSAPP', value },
+    ]
+    expect(normalizeWhatsAppStatus(list('APPROVED'))).toBe('approved')
+    expect(normalizeWhatsAppStatus(list('OUTDATED'))).toBe('outdated')
+    expect(normalizeWhatsAppStatus(list('NO_REVIEW'))).toBe('no_review')
+  })
+
+  it('ignores case and spacing, and maps any other status to "other"', () => {
+    expect(normalizeWhatsAppStatus([{ key: ' whatsapp ', value: ' outdated ' }])).toBe('outdated')
+    expect(normalizeWhatsAppStatus([{ key: 'WHATSAPP', value: 'no review' }])).toBe('no_review')
+    expect(normalizeWhatsAppStatus([{ key: 'WHATSAPP', value: 'REJECTED' }])).toBe('other')
+    expect(normalizeWhatsAppStatus([{ key: 'WHATSAPP', value: 'PENDING' }])).toBe('other')
+  })
+
+  it('is null when Meta did not say, so an unknown item is never warned about', () => {
+    expect(normalizeWhatsAppStatus(undefined)).toBeNull()
+    expect(normalizeWhatsAppStatus(null)).toBeNull()
+    expect(normalizeWhatsAppStatus([])).toBeNull()
+    expect(normalizeWhatsAppStatus([{ key: 'MARKETPLACE', value: 'APPROVED' }])).toBeNull()
+    expect(normalizeWhatsAppStatus([{ key: 'WHATSAPP', value: '' }])).toBeNull()
+    expect(normalizeWhatsAppStatus([{ key: 'WHATSAPP' }])).toBeNull()
+  })
+})
+
+describe('isNotReadyOnWhatsApp and countNotReady', () => {
+  it('warns about outdated and unrecognised statuses only', () => {
+    expect(isNotReadyOnWhatsApp('outdated')).toBe(true)
+    expect(isNotReadyOnWhatsApp('other')).toBe(true)
+    expect(isNotReadyOnWhatsApp('approved')).toBe(false)
+    expect(isNotReadyOnWhatsApp('no_review')).toBe(false)
+    expect(isNotReadyOnWhatsApp(null)).toBe(false)
+    expect(isNotReadyOnWhatsApp(undefined)).toBe(false)
+  })
+
+  it('counts the items Meta will probably not send', () => {
+    expect(
+      countNotReady([
+        { whatsapp_status: 'outdated' },
+        { whatsapp_status: 'approved' },
+        { whatsapp_status: null },
+        {},
+        { whatsapp_status: 'other' },
+      ]),
+    ).toBe(2)
+    expect(countNotReady([])).toBe(0)
   })
 })
 

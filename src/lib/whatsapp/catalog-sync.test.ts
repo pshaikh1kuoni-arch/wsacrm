@@ -132,6 +132,38 @@ describe('syncCatalog', () => {
     })
   })
 
+  it('saves each item\'s WhatsApp status, and leaves it null when Meta did not send one', async () => {
+    pages = [
+      {
+        data: [
+          {
+            retailer_id: 'a',
+            name: 'Magic Mug',
+            capability_to_review_status: [{ key: 'WHATSAPP', value: 'OUTDATED' }],
+          },
+          {
+            retailer_id: 'b',
+            name: 'White Mug',
+            capability_to_review_status: [{ key: 'WHATSAPP', value: 'APPROVED' }],
+          },
+          { retailer_id: 'c', name: 'Frame' },
+        ],
+      },
+    ]
+    const db = fakeSupabase({ deleteCount: 0 })
+
+    await syncCatalog(db.client, ARGS)
+
+    expect(db.upserts[0].rows.map((r) => [r.retailer_id, r.whatsapp_status])).toEqual([
+      ['a', 'outdated'],
+      ['b', 'approved'],
+      ['c', null],
+    ])
+    // The review list is asked for in the same call as the rest of the item.
+    const productCall = urls.find((u) => u.includes('/products'))
+    expect(decodeURIComponent(productCall ?? '')).toContain('capability_to_review_status')
+  })
+
   it('removes only rows from before this run, for this account', async () => {
     pages = [{ data: [{ retailer_id: 'a', name: 'Mug' }] }]
     const db = fakeSupabase()
