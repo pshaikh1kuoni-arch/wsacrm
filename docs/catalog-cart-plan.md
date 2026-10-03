@@ -1,6 +1,6 @@
 # Catalogue and basket: plan
 
-Version 1.7, 3 Oct 2026. Steps 1 to 4 are built, pushed to GitHub and tested on a real phone. **Step 5 (the picker warning) was added by the owner and is in progress.** The Meta shop icon is the only item outside our hands.
+Version 1.8, 3 Oct 2026. Steps 1 to 4 are built, pushed to GitHub and tested on a real phone. **Step 5 (the picker warning) is built and waiting for one SQL file from the owner.** The Meta shop icon is the only item outside our hands.
 This file: `docs/catalog-cart-plan.md`
 Related plan: `docs/orders-payments-plan.md` (payments and orders). This plan feeds into it.
 Feature list: `docs/crm-features.md`
@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: wait for me. I am building the picker warning now and will give you the SQL file (Task 8). Do not run the WooCommerce sync again today.
+### NEXT STEP FOR YOU: Task 8, steps 1 and 2 (run SQL file 057 in Supabase and tell me it said success). Do not run the WooCommerce sync again today.
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -25,6 +25,7 @@ How to read this board:
 - [x] Found why some products would not send: Meta marks them "Outdated" for WhatsApp.
 - [x] All of it is pushed to GitHub. 1,362 tests pass. The production build works.
 - [x] Checked your Task 1, 2 and 3 results in the database myself.
+- [x] Step 5, the picker warning: built, 1,376 tests pass, production build works. It is saved on a separate branch (`feat/picker-warning`, commit d1867ee) and is NOT on main yet, because it needs the new SQL column first. I will put it on main after you run the SQL.
 
 ### Done by you (owner)
 - [x] Ran the SQL for Steps 1 to 4 (migrations 052, 053, 054, 056). All said success.
@@ -120,12 +121,17 @@ Why: Meta quietly drops those products from a list, or rejects a single product.
 - You should see: the same picker as before, with only those two additions.
 - Send me: "looks good", or tell me what to change (the words, the colour, where it sits).
 
-**Task 8: After I build it** (not yet)
-- [ ] 1. I tell you when the code is ready. I will give you one SQL file (057).
-- [ ] 2. You run it in the Supabase SQL editor and tell me it said success. Then I push.
-- [ ] 3. After Vercel deploys, open Settings, Catalogue, and click **Sync now**. This fills in each product's WhatsApp status.
-- [ ] 4. Open Send products. Products Meta marks Outdated show the amber tag. Tick one and check that the amber note appears and Send still works.
-- Send me: a screenshot of the picker.
+**Task 8: Switch on the picker warning** (do this now)
+- [ ] 1. Open the file `supabase/migrations/057_catalog_whatsapp_status.sql` and copy all of it. On GitHub: https://github.com/pshaikh1kuoni-arch/wsacrm/blob/feat/picker-warning/supabase/migrations/057_catalog_whatsapp_status.sql . It is one short line that adds a column called whatsapp_status to your catalogue copy. It changes nothing else.
+- [ ] 2. In Supabase, open the SQL editor, paste it, and run it.
+- You should see: a success message.
+- Tell me: "057 done". Then I put the code on main and push. Nothing else changes for your customers.
+- [ ] 3. After Vercel finishes deploying (about 2 minutes after I push), in the CRM open Settings, then Catalogue, and click **Sync now**. This fills in each product's WhatsApp status.
+- [ ] 4. Open the chat with Shaikh Parvez, tap **+**, then **Send products**.
+- You should see: an amber tag, "Not ready on WhatsApp yet", under the products Meta marks Outdated. Hover over the tag to see why.
+- [ ] 5. Tick one product that has the tag.
+- You should see: an amber note above the Send button, for example "1 of the 2 selected products is not ready on WhatsApp yet. Your customer may not see it. You can still send." The Send button still works.
+- Send me: a screenshot of the picker with the tags and the note.
 
 **Waiting on Meta (not in our hands). This is the only thing left open.**
 - [ ] Meta must show the shop (catalogue) icon in the chat header on +91 87794 71874. The Meta support ticket is open. Nothing in the CRM waits for it: sending products, baskets, automations and flows all work without the icon. When Meta replies, tell me what they said.
@@ -135,7 +141,8 @@ Why: Meta quietly drops those products from a list, or rejects a single product.
 - [ ] If any task fails, I fix it from your screenshot, then give you the next step.
 - [ ] Several hours after your Task 6 sync, when you ask me, I count the Outdated products again and tell you the result.
 - [x] Picker warning: mockup made (board 6 on the design canvas) and shown to you.
-- [ ] Picker warning: after you say the mockup is right, I build it: migration 057 (a new column on the catalogue copy), read each product's WhatsApp status during Sync now, the tag and the note in the picker, tests, four languages. Then I give you the SQL and push after you run it.
+- [x] Picker warning: built (migration 057, the sync reads each product's WhatsApp status, the tag and the note in the picker, tests, four languages).
+- [ ] Picker warning: after you run SQL 057, I put it on main and push. After your Sync now, I check in the database that the statuses were saved and tell you how many products are flagged.
 - [ ] Not started, and a separate plan: turning a basket into an order and the payment link (`docs/orders-payments-plan.md`).
 
 ## 1. What we are building
