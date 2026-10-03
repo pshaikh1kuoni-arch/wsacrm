@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: nothing is required. Optional: Task 6 and the picker warning decision, further down.
+### NEXT STEP FOR YOU: nothing is required. Do not run the WooCommerce sync again today (see Task 6). Optional: decide on the picker warning, further down.
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -97,23 +97,26 @@ The Send Catalogue step in Basket Thank You sends the catalogue right after the 
 - [x] 2. Switch the Catalogue test flow off, or delete it.
 - [x] 3. Decide about Basket Thank You. Leave it Active and every real customer who sends a basket gets the thank-you. Switch it off if you do not want that yet.
 
-**Task 6: Refresh the Outdated products** (any time, not urgent)
-- [ ] 1. In WordPress, open Marketing, Facebook, the Shops tab, Troubleshooting, then click Sync products.
-- [ ] 2. Wait about 30 minutes.
-- [ ] 3. In the CRM, open Settings, Catalogue, and click Sync now.
-- [ ] 4. Tell me it is done.
+**Task 6: Refresh the Outdated products** (DONE by the owner on 3 Oct 2026, about 9:30 pm. Result checked by me: the Outdated count went UP, from 70 to 161. Do NOT sync again today.)
+- [x] 1. In WordPress, open Marketing, Facebook, the Shops tab, Troubleshooting, then click Sync products.
+- [x] 2. Wait about 30 minutes.
+- [x] 3. In the CRM, open Settings, Catalogue, and click Sync now.
+- [x] 4. Tell me it is done.
 - Why: 70 products are still marked Outdated by Meta, and Meta will not send those on WhatsApp.
+- What I found: right after a sync, Meta marks the products it just received as Outdated, then checks them again later. After the first sync (8:41 am UTC) the count was 106 Outdated. Two hours later it had gone down to 70. After the second sync it is 161 Outdated and 156 Approved. So each sync resets the products for a few hours.
+- What to do: nothing. Do not sync again. Wait several hours, then ask me to count again. Until the count goes down, many products will not send on WhatsApp.
+- This will happen again every time a product changes on the website, for example a new price. That is the reason for the picker warning below.
 
 **Decision waiting for you**
-- [ ] Do you want a small warning in the product picker on products that Meta will not send? Say yes or no. If yes, I show you a mockup first, then build it, then you run one more SQL.
+- [ ] Picker warning: a small amber tag "Not ready on WhatsApp yet" on the product rows that Meta will not send, so you know before you press Send. It only warns and never blocks. Say yes or no. If yes, I show you a mockup first, then build it, then you run one more SQL.
 
-**Waiting on Meta (not in our hands)**
-- [ ] The Meta support ticket about the missing shop icon is still open. When Meta replies, tell me what they said.
+**Waiting on Meta (not in our hands). This is the only thing left open.**
+- [ ] Meta must show the shop (catalogue) icon in the chat header on +91 87794 71874. The Meta support ticket is open. Nothing in the CRM waits for it: sending products, baskets, automations and flows all work without the icon. When Meta replies, tell me what they said.
 
 ### Still to do by me (Claude)
 - [x] Tasks 1 to 5 have passed. Step 4 and this whole plan are marked complete.
 - [ ] If any task fails, I fix it from your screenshot, then give you the next step.
-- [ ] After Task 6, I count the Outdated products again and tell you the result.
+- [ ] Several hours after your Task 6 sync, when you ask me, I count the Outdated products again and tell you the result.
 - [ ] If you say yes to the picker warning, I mockup, build, push and give you the SQL.
 - [ ] Not started, and a separate plan: turning a basket into an order and the payment link (`docs/orders-payments-plan.md`).
 
