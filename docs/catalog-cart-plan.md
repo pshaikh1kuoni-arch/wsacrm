@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: Task 7 below (look at the mockup of the picker warning and say if it is right). Also: do not run the WooCommerce sync again today.
+### NEXT STEP FOR YOU: wait for me. I am building the picker warning now and will give you the SQL file (Task 8). Do not run the WooCommerce sync again today.
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -113,10 +113,10 @@ What it is: in the Send products window, a product that Meta marks "Outdated" ge
 
 Why: Meta quietly drops those products from a list, or rejects a single product. Today you only find out after you press Send. 161 of 327 products were Outdated on 3 Oct 2026, and any price change on the website makes a product Outdated again for a few hours.
 
-**Task 7: Look at the mockup** (about 2 minutes)
-- [ ] 1. Open the design canvas: https://claude.ai/artifact/PXD8JqQgkiehFnZ4sBykhU
-- [ ] 2. Find the board named "6. Product picker: not ready on WhatsApp" (to the right of board 2, the approved picker).
-- [ ] 3. Look at the amber tag on the Glitter Mug and the Cushion, and the amber note above the Send button.
+**Task 7: Look at the mockup** (DONE 3 Oct 2026: the owner said "looks good")
+- [x] 1. Open the design canvas: https://claude.ai/artifact/PXD8JqQgkiehFnZ4sBykhU
+- [x] 2. Find the board named "6. Product picker: not ready on WhatsApp" (to the right of board 2, the approved picker).
+- [x] 3. Look at the amber tag on the Glitter Mug and the Cushion, and the amber note above the Send button.
 - You should see: the same picker as before, with only those two additions.
 - Send me: "looks good", or tell me what to change (the words, the colour, where it sits).
 
