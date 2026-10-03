@@ -159,8 +159,6 @@ export default function AutomationsPage() {
     )
   }
 
-  const showTemplates = automations.length < 3
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -181,30 +179,30 @@ export default function AutomationsPage() {
         </GatedButton>
       </div>
 
-      {showTemplates && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{t("templatesTitle")}</h2>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {TEMPLATE_ORDER.map((slug) => {
-              const t = AUTOMATION_TEMPLATES[slug]
-              const Icon = TEMPLATE_ICON[slug]
-              return (
-                <button
-                  key={slug}
-                  onClick={() => startFromTemplate(slug)}
-                  className="group flex flex-col items-start rounded-2xl bg-card p-4 text-left shadow-card-sm transition-shadow hover:shadow-card"
-                >
-                  <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/15">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="text-sm font-semibold text-foreground">{t.name}</div>
-                  <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
-                </button>
-              )
-            })}
-          </div>
-        </section>
-      )}
+      {/* The starter templates stay on the page whatever number of automations
+          exist: they used to disappear at the third one. */}
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{t("templatesTitle")}</h2>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {TEMPLATE_ORDER.map((slug) => {
+            const t = AUTOMATION_TEMPLATES[slug]
+            const Icon = TEMPLATE_ICON[slug]
+            return (
+              <button
+                key={slug}
+                onClick={() => startFromTemplate(slug)}
+                className="group flex flex-col items-start rounded-2xl bg-card p-4 text-left shadow-card-sm transition-shadow hover:shadow-card"
+              >
+                <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/15">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="text-sm font-semibold text-foreground">{t.name}</div>
+                <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
+              </button>
+            )
+          })}
+        </div>
+      </section>
 
       {automations.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center rounded-2xl bg-card shadow-card">

@@ -25,6 +25,7 @@ How to read this board:
 - [x] Found why some products would not send: Meta marks them "Outdated" for WhatsApp.
 - [x] All of it is pushed to GitHub. 1,362 tests pass. The production build works.
 - [x] Checked your Task 1, 2 and 3 results in the database myself.
+- [x] Brought the Automations starter templates back for good. The page hid them once you had 3 or more automations (an old rule from April, not a glitch). They now always show: Welcome Message, Out of Office, Lead Qualifier, Follow-up Reminder, Basket Thank You.
 - [x] Fixed a hidden problem of mine: the GitHub check (CI) had been failing on every push since 2 Oct because of one lint error in a test file I wrote. Your live site was never affected. It is fixed and CI is green (commit 3a1556d). From now on I run the whole lint, type check, tests and build before every push, and look at the CI result after it.
 - [x] Step 5, the picker warning: built, 1,376 tests pass, production build works. It is on main and pushed (after you ran SQL 057).
 
