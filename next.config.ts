@@ -31,9 +31,10 @@ const SECURITY_HEADERS = [
     // Microphone is allowed for same-origin (`self`) so the inbox
     // composer can record voice notes via MediaRecorder. Everything
     // else stays denied — a compromised dependency can't silently grab
-    // the camera / geolocation / etc.
+    // the camera / geolocation / etc. The Payment Request API is allowed
+    // for Razorpay Checkout only (Settings, Billing).
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
+    value: 'camera=(), microphone=(self), geolocation=(), payment=(self "https://api.razorpay.com" "https://checkout.razorpay.com"), usb=()',
   },
   {
     key: "Content-Security-Policy-Report-Only",
@@ -42,7 +43,10 @@ const SECURITY_HEADERS = [
       // Next.js needs 'unsafe-inline' for its inline hydration script
       // and 'unsafe-eval' in dev + some production optimisations.
       // Nonce-based CSP is a later project.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // Razorpay Checkout (Settings, Billing) loads its script from
+      // checkout.razorpay.com and opens its payment window in a frame.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com",
+      "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
       // Tailwind + inline style attributes on lots of components.
       "style-src 'self' 'unsafe-inline'",
       // Supabase public-bucket avatars, contact avatars (arbitrary
@@ -55,7 +59,7 @@ const SECURITY_HEADERS = [
       "font-src 'self' data:",
       // Supabase REST + realtime (WSS). All Meta API calls happen
       // server-side, so graph.facebook.com does not belong here.
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

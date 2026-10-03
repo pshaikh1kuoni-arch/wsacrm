@@ -123,6 +123,28 @@ BEGIN
     RAISE EXCEPTION 'notifications.type does not allow basket_received — migration 054 did not apply';
   END IF;
 
+  -- 055 adds the subscription billing table. Assert it exists, that RLS is
+  -- on (no user session may write it), and that the receipt default works.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'billing_payments'
+  ) THEN
+    RAISE EXCEPTION 'billing_payments is missing — migration 055 did not apply';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class
+    WHERE oid = 'public.billing_payments'::regclass AND relrowsecurity
+  ) THEN
+    RAISE EXCEPTION 'billing_payments has no row level security — migration 055 did not apply';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'billing_payments'
+      AND column_name = 'razorpay_order_id' AND is_nullable = 'YES'
+  ) THEN
+    RAISE EXCEPTION 'billing_payments.razorpay_order_id must be nullable — migration 055 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

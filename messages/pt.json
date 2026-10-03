@@ -1776,7 +1776,8 @@
       "deals": "Negócios e moeda",
       "members": "Membros da equipe",
       "api": "Chaves de API",
-      "catalog": "Catálogo"
+      "catalog": "Catálogo",
+      "billing": "Faturamento"
     },
     "groups": {
       "account": "Conta",
@@ -1990,6 +1991,42 @@
       "editDoc": "Editar",
       "deleteDoc": "Excluir",
       "loading": "Carregando…"
+    },
+    "billing": {
+      "title": "Faturamento",
+      "description": "Sua assinatura do WAGenie. Os pagamentos são processados pelo Razorpay.",
+      "planName": "WAGenie Standard",
+      "perMonth": "por mês, mais GST quando aplicável",
+      "includes": "Todos os recursos incluídos. Veja a página de preços.",
+      "accessNote": "O acesso continua até o fim do mês que você pagou.",
+      "stateActive": "Ativo até {date}",
+      "stateExpired": "Expirou em {date}",
+      "stateNotPaid": "Ainda não pago",
+      "pay": "Pagar {amount} com Razorpay",
+      "opening": "Abrindo o pagamento…",
+      "confirming": "Confirmando seu pagamento…",
+      "testMode": "Modo de teste. Nenhum dinheiro real é movimentado.",
+      "ownerOnly": "Somente o proprietário pode pagar. Aceitamos UPI, cartões e internet banking. Nunca vemos os dados do seu cartão.",
+      "roleBlocked": "Seu papel não pode fazer isso.",
+      "notConfigured": "Os pagamentos ainda não estão ativados neste servidor.",
+      "migrationMissing": "O faturamento ainda não está configurado no banco de dados. Aplique a migração 055.",
+      "historyTitle": "Histórico de pagamentos",
+      "colReceipt": "Recibo",
+      "colDate": "Data",
+      "colAmount": "Valor",
+      "colStatus": "Status",
+      "colPayment": "Pagamento Razorpay",
+      "empty": "Nenhum pagamento ainda.",
+      "paid": "Pago",
+      "failed": "Falhou",
+      "pending": "Não concluído",
+      "historyNote": "Um pagamento só conta depois que o Razorpay o confirma. Cada recibo pago estende o acesso por um mês.",
+      "toastPaid": "Pagamento recebido. Obrigado!",
+      "toastFailed": "O pagamento não foi concluído.",
+      "toastError": "Não foi possível iniciar o pagamento.",
+      "loadFailed": "Não foi possível carregar o faturamento.",
+      "networkError": "Problema de rede. Tente novamente.",
+      "scriptFailed": "Não foi possível carregar o Razorpay Checkout. Verifique sua conexão."
     }
   },
   "SignupPage": {

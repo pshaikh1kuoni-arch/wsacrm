@@ -1776,7 +1776,8 @@
       "deals": "Deals & currency",
       "members": "Team members",
       "api": "API keys",
-      "catalog": "Catalogue"
+      "catalog": "Catalogue",
+      "billing": "Billing"
     },
     "groups": {
       "account": "Account",
@@ -1990,6 +1991,42 @@
       "editDoc": "Edit",
       "deleteDoc": "Delete",
       "loading": "Loading…"
+    },
+    "billing": {
+      "title": "Billing",
+      "description": "Your WAGenie subscription. Payments are handled by Razorpay.",
+      "planName": "WAGenie Standard",
+      "perMonth": "per month, plus GST as applicable",
+      "includes": "All features included. See the pricing page.",
+      "accessNote": "Access continues until the end of the month you paid for.",
+      "stateActive": "Active until {date}",
+      "stateExpired": "Expired on {date}",
+      "stateNotPaid": "Not paid yet",
+      "pay": "Pay {amount} with Razorpay",
+      "opening": "Opening payment…",
+      "confirming": "Confirming your payment…",
+      "testMode": "Test mode. No real money moves.",
+      "ownerOnly": "Only the Owner can pay. UPI, cards and netbanking are accepted. We never see your card details.",
+      "roleBlocked": "Your role cannot do this.",
+      "notConfigured": "Payments are not switched on for this server yet.",
+      "migrationMissing": "Billing is not set up in the database yet. Apply migration 055.",
+      "historyTitle": "Payment history",
+      "colReceipt": "Receipt",
+      "colDate": "Date",
+      "colAmount": "Amount",
+      "colStatus": "Status",
+      "colPayment": "Razorpay payment",
+      "empty": "No payments yet.",
+      "paid": "Paid",
+      "failed": "Failed",
+      "pending": "Not completed",
+      "historyNote": "A payment counts only after Razorpay confirms it. Each paid receipt extends access by one month.",
+      "toastPaid": "Payment received. Thank you!",
+      "toastFailed": "The payment did not go through.",
+      "toastError": "Could not start the payment.",
+      "loadFailed": "Could not load billing.",
+      "networkError": "Network problem. Please try again.",
+      "scriptFailed": "Could not load Razorpay Checkout. Check your connection."
     }
   },
   "SignupPage": {

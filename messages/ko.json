@@ -1776,7 +1776,8 @@
       "deals": "딜 & 통화",
       "members": "팀원",
       "api": "API 키",
-      "catalog": "카탈로그"
+      "catalog": "카탈로그",
+      "billing": "결제"
     },
     "groups": {
       "account": "계정",
@@ -1990,6 +1991,42 @@
       "editDoc": "수정",
       "deleteDoc": "삭제",
       "loading": "불러오는 중…"
+    },
+    "billing": {
+      "title": "결제",
+      "description": "WAGenie 구독입니다. 결제는 Razorpay가 처리합니다.",
+      "planName": "WAGenie Standard",
+      "perMonth": "월, 해당되는 경우 GST 별도",
+      "includes": "모든 기능이 포함됩니다. 요금 페이지를 확인하세요.",
+      "accessNote": "결제한 달이 끝날 때까지 이용할 수 있습니다.",
+      "stateActive": "{date}까지 이용 가능",
+      "stateExpired": "{date}에 만료됨",
+      "stateNotPaid": "아직 결제 전",
+      "pay": "Razorpay로 {amount} 결제",
+      "opening": "결제를 여는 중…",
+      "confirming": "결제를 확인하는 중…",
+      "testMode": "테스트 모드입니다. 실제 돈은 움직이지 않습니다.",
+      "ownerOnly": "소유자만 결제할 수 있습니다. UPI, 카드, 인터넷 뱅킹을 지원합니다. 카드 정보는 저희가 볼 수 없습니다.",
+      "roleBlocked": "현재 역할로는 할 수 없습니다.",
+      "notConfigured": "이 서버에서는 아직 결제가 켜져 있지 않습니다.",
+      "migrationMissing": "데이터베이스에 결제 설정이 아직 없습니다. 마이그레이션 055를 적용하세요.",
+      "historyTitle": "결제 내역",
+      "colReceipt": "영수증",
+      "colDate": "날짜",
+      "colAmount": "금액",
+      "colStatus": "상태",
+      "colPayment": "Razorpay 결제",
+      "empty": "아직 결제 내역이 없습니다.",
+      "paid": "결제 완료",
+      "failed": "실패",
+      "pending": "미완료",
+      "historyNote": "결제는 Razorpay가 확인한 뒤에만 인정됩니다. 결제된 영수증마다 이용 기간이 한 달 늘어납니다.",
+      "toastPaid": "결제가 완료되었습니다. 감사합니다!",
+      "toastFailed": "결제가 완료되지 않았습니다.",
+      "toastError": "결제를 시작할 수 없습니다.",
+      "loadFailed": "결제 정보를 불러올 수 없습니다.",
+      "networkError": "네트워크 문제입니다. 다시 시도하세요.",
+      "scriptFailed": "Razorpay Checkout을 불러올 수 없습니다. 연결을 확인하세요."
     }
   },
   "SignupPage": {
