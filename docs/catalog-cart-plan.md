@@ -1,6 +1,6 @@
 # Catalogue and basket: plan
 
-Version 1.5, 3 Oct 2026. Steps 1 to 4 are built and pushed to GitHub. Step 4 is waiting for the owner's phone tests.
+Version 1.6, 3 Oct 2026. **This plan is COMPLETE.** Steps 1 to 4 are built, pushed to GitHub and tested on a real phone. Only optional items remain (see the board).
 This file: `docs/catalog-cart-plan.md`
 Related plan: `docs/orders-payments-plan.md` (payments and orders). This plan feeds into it.
 Feature list: `docs/crm-features.md`
@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: Task 5 (clean up), then Task 3b (your choice)
+### NEXT STEP FOR YOU: nothing is required. Optional: Task 6 and the picker warning decision, further down.
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -34,6 +34,7 @@ How to read this board:
 - [x] Opened the Basket Thank You automation, typed the catalogue text, switched it Active and saved it (Task 1).
 - [x] Sent the whole catalogue to your phone (Task 2), and sent a real basket that triggered the automation (Task 3).
 - [x] Built the Catalogue test flow and ran it from your phone (Task 4).
+- [x] Cleaned up: deleted the test flow, put the chat back to MJA WACRM, and removed the extra catalogue step from Basket Thank You (Tasks 3b and 5). Basket Thank You stays Active.
 
 ### Still to do by you
 Do the tasks in order. Send me what each task asks for.
@@ -68,12 +69,12 @@ Do the tasks in order. Send me what each task asks for.
 - You should see in the CRM: a basket card and a "Basket received" notification. In the Logs, both steps say success.
 - Send me: a screenshot of the phone chat and of the Logs.
 
-**Task 3b: Decide if the catalogue should follow every basket** (your choice)
+**Task 3b: Decide if the catalogue should follow every basket** (DONE 3 Oct 2026: the owner removed the Send Catalogue step. Basket Thank You now has one step, Send Message, and is Active. Checked by me in the database.)
 The Send Catalogue step in Basket Thank You sends the catalogue right after the thank-you. You added it as a test, so that is why the catalogue arrived a second time. If you do not want that, remove the step:
-- [ ] 1. In the CRM, open Automations, then Basket Thank You.
-- [ ] 2. Click the Send Catalogue step to open it.
-- [ ] 3. Click the red Delete button at the bottom of that step.
-- [ ] 4. Click Save.
+- [x] 1. In the CRM, open Automations, then Basket Thank You.
+- [x] 2. Click the Send Catalogue step to open it.
+- [x] 3. Click the red Delete button at the bottom of that step.
+- [x] 4. Click Save.
 - You should see: Basket Thank You has only one step, Send Message.
 - Send me: nothing. Tell me "removed" or "keep it".
 - The Send Catalogue step is still useful elsewhere, for example an automation that sends the catalogue when a customer types the word "catalogue".
@@ -91,10 +92,10 @@ The Send Catalogue step in Basket Thank You sends the catalogue right after the 
 - You should see: the View catalogue message arrives. In Flows, the run for Catalogue test says completed.
 - Send me: a screenshot of the phone and of the run.
 
-**Task 5: Clean up after the tests**
-- [ ] 1. Assign the chat back to MJA WACRM. Otherwise your Chat AI All Msg flow may answer the test phone.
-- [ ] 2. Switch the Catalogue test flow off, or delete it.
-- [ ] 3. Decide about Basket Thank You. Leave it Active and every real customer who sends a basket gets the thank-you. Switch it off if you do not want that yet.
+**Task 5: Clean up after the tests** (DONE 3 Oct 2026, checked by me in the database: the Catalogue test flow is deleted, the chat is assigned to MJA WACRM again, Basket Thank You is Active)
+- [x] 1. Assign the chat back to MJA WACRM. Otherwise your Chat AI All Msg flow may answer the test phone.
+- [x] 2. Switch the Catalogue test flow off, or delete it.
+- [x] 3. Decide about Basket Thank You. Leave it Active and every real customer who sends a basket gets the thank-you. Switch it off if you do not want that yet.
 
 **Task 6: Refresh the Outdated products** (any time, not urgent)
 - [ ] 1. In WordPress, open Marketing, Facebook, the Shops tab, Troubleshooting, then click Sync products.
@@ -110,7 +111,7 @@ The Send Catalogue step in Basket Thank You sends the catalogue right after the 
 - [ ] The Meta support ticket about the missing shop icon is still open. When Meta replies, tell me what they said.
 
 ### Still to do by me (Claude)
-- [ ] Tasks 1 to 4 have passed. When you finish Task 5, I mark Step 4 and this whole plan complete.
+- [x] Tasks 1 to 5 have passed. Step 4 and this whole plan are marked complete.
 - [ ] If any task fails, I fix it from your screenshot, then give you the next step.
 - [ ] After Task 6, I count the Outdated products again and tell you the result.
 - [ ] If you say yes to the picker warning, I mockup, build, push and give you the SQL.
@@ -371,11 +372,11 @@ Plan approved by: ____________________  Date: ____________
 
 | Phase | Date | Result | Notes |
 |---|---|---|---|
-| 0 | | | |
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
-| 4 | | | |
+| 0 | 2 Oct 2026 | Passed | Catalogue connected, token can read it. Shop icon still hidden by Meta, which blocks nothing. |
+| 1 | 3 Oct 2026 | Passed | Lists, single cards and the whole catalogue reach the phone. Products Meta marks Outdated are not sent. |
+| 2 | 2 Oct 2026 | Passed (basket card only) | Real baskets show the card, notification and sale prices. Orders are not built: they belong to the orders plan. |
+| 3 | 3 Oct 2026 | Passed | Basket Received trigger, Send Catalogue step and flow node all worked on a real phone. |
+| 4 | | Not started | Chosen one at a time. |
 
 ## 13. Build log
 
@@ -472,7 +473,7 @@ Retest after the WooCommerce product sync (3 Oct 2026, owner test, confirmed on 
 
 Next, waiting for the owner's go-ahead (needs a migration and a small change to the picker rows, so a mockup first): save each item's WhatsApp status when the catalogue syncs, and show a "Not approved for WhatsApp yet" warning on those rows in the picker. Warn only. The warning stops the CRM bubble from promising products the customer will not see.
 
-### Step 4: automations and flows (built and pushed 3 Oct 2026, commit 4946ffd; migration 056 applied by the owner; phone test pending)
+### Step 4: automations and flows (built and pushed 3 Oct 2026, commit 4946ffd; migration 056 applied by the owner; tested on a real phone 3 Oct 2026)
 
 Built:
 1. `supabase/migrations/056_flow_send_catalog_node_type.sql`: adds `send_catalog` to the `flow_nodes.node_type` allow-list (same job as migrations 046 and 048). Without it, saving a flow that has the new node fails. Automations need no migration, because their trigger and step types are free text. `verify-schema.sql` asserts it.
