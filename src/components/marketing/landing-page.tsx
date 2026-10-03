@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import {
   MessageSquare,
@@ -18,6 +17,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DISPLAY_FONT, Eyebrow, GradientText } from "./shared";
 import { HubDiagramCard } from "./hub-diagram";
+import { SiteFooter, SiteNav } from "./site-chrome";
 
 // Public marketing homepage (`/`). Self-contained: it reads the app's
 // real --primary/--primary-2 accent tokens (so it always matches
@@ -102,7 +102,7 @@ export function LandingPage() {
         <div className="absolute top-[1500px] -right-44 h-[520px] w-[520px] animate-[wag-drift_26s_ease-in-out_infinite] rounded-full bg-primary opacity-[.28] blur-[90px] [animation-delay:-4s]" />
       </div>
 
-      <NavBar />
+      <SiteNav />
 
       <main className="relative z-10">
         <Hero />
@@ -116,34 +116,8 @@ export function LandingPage() {
         <FinalCTA />
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
-  );
-}
-
-function NavBar() {
-  return (
-    <header className="sticky top-0 z-50 p-4">
-      <nav className="mx-auto flex max-w-[1180px] items-center justify-between gap-4 rounded-full border border-[var(--wglass-edge)] bg-[var(--wglass-fill)] px-3 py-2.5 pl-5 shadow-[0_16px_40px_-14px_var(--wshadow-2),0_2px_10px_var(--wshadow-1)] backdrop-blur-xl backdrop-saturate-150">
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/brand/wagenie-logo.png" alt="WAGenie" width={172} height={31} className="h-7 w-auto" priority />
-        </Link>
-        <div className="hidden items-center gap-6 text-sm font-medium text-[var(--wink-soft)] md:flex">
-          <a href="#tour" className="hover:text-[var(--wink)]">Product</a>
-          <a href="#features" className="hover:text-[var(--wink)]">Features</a>
-          <a href="#hub" className="hover:text-[var(--wink)]">AI</a>
-          <a href="#faq" className="hover:text-[var(--wink)]">FAQ</a>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-[var(--wink)] hover:bg-[var(--wsurface-2)]")}>
-            Login
-          </Link>
-          <Link href="/signup" className={buttonVariants({ variant: "gradient", size: "sm" })}>
-            Get Started
-          </Link>
-        </div>
-      </nav>
-    </header>
   );
 }
 
@@ -596,49 +570,5 @@ function FinalCTA() {
         </div>
       </div>
     </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="relative z-10 mx-auto max-w-[1180px] px-6 py-14 text-[13.5px] text-[var(--wink-soft)]">
-      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
-        <div>
-          <Image src="/brand/wagenie-logo.png" alt="WAGenie" width={172} height={31} className="mb-3 h-9 w-auto" />
-          <p className="max-w-[240px]">One AI, one inbox, every WhatsApp message your business sends.</p>
-        </div>
-        <div>
-          <h5 className="mb-3.5 text-xs tracking-wide text-[var(--wink-faint)] uppercase">Contact</h5>
-          <p className="mb-2 italic text-[var(--wink-faint)]">Business address (add later)</p>
-          <p className="mb-2 italic text-[var(--wink-faint)]">Contact email (add later)</p>
-          <p className="italic text-[var(--wink-faint)]">Phone, optional (add later)</p>
-        </div>
-        <div>
-          <h5 className="mb-3.5 text-xs tracking-wide text-[var(--wink-faint)] uppercase">Product</h5>
-          <a href="#tour" className="mb-2 block hover:text-[var(--wink)]">Inbox</a>
-          <a href="#tour" className="mb-2 block hover:text-[var(--wink)]">Pipeline</a>
-          <a href="#tour" className="mb-2 block hover:text-[var(--wink)]">Automations</a>
-          <a href="#features" className="block hover:text-[var(--wink)]">Features</a>
-        </div>
-        <div>
-          <h5 className="mb-3.5 text-xs tracking-wide text-[var(--wink-faint)] uppercase">Company</h5>
-          <Link href="#" className="mb-2 block hover:text-[var(--wink)]">About</Link>
-          <Link href="#" className="mb-2 block hover:text-[var(--wink)]">Contact</Link>
-          <a href="#faq" className="block hover:text-[var(--wink)]">FAQ</a>
-        </div>
-        <div>
-          <h5 className="mb-3.5 text-xs tracking-wide text-[var(--wink-faint)] uppercase">Get started</h5>
-          <Link href="/login" className="mb-2 block hover:text-[var(--wink)]">Login</Link>
-          <Link href="/signup" className="block hover:text-[var(--wink)]">Get Started</Link>
-        </div>
-      </div>
-      <div className="mt-11 flex flex-wrap items-center justify-between gap-2.5 border-t border-[var(--wglass-edge)] pt-5.5">
-        <span>© 2026 WAGenie. All rights reserved.</span>
-        <span>
-          <Link href="#" className="mr-4 italic hover:text-[var(--wink)]">Privacy (blank)</Link>
-          <Link href="#" className="italic hover:text-[var(--wink)]">Terms (blank)</Link>
-        </span>
-      </div>
-    </footer>
   );
 }
