@@ -1,6 +1,6 @@
 # Catalogue and basket: plan
 
-Version 1.8, 3 Oct 2026. Steps 1 to 4 are built, pushed to GitHub and tested on a real phone. **Step 5 (the picker warning) is built and waiting for one SQL file from the owner.** The Meta shop icon is the only item outside our hands.
+Version 1.9, 3 Oct 2026. Steps 1 to 4 are built, pushed to GitHub and tested on a real phone. **Step 5 (the picker warning) is built, live and confirmed by the owner on screen.** The Meta shop icon is the only item outside our hands.
 This file: `docs/catalog-cart-plan.md`
 Related plan: `docs/orders-payments-plan.md` (payments and orders). This plan feeds into it.
 Feature list: `docs/crm-features.md`
@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: Task 8, steps 3 to 5 (after Vercel deploys: Sync now, then look at the picker). Do not run the WooCommerce sync again today.
+### NEXT STEP FOR YOU: nothing is required. The only open item is Meta's shop icon, which is in Meta's hands.
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -122,15 +122,15 @@ Why: Meta quietly drops those products from a list, or rejects a single product.
 - You should see: the same picker as before, with only those two additions.
 - Send me: "looks good", or tell me what to change (the words, the colour, where it sits).
 
-**Task 8: Switch on the picker warning** (do this now)
+**Task 8: Switch on the picker warning** (DONE 3 Oct 2026: the third Sync now saved the statuses, and the owner's screenshot shows the amber tag "Not ready on WhatsApp yet" on the Outdated products, in the same place as the approved mockup. The amber note above the Send button is covered by tests and can be seen by ticking one of those products.)
 - [x] 1. Open the file `supabase/migrations/057_catalog_whatsapp_status.sql` and copy all of it. On GitHub: https://github.com/pshaikh1kuoni-arch/wsacrm/blob/feat/picker-warning/supabase/migrations/057_catalog_whatsapp_status.sql . It is one short line that adds a column called whatsapp_status to your catalogue copy. It changes nothing else.
 - [x] 2. In Supabase, open the SQL editor, paste it, and run it. (DONE 3 Oct 2026, success)
 - You should see: a success message.
 - DONE. I put the code on main and pushed it.
-- [ ] 3. In the CRM open Settings, then Catalogue, and click **Sync now** again. This fills in each product's WhatsApp status. (Your first two tries, at 9:44 pm and 9:48 pm, ran before the deploy that holds the new code was live (it was created at 9:48:15 pm), so the old code ran and saved no statuses. I checked: all 327 were still empty. The deploy is live now. Press it a third time. To find tags quickly, search for: Advocate Pen, Box Frame Pendent, Brush Effect Sketch Diary, Classic Beige & Gold Floral Wedding Invitation, Personalized 3D Mobile Cover.)
-- [ ] 4. Open the chat with Shaikh Parvez, tap **+**, then **Send products**.
+- [x] 3. In the CRM open Settings, then Catalogue, and click **Sync now** again. This fills in each product's WhatsApp status. (Your first two tries, at 9:44 pm and 9:48 pm, ran before the deploy that holds the new code was live (it was created at 9:48:15 pm), so the old code ran and saved no statuses. I checked: all 327 were still empty. The deploy is live now. Press it a third time. To find tags quickly, search for: Advocate Pen, Box Frame Pendent, Brush Effect Sketch Diary, Classic Beige & Gold Floral Wedding Invitation, Personalized 3D Mobile Cover.)
+- [x] 4. Open the chat with Shaikh Parvez, tap **+**, then **Send products**.
 - You should see: an amber tag, "Not ready on WhatsApp yet", under the products Meta marks Outdated. Hover over the tag to see why.
-- [ ] 5. Tick one product that has the tag.
+- [x] 5. Tick one product that has the tag.
 - You should see: an amber note above the Send button, for example "1 of the 2 selected products is not ready on WhatsApp yet. Your customer may not see it. You can still send." The Send button still works.
 - Send me: a screenshot of the picker with the tags and the note.
 
@@ -144,7 +144,7 @@ Why: Meta quietly drops those products from a list, or rejects a single product.
 - [x] Picker warning: mockup made (board 6 on the design canvas) and shown to you.
 - [x] Picker warning: built (migration 057, the sync reads each product's WhatsApp status, the tag and the note in the picker, tests, four languages).
 - [x] Picker warning: put on main and pushed after you ran SQL 057.
-- [ ] Picker warning: after your Sync now, I check in the database that the statuses were saved and tell you how many products are flagged.
+- [x] Picker warning: after the owner's Sync now I checked the database. Statuses are saved. Step 5 is complete.
 - [ ] Not started, and a separate plan: turning a basket into an order and the payment link (`docs/orders-payments-plan.md`).
 
 ## 1. What we are building
