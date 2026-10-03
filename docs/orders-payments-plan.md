@@ -1,7 +1,7 @@
 # Orders, payments and support: locked plan
 
-Version 1.3, 3 Oct 2026. Locked for owner approval. Nothing is built yet.
-Changes from 1.2: Phase R (Razorpay review pack) added before Phase 1; the catalogue work (migrations 052 to 054, table `catalog_items`) is now the product source, so new migrations start at 055. Changes from 1.0: open items 1, 2, 3, 4 and 9 settled, partial payments off, Razorpay events and Phase 0 steps updated, a Check payment status button added to Phase 1, a 5 second webhook rule, Appendix A button address, Appendix C (Meta checklist) and Appendix D (Razorpay checklist) added.
+Version 1.4, 3 Oct 2026. Locked for owner approval. Phase R is built. Phases 0 to 4 are not built yet.
+Changes from 1.3: decision 17 added (two payment lanes, each business uses its own Razorpay keys and its own webhook secret), and the webhook function is renamed `pay-webhook`. Changes from 1.2: Phase R (Razorpay review pack) added before Phase 1; the catalogue work (migrations 052 to 054, table `catalog_items`) is now the product source, so new migrations start at 055. Changes from 1.0: open items 1, 2, 3, 4 and 9 settled, partial payments off, Razorpay events and Phase 0 steps updated, a Check payment status button added to Phase 1, a 5 second webhook rule, Appendix A button address, Appendix C (Meta checklist) and Appendix D (Razorpay checklist) added.
 Mockup, 9 screens (private link): https://claude.ai/artifact/35aFUKvLMa4kojACWAA4cF
 This file: `docs/orders-payments-plan.md`
 
@@ -65,6 +65,12 @@ Me:
 14. Stock tracking and writing orders back to the Google Sheet is optional, and sits in Phase 4 (section 13).
 15. WAGenie is a SaaS. It has two separate Razorpay uses. The first is WAGenie's own billing: the ₹2,500 monthly subscription, paid by each workspace Owner, using platform keys in the Vercel environment (Phase R). The second is each business taking payments from its own customers, using keys saved per workspace in Settings, Payments (Phase 1). Both use the same Razorpay library.
 16. The product source is the Meta catalogue copy in `catalog_items` (WooCommerce stays the master), not a separate CSV or Google Sheet products table. The CSV and Google Sheet product sources in decision 5 are dropped unless a business has no catalogue. The Google Sheet stays for shipping details (Phase 3).
+17. Two payment lanes, settled 3 Oct 2026. They never merge.
+    - Lane A, the platform fee: the business Owner pays WAGenie. It uses the platform Razorpay keys in Vercel, the table `billing_payments` and Settings, Billing. Razorpay orders carry the note `purpose: wagenie_subscription`. It stays in Test mode until launch. Live keys are swapped in at deployment, when subscriptions start. A webhook safety net for this lane (so a payment is not lost if the Owner closes the tab) is added together with auto renew.
+    - Lane B, chat payments: a business's customer pays that business. Each business adds its own Razorpay keys in Settings, Payments, so the money goes straight to that business's own account. WAGenie never holds it. These Razorpay orders and links carry our own order note and the order number. It also runs in Test mode until launch.
+    - Each business has its own webhook secret and its own webhook address, because each business has its own Razorpay account. The CRM makes the secret and a random token for the address, and shows them once with copy buttons. The owner pastes both into their own Razorpay. The function finds the business from the token in the address, reads that business's stored secret and checks the signature with it. The secret is stored encrypted in the database, not in Supabase secrets.
+    - Any event that is not ours (for example a business's own website payments) gets a 200 and is ignored.
+    - The function is named `pay-webhook`, not `razorpay-webhook`. Razorpay refuses addresses that use `razorpay` as a domain. A function name is not a domain, but the safer name costs nothing because nothing is deployed yet.
 
 ## 5. Rules that never change (money)
 
@@ -319,7 +325,7 @@ Goal: accounts ready, so Phase 1 can be tested on live.
 You give me or do:
 1. Razorpay: confirm Live mode and that settlements are active.
 2. Razorpay: get the live Key ID and Key Secret. If the website already uses them, ask its developer for the pair. Do not regenerate them unless you choose "deactivate after 24 hours". Keep them in a password manager.
-3. Razorpay: make up a webhook secret (a long random string) and an alert email. Create the webhook only after I deploy the function, so Razorpay does not retry against an address that does not exist. Events to select: `payment_link.paid`, `payment_link.expired`, `payment_link.cancelled`, `payment.failed` and `refund.processed`. Do not select `payment.captured` or `order.paid`. They fire for your website's normal payments and we do not need them.
+3. Razorpay: choose an alert email. The CRM makes the webhook secret and the address for you in Phase 1 (decision 17). Create the webhook only after I deploy the function, so Razorpay does not retry against an address that does not exist. Events to select: `payment_link.paid`, `payment_link.expired`, `payment_link.cancelled`, `payment.failed` and `refund.processed`. Do not select `payment.captured` or `order.paid`. They fire for your website's normal payments and we do not need them.
 4. Razorpay: check which payment methods are on, the settlement bank and schedule, and the business name customers see on the payment page.
 5. Meta: confirm your business is verified and that a payment method is on your WhatsApp Business Account. Check this today (see section 6a).
 6. Meta: create and submit two templates from Appendix A: the offer template with a Buy now quick reply button, and the payment request template. The others are optional.
@@ -348,8 +354,8 @@ Goal: from the inbox, send a payment link, get paid, and see the order marked Pa
 You give me:
 1. Phase 0 finished.
 2. Your product list as a CSV with code, name, price and any custom fields such as size and colour. Start with 5 to 10 real products plus a ₹1 test product with code `TEST1`.
-3. The webhook address in Razorpay set to the function address I give you.
-4. The webhook secret saved in Supabase secrets. I give you the command.
+3. The webhook address in your Razorpay set to the address shown in Settings, Payments (it includes your own token).
+4. The webhook secret from Settings, Payments pasted into the same Razorpay webhook form. The CRM stores it encrypted. Nothing goes into Supabase secrets per business.
 5. Razorpay keys saved in Settings, Payments, by you, on the screen I build.
 6. The approved offer and payment request template names.
 7. Answers to anything the mockup left open.
@@ -358,9 +364,9 @@ What I build:
 1. The database migration for the tables in section 11.
 2. Order numbers per business.
 3. A new Orders item in the sidebar, and the Products page with add, edit and CSV import.
-4. Settings, Payments: keys stored encrypted, Test connection, webhook address with a copy button, order prefix and link expiry, the list of order automations with on and off switches that link to Automations, and the template choices for when the window is closed.
+4. Settings, Payments: keys stored encrypted, Test connection, webhook address and webhook secret made by the CRM and shown once with copy buttons, order prefix and link expiry, the list of order automations with on and off switches that link to Automations, and the template choices for when the window is closed.
 5. Server side payment link creation with a fixed amount, partial payments off, the order number as reference, a note marking it ours, an expiry, and cancel.
-6. The `razorpay-webhook` edge function: checks the signature, ignores payments that are not ours, saves each event once, and updates payment and order in one safe step only when the amount matches. The main event is `payment_link.paid`, because it carries our reference ID and notes. It answers with a 2xx within 5 seconds and does the rest in the background.
+6. The `pay-webhook` edge function: finds the business from the token in the address, reads that business's stored secret, checks the signature, ignores payments that are not ours, saves each event once, and updates payment and order in one safe step only when the amount matches. The main event is `payment_link.paid`, because it carries our reference ID and notes. It answers with a 2xx within 5 seconds and does the rest in the background.
 7. Automations for orders. New triggers: Order created, Payment received and Payment failed. Each passes the order details as variables (see section 6b). The automation builder shows the variable list. Default automations are installed for each business. When an order is created, the first sends the order summary in the agreed format with the payment link. After Paid, the next adds the Paid tag, sends "order received", waits 5 minutes and sends the offer. You edit all wording in Automations. A fourth default, a follow up for Payment failed, is installed but switched off. If a default automation is missing or off, the system sends a built-in default message instead. A template is used only if the 24 hour window is closed.
 8. Orders page with detail panel and timeline.
 9. Inbox: Request payment dialog, payment card in the chat, Orders section in the contact panel. If the 24 hour window is closed, the dialog sends the payment request template instead and tells the agent.
@@ -667,17 +673,17 @@ Do now, in the client's dashboard:
 5. Note the business name and logo shown on the payment page.
 6. Ask the website developer if the website uses the live API keys. If yes, get the Key ID and Key Secret pair from them.
 7. If the keys must change: Accounts & Settings, API Keys, Regenerate Key, and choose "deactivate after 24 hours". The Key Secret is shown only once.
-8. Make up a long random webhook secret. Choose an alert email for webhook failures.
+8. Choose an alert email for webhook failures. The CRM makes the webhook secret and address in Settings, Payments.
 9. Keep all of these in a password manager.
 
 Do later, after I deploy the function and you send the Supabase project reference:
 10. Accounts & Settings, Webhooks (under Website and app settings), Add New Webhook.
-11. Webhook URL: `https://<project-ref>.supabase.co/functions/v1/razorpay-webhook`. The address must be public HTTPS and must not contain "razorpay".
-12. Enter the secret and the alert email.
+11. Webhook URL: copy it from Settings, Payments. It looks like `https://<project-ref>.supabase.co/functions/v1/pay-webhook?w=<token>`. The address must be public HTTPS and must not use "razorpay" as a domain.
+12. Paste the secret from Settings, Payments and enter the alert email.
 13. Active events: `payment_link.paid`, `payment_link.expired`, `payment_link.cancelled`, `payment.failed`, `refund.processed`.
 14. Enter the OTP Razorpay asks for. In Test mode the default OTP is 754081.
 15. In the CRM, Settings, Payments: save the Key ID and Key Secret, then press Test connection.
-16. Save the webhook secret in Supabase secrets. I give you the command.
+16. Nothing else to save. The CRM already holds the webhook secret, encrypted.
 
 Test mode first: Test mode has its own keys and its own webhook. Use it for the first function tests, then do the live ₹1 tests.
 
@@ -687,8 +693,8 @@ What to pull out and where it goes:
 |---|---|---|
 | Key ID (starts `rzp_live_`) | Accounts & Settings, API Keys | CRM, Settings, Payments |
 | Key Secret | Shown once when generated, or from the website developer | CRM, Settings, Payments (stored encrypted) |
-| Webhook secret | You make it up | Razorpay webhook form, and Supabase secrets |
+| Webhook secret | CRM, Settings, Payments (shown once) | Razorpay webhook form. The CRM keeps it encrypted |
 | Alert email | The client chooses | Razorpay webhook form |
-| Webhook URL | Built from the Supabase project reference | Razorpay webhook form |
+| Webhook URL | CRM, Settings, Payments (built from the project reference and your token) | Razorpay webhook form |
 
 Never paste the Key Secret or the webhook secret in chat.
