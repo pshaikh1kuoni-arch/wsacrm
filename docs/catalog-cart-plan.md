@@ -242,7 +242,7 @@ The icon does not block any phase.
 6. Is the WooCommerce sync current, and is the old feed file a leftover? Phase 0.
 7. The Graph API version in the code is old (orders plan open item 9). Raise it in Phase 0.
 8. India online selling rules for the catalogue. Meta says India businesses must follow them.
-9. Why Meta will not send some items it lists as published (Step 2b). Lead: the per-item WhatsApp status is Outdated. Confirm after a WooCommerce product sync.
+9. How to refresh the 70 items whose WhatsApp status is still Outdated. Cause confirmed (Step 2b). Try the WooCommerce sync again later and recount.
 10. Commerce Manager shows 134 products and the API returns 326. Still unexplained. The 39 hidden items and the three feeds may be part of it.
 
 ## 11. Sources
@@ -347,13 +347,18 @@ What we found in the catalogue (read only, 326 items):
 1. 200 items have a short ID (digits only, the website's product number) and 126 have a long ID (with an underscore). Only 52 short items have a long twin. 148 exist only as a short ID. "Use the long ID" is therefore not a general fix.
 2. Meta keeps a separate WhatsApp review status per item (`capability_to_review_status`, key `WHATSAPP`). Across the catalogue: 210 approved, 106 outdated, 10 no review. Short IDs: 125 approved, 73 outdated, 2 no review. Long IDs: 85 approved, 33 outdated, 8 no review. The ID shape does not decide it.
 3. The two items that failed (3598, 2008) are Outdated. The item that went through in a list (`TG0FRM00001212001CAD_2727`) is Approved. "Outdated" usually means the item changed after Meta last reviewed it, for example a new price.
-4. What does not fit: the long Advocate Pen (`65589172579_2579`) is Outdated yet was sent fine as a single card, and one cushion item failed once although both of its IDs are Approved (the details line did not exist yet, and it is not known which ID was picked). So this is a lead, not a proven cause.
+4. A first reading found two things that did not fit. Both were wrong. The Advocate Pen that was sent as a single card was `COM000BLK0000036RNC_2579` (Approved), not the Outdated `65589172579_2579` that the picker screenshot showed. The first failed cushion send was made before the details line existed, so its ID is unknown. No counterexample remains.
 5. The catalogue has three feeds. Two come from the Facebook for WooCommerce plugin (145 items, last upload 22 Jun 2026, and 90 items, last upload 21 Aug 2026). The third is the "Products for MJA Print-n-Gift" feed, with no upload details. 39 items have visibility "hidden".
 
 Built:
 1. The send path now shows Meta's `details` line, so the next rejection names the bad parameter (commit bc01c11).
 
-Next:
-1. Owner: run the product sync in WordPress (Marketing, Facebook, Shops tab, Troubleshooting, Sync products), then press Sync now on the CRM Catalogue page. Then count the Outdated items again. If the count drops and item 3598 sends, the lead is confirmed.
-2. Proposed, waiting for the owner's go-ahead (needs a migration and a small change to the picker rows): save each item's WhatsApp status when the catalogue syncs, and show a "Not approved for WhatsApp yet" warning on those rows in the picker. Warn only, never block, because of the Advocate Pen result.
+Retest after the WooCommerce product sync (3 Oct 2026, owner test, confirmed on a real phone):
+1. The sync moved 36 items from Outdated to Approved (Outdated 106 to 70, Approved 210 to 247). Meta now has 327 items.
+2. The Glitter Mug (`2008`) was Outdated and failed as a single card. After the sync it is Approved and the single card reached the phone (10:40 UTC).
+3. A list with two cushion items, `CCSSATHB01212001PNG_352` (Approved) and `5539817352_352` (Outdated), reached the phone as "1 item" (10:41 UTC). Meta dropped the Outdated one without saying so.
+4. Every item sent that day is Approved (one is No review). Every item that failed or was dropped is Outdated. **The cause is confirmed: Meta will not send an item whose WhatsApp status is Outdated.** The ID shape (short or long) does not matter.
+5. 70 items are still Outdated (61 added by the plugin through the API, 9 from the older feed, last uploaded 22 Jun). How to refresh them is not yet known. Re-running the sync later, and recounting, is the first thing to try.
+
+Next, waiting for the owner's go-ahead (needs a migration and a small change to the picker rows, so a mockup first): save each item's WhatsApp status when the catalogue syncs, and show a "Not approved for WhatsApp yet" warning on those rows in the picker. Warn only. The warning stops the CRM bubble from promising products the customer will not see.
 
