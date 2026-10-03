@@ -1,10 +1,107 @@
 # Catalogue and basket: plan
 
-Version 1.1, 2 Oct 2026. Draft for owner approval. Nothing is built yet.
-Change from 1.0: the first build leaves out payments, order creation and order tracking. See section 4a.
+Version 1.5, 3 Oct 2026. Steps 1 to 4 are built and pushed to GitHub. Step 4 is waiting for the owner's phone tests.
 This file: `docs/catalog-cart-plan.md`
 Related plan: `docs/orders-payments-plan.md` (payments and orders). This plan feeds into it.
 Feature list: `docs/crm-features.md`
+
+## STATUS BOARD (read this first)
+
+How to read this board:
+1. **Me** means Claude. My part is to code, fix and check.
+2. **You** means the owner. Your part is to run SQL, run syncs, test on the phone, and decide.
+3. Every task for you has numbered steps, what you should see, and what to send me.
+4. `[x]` means done. `[ ]` means not done yet.
+5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
+
+### NEXT STEP FOR YOU: Task 1 below
+
+### Done by me (Claude)
+- [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
+- [x] Step 2: send products from the inbox (one product, a list, or the whole catalogue).
+- [x] Step 3: receive a customer's basket, show a basket card, check prices from our own catalogue copy, notify the team.
+- [x] Step 4: the Basket Received trigger, the Send Catalogue step, the Send Catalogue flow node, and the Basket Thank You starter template.
+- [x] The send error now shows Meta's real reason (it used to say only "Parameter value is not valid").
+- [x] Found why some products would not send: Meta marks them "Outdated" for WhatsApp.
+- [x] All of it is pushed to GitHub. 1,362 tests pass. The production build works.
+
+### Done by you (owner)
+- [x] Ran the SQL for Steps 1 to 4 (migrations 052, 053, 054, 056). All said success.
+- [x] Pressed Sync now in the CRM, and ran the WooCommerce product sync once.
+- [x] Sent products from the CRM to your phone: a list and a single product both arrived.
+- [x] Sent two real baskets from your phone. The card, the notification and the sale prices were correct.
+- [x] Opened the Basket Thank You automation and saw the new trigger and the new step.
+
+### Still to do by you
+Do the tasks in order. Send me what each task asks for.
+
+**Task 1: Finish the Basket Thank You automation** (5 minutes)
+- [ ] 1. In the CRM, open Automations, then Basket Thank You.
+- [ ] 2. In the Send Catalogue step, click inside the text box. The grey words are only a hint, so the box is empty.
+- [ ] 3. Type: Want to see more? Take a look at our catalogue.
+- [ ] 4. Check the step title shows your text and no longer says "no text yet".
+- [ ] 5. Switch Active on, at the top right.
+- [ ] 6. Click Save Draft.
+- You should see: a saved message, and Basket Thank You marked active in the list.
+- Send me: nothing, unless you see an error. Then send a screenshot of it.
+
+**Task 2: Check that the catalogue button works on the phone**
+- [ ] 1. On the customer phone, send "hi" to the business number. This opens the 24 hour window.
+- [ ] 2. In the CRM, open Inbox, then the chat with Shaikh Parvez. The top should say "24h remaining".
+- [ ] 3. At the bottom, tap the + button, then Send products.
+- [ ] 4. Click the Whole catalogue tab, then Send.
+- [ ] 5. On the phone, open the new message and tap View catalogue.
+- You should see: your catalogue opens on the phone.
+- Send me: a screenshot of the phone. If the CRM shows an error, send that too.
+- If the catalogue does not open, stop here. Skip Task 4. Send me the screenshot.
+
+**Task 3: Test a basket with the automation**
+- [ ] 1. In the same chat, tap +, then Send products.
+- [ ] 2. Tick Glitter Mug (#2008) and Couple Name String Art Frame.
+- [ ] 3. Click Send 2 products.
+- [ ] 4. On the phone, open the message, tap View items, add both, open the cart and send it.
+- [ ] 5. In the CRM, open Automations, then Basket Thank You, then its Logs.
+- You should see on the phone: a thank-you message with both items and Total ₹2,048. If Task 2 worked, a second message with a View catalogue button follows.
+- You should see in the CRM: a basket card and a "Basket received" notification. In the Logs, both steps say success.
+- Send me: a screenshot of the phone chat and of the Logs.
+
+**Task 4: Test the Send Catalogue flow node** (only if Task 2 worked)
+- [ ] 1. In the chat, open the assigned-to dropdown at the top right. It shows MJA WACRM. Unassign the chat. Flows do not start on a chat that is assigned to a person.
+- [ ] 2. Open Flows, create a new flow, and name it Catalogue test.
+- [ ] 3. Set the trigger keyword to: shoptest
+- [ ] 4. Add three nodes: Start, Send catalogue, End.
+- [ ] 5. Set Start as the entry node.
+- [ ] 6. On Start, set "Advances to" to Send catalogue.
+- [ ] 7. On Send catalogue, type: Here is our catalogue. Set "Advances to" to End.
+- [ ] 8. Click Save, then Activate. If a list of problems appears, send me a screenshot.
+- [ ] 9. On the phone, send: shoptest
+- You should see: the View catalogue message arrives. In Flows, the run for Catalogue test says completed.
+- Send me: a screenshot of the phone and of the run.
+
+**Task 5: Clean up after the tests**
+- [ ] 1. Assign the chat back to MJA WACRM. Otherwise your Chat AI All Msg flow may answer the test phone.
+- [ ] 2. Switch the Catalogue test flow off, or delete it.
+- [ ] 3. Decide about Basket Thank You. Leave it Active and every real customer who sends a basket gets the thank-you. Switch it off if you do not want that yet.
+
+**Task 6: Refresh the Outdated products** (any time, not urgent)
+- [ ] 1. In WordPress, open Marketing, Facebook, the Shops tab, Troubleshooting, then click Sync products.
+- [ ] 2. Wait about 30 minutes.
+- [ ] 3. In the CRM, open Settings, Catalogue, and click Sync now.
+- [ ] 4. Tell me it is done.
+- Why: 70 products are still marked Outdated by Meta, and Meta will not send those on WhatsApp.
+
+**Decision waiting for you**
+- [ ] Do you want a small warning in the product picker on products that Meta will not send? Say yes or no. If yes, I show you a mockup first, then build it, then you run one more SQL.
+
+**Waiting on Meta (not in our hands)**
+- [ ] The Meta support ticket about the missing shop icon is still open. When Meta replies, tell me what they said.
+
+### Still to do by me (Claude)
+- [ ] When Tasks 1 to 4 pass, I mark Step 4 and this whole plan complete.
+- [ ] If any task fails, I fix it from your screenshot, then give you the next step.
+- [ ] After Task 6, I count the Outdated products again and tell you the result.
+- [ ] If you say yes to the picker warning, I mockup, build, push and give you the SQL.
+- [ ] Not started, and a separate plan: turning a basket into an order and the payment link (`docs/orders-payments-plan.md`).
 
 ## 1. What we are building
 
@@ -378,9 +475,4 @@ Safety:
 2. A Send catalogue step or node only works inside the 24 hour window, and only when the catalogue is connected to the sending number. Otherwise the step fails and the run log says why.
 3. Nothing is turned on by default. The starter template is a draft until the owner activates it.
 
-To test on a real phone:
-1. Migration 056 is applied (owner confirmed, 3 Oct 2026).
-2. Automations, Basket Thank You: pick it, press Save Draft, switch Active on, Save.
-3. From the customer phone, send a basket. Expect the thank you message with the items and total, and the basket card in the CRM.
-4. Add a Send catalogue step after it, send another basket, expect the View catalogue button too.
-5. Flows: add a Send catalogue node between two nodes, activate, and run the flow.
+To test on a real phone: see Tasks 1 to 5 in the STATUS BOARD at the top of this file. Migration 056 is applied (owner confirmed, 3 Oct 2026).
