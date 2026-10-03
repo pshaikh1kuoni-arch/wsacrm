@@ -1,6 +1,6 @@
 # WAGenie CRM: feature list
 
-Last checked: 2 Oct 2026, against the code on `main` (commit 974aa9c).
+Last checked: 3 Oct 2026, against the code on `main` (commit 2109b3b).
 Product name in the app: WAGenie. Code name: wacrm.
 
 ## How to use this file
