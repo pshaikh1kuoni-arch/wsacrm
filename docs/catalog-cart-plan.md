@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: Task 1 below
+### NEXT STEP FOR YOU: Task 2 below
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -30,18 +30,18 @@ How to read this board:
 - [x] Pressed Sync now in the CRM, and ran the WooCommerce product sync once.
 - [x] Sent products from the CRM to your phone: a list and a single product both arrived.
 - [x] Sent two real baskets from your phone. The card, the notification and the sale prices were correct.
-- [x] Opened the Basket Thank You automation and saw the new trigger and the new step.
+- [x] Opened the Basket Thank You automation, typed the catalogue text, switched it Active and saved it (Task 1).
 
 ### Still to do by you
 Do the tasks in order. Send me what each task asks for.
 
-**Task 1: Finish the Basket Thank You automation** (5 minutes)
-- [ ] 1. In the CRM, open Automations, then Basket Thank You.
-- [ ] 2. In the Send Catalogue step, click inside the text box. The grey words are only a hint, so the box is empty.
-- [ ] 3. Type: Want to see more? Take a look at our catalogue.
-- [ ] 4. Check the step title shows your text and no longer says "no text yet".
-- [ ] 5. Switch Active on, at the top right.
-- [ ] 6. Click Save Draft.
+**Task 1: Finish the Basket Thank You automation** (DONE 3 Oct 2026, checked by me in the database: saved, active, both steps have text)
+- [x] 1. In the CRM, open Automations, then Basket Thank You.
+- [x] 2. In the Send Catalogue step, click inside the text box. The grey words are only a hint, so the box is empty.
+- [x] 3. Type: Want to see more? Take a look at our catalogue.
+- [x] 4. Check the step title shows your text and no longer says "no text yet".
+- [x] 5. Switch Active on, at the top right.
+- [x] 6. Click Save Draft.
 - You should see: a saved message, and Basket Thank You marked active in the list.
 - Send me: nothing, unless you see an error. Then send a screenshot of it.
 
