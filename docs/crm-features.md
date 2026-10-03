@@ -36,6 +36,8 @@ Status words used below:
 | Team and roles | BUILT | `src/lib/auth`, `src/components/settings/members-tab.tsx` |
 | Public API, webhooks, MCP | BUILT | `src/app/api/v1`, `mcp-server/` |
 | Catalogue and product messages | BUILT (basket automations not yet) | `src/components/settings/catalog-card.tsx`, `src/components/inbox/product-picker.tsx`, `src/lib/whatsapp/catalog*.ts` |
+| Billing (the WAGenie subscription) | BUILT, needs migration 055 and Razorpay keys | `src/components/settings/billing-panel.tsx`, `src/lib/billing`, `src/lib/razorpay` |
+| Public pages (pricing, terms, privacy, refunds, delivery, about, contact) | BUILT | `src/app/(site)`, `src/components/marketing/site-chrome.tsx` |
 | Orders and payments | PLANNED | `docs/orders-payments-plan.md` |
 
 ## 1. Shared inbox
@@ -347,13 +349,14 @@ BUILT:
 - Languages: English, Spanish, Korean, Portuguese.
 - Works on phone screens (responsive). No installable app or PWA.
 - In app notifications page and browser notifications.
-- Marketing landing page at the root address.
+- Marketing landing page at the root address, and public pages for Pricing, Terms and Conditions, Privacy Policy, Cancellation and Refunds, Delivery, About and Contact. The business details shown on them live in `src/lib/site.ts`.
+- Settings, Billing: the workspace Owner pays WAGenie 2,500 rupees for one month with Razorpay Checkout. The server checks the signature and asks Razorpay for the payment before it adds a month. Admins and the Owner see the receipts. Needs migration 055 and `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in the environment (Test mode keys show a Test mode notice). Each payment adds one month; there is no automatic renewal yet.
 - Runs on Vercel, Hostinger, Docker. More than 1,000 automated tests.
 
 NOT BUILT:
 
 - Hindi or other Indian languages in the app.
-- Billing, plans or a credits wallet. The product is self hosted.
+- A credits wallet, several plans, and automatic renewal. Billing today is one plan paid one month at a time (see the BUILT list above).
 
 ## 15. Planned work
 

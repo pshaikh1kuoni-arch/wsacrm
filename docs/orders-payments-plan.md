@@ -1,7 +1,7 @@
 # Orders, payments and support: locked plan
 
-Version 1.2, 2 Oct 2026. Locked for owner approval. Nothing is built yet.
-Changes from 1.0: open items 1, 2, 3, 4 and 9 settled, partial payments off, Razorpay events and Phase 0 steps updated, a Check payment status button added to Phase 1, a 5 second webhook rule, Appendix A button address, Appendix C (Meta checklist) and Appendix D (Razorpay checklist) added.
+Version 1.3, 3 Oct 2026. Locked for owner approval. Nothing is built yet.
+Changes from 1.2: Phase R (Razorpay review pack) added before Phase 1; the catalogue work (migrations 052 to 054, table `catalog_items`) is now the product source, so new migrations start at 055. Changes from 1.0: open items 1, 2, 3, 4 and 9 settled, partial payments off, Razorpay events and Phase 0 steps updated, a Check payment status button added to Phase 1, a 5 second webhook rule, Appendix A button address, Appendix C (Meta checklist) and Appendix D (Razorpay checklist) added.
 Mockup, 9 screens (private link): https://claude.ai/artifact/35aFUKvLMa4kojACWAA4cF
 This file: `docs/orders-payments-plan.md`
 
@@ -63,6 +63,8 @@ Me:
 12. When a customer asks about an order, the system finds that customer's orders by their WhatsApp number and replies using only facts from the order record or the Shipments sheet: status, courier, tracking number, tracking link and an expected delivery text that you type. The reply mode is AI. The AI states only the facts it was given. If data is missing, or the customer asks for a refund, cancel or address change, it hands over to an agent. If the AI call fails, the existing handoff message goes out and an agent is alerted. A custom message mode stays available as a switch.
 13. Shipping details are kept in both places: on the Orders page and in a Shipments tab of your Google Sheet. The sync applies a sheet value only when that value changed in the sheet since the last sync. So a change made on the Orders page is not overwritten by an old sheet value. If both changed since the last sync, the sheet wins and the timeline notes it.
 14. Stock tracking and writing orders back to the Google Sheet is optional, and sits in Phase 4 (section 13).
+15. WAGenie is a SaaS. It has two separate Razorpay uses. The first is WAGenie's own billing: the ₹2,500 monthly subscription, paid by each workspace Owner, using platform keys in the Vercel environment (Phase R). The second is each business taking payments from its own customers, using keys saved per workspace in Settings, Payments (Phase 1). Both use the same Razorpay library.
+16. The product source is the Meta catalogue copy in `catalog_items` (WooCommerce stays the master), not a separate CSV or Google Sheet products table. The CSV and Google Sheet product sources in decision 5 are dropped unless a business has no catalogue. The Google Sheet stays for shipping details (Phase 3).
 
 ## 5. Rules that never change (money)
 
@@ -265,6 +267,50 @@ Sizes are my judgment, not measured.
 | 2 | Orders from ads, templates and chat, with AI order taking | Medium |
 | 3 | Website API, shipping, order questions, limits | Medium to Large |
 | 4 | Advanced items, chosen one by one | Large |
+
+### Phase R: Razorpay review pack (Medium, before Phase 1)
+
+Goal: WAGenie passes Razorpay's review, so the ₹2,500 monthly subscription can be paid.
+
+Decided on 3 Oct 2026:
+1. WAGenie is a SaaS. The Shipping Policy does not apply. A short Delivery page says the service is digital and starts online after payment.
+2. Price: ₹2,500 per month, plus GST as applicable (GST to be confirmed by the owner).
+3. Contact on every page: Parvez Shaikh, parvezaigyaan@gmail.com, Govandi, Mumbai 400043.
+4. The first payment flow is one month at a time with Razorpay Checkout. Automatic renewal comes later.
+5. Review reference: Razorpay needs Terms and Conditions, Privacy Policy, Shipping Policy, Contact Us, Cancellation and Refunds, About Us and Pricing details, plus Test Account credentials when a login is needed.
+
+You give me or do:
+1. Decision: is ₹2,500 plus GST, or does it include GST? Do you have a GST number to show?
+2. Decision: refund terms. My suggestion: cancel any time, access runs to the end of the paid month, and a full refund on the first payment if you ask within 7 days.
+3. A phone number for Contact Us. Razorpay usually wants one. This is not confirmed in their docs.
+4. The business name registered on Razorpay, so the pages carry the same name.
+5. Razorpay Test mode Key ID and Key Secret, saved in Vercel as `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`. Never paste them in chat.
+
+What I build:
+1. Seven public pages in the landing style: Pricing, Terms and Conditions, Privacy Policy, Cancellation and Refunds, Delivery, About and Contact. The footer and navigation links are fixed, and the "add later" and "blank" placeholders are removed.
+2. A Razorpay library: create an order, verify a payment signature, fetch a payment. It is later reused for the payment links in Phase 1.
+3. Settings, Billing (Owner only): Pay ₹2,500 with Razorpay Checkout, payment history with receipts, and a Test mode notice. A payment counts only after the server verifies the signature. Each paid receipt adds one month. Migration 055 adds `billing_payments` and a paid until date on the account.
+4. A separate demo workspace with a test login and fake sample data. It has no WhatsApp number and uses Test mode only.
+5. Tests for the signature check, a duplicate payment and the Owner only rule.
+
+You test:
+1. Open every footer link. Each page loads and shows the contact details.
+2. Log in with the demo account, open Settings, Billing and pay ₹2,500 with a Razorpay test card or UPI. Expect Paid, a receipt, and the date moving one month on.
+3. Log in as a Viewer or Agent in the demo workspace. Expect the Pay button greyed.
+4. Add the demo login to Razorpay: Account & Settings, Business website detail, Edit, Test Account credentials. Resubmit.
+
+Done when: Razorpay approves, or tells us the exact reason and we fix it.
+
+Build log, 3 Oct 2026 (built and pushed):
+1. Public pages `/pricing`, `/terms`, `/privacy`, `/refund`, `/delivery`, `/about`, `/contact`, with the shared navigation and footer. The footer placeholders ("add later", "blank") are gone. Business details are in `src/lib/site.ts`. No phone number is listed because none was given.
+2. Razorpay library in `src/lib/razorpay`: create order, fetch payment, checkout and webhook signature checks. A plain fetch wrapper, no npm package, so it also serves the Phase 1 payment links.
+3. Settings, Billing in four languages, with the Owner only Pay button. Routes `GET /api/billing`, `POST /api/billing/order`, `POST /api/billing/verify`. The server fixes the amount, checks the checkout signature, then asks Razorpay for the payment and compares order, amount and status before it adds a month. Settling is safe to repeat.
+4. Migration `055_billing_payments.sql` (table `billing_payments`, no user write policy). The paid until date is read from this table. It is NOT applied to the live database yet: run it in the Supabase SQL editor. Until then Billing shows a plain "not set up" notice.
+5. Content security policy and permissions policy now allow Razorpay Checkout.
+6. Demo workspace and test login: `node scripts/seed-demo-workspace.mjs`. It made a separate Demo Workspace with fake contacts, chats and deals, and no WhatsApp connection. The login email is `razorpay.review@example.com`. The password was shown once to the owner.
+7. Tests: 45 new, 1,334 in total, plus `tsc`, `eslint` and a production build.
+
+Still open for Phase R: apply migration 055, put the Razorpay Test mode keys in Vercel and redeploy, confirm the GST wording and refund terms, add a phone number if there is one, then add the test login in Razorpay and resubmit.
 
 ### Phase 0: Setup (Small)
 
