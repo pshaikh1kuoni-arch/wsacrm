@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: Task 2 below
+### NEXT STEP FOR YOU: Task 3b (your choice), then Task 4
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -24,6 +24,7 @@ How to read this board:
 - [x] The send error now shows Meta's real reason (it used to say only "Parameter value is not valid").
 - [x] Found why some products would not send: Meta marks them "Outdated" for WhatsApp.
 - [x] All of it is pushed to GitHub. 1,362 tests pass. The production build works.
+- [x] Checked your Task 1, 2 and 3 results in the database myself.
 
 ### Done by you (owner)
 - [x] Ran the SQL for Steps 1 to 4 (migrations 052, 053, 054, 056). All said success.
@@ -31,6 +32,7 @@ How to read this board:
 - [x] Sent products from the CRM to your phone: a list and a single product both arrived.
 - [x] Sent two real baskets from your phone. The card, the notification and the sale prices were correct.
 - [x] Opened the Basket Thank You automation, typed the catalogue text, switched it Active and saved it (Task 1).
+- [x] Sent the whole catalogue to your phone (Task 2), and sent a real basket that triggered the automation (Task 3).
 
 ### Still to do by you
 Do the tasks in order. Send me what each task asks for.
@@ -45,25 +47,35 @@ Do the tasks in order. Send me what each task asks for.
 - You should see: a saved message, and Basket Thank You marked active in the list.
 - Send me: nothing, unless you see an error. Then send a screenshot of it.
 
-**Task 2: Check that the catalogue button works on the phone**
-- [ ] 1. On the customer phone, send "hi" to the business number. This opens the 24 hour window.
-- [ ] 2. In the CRM, open Inbox, then the chat with Shaikh Parvez. The top should say "24h remaining".
-- [ ] 3. At the bottom, tap the + button, then Send products.
-- [ ] 4. Click the Whole catalogue tab, then Send.
-- [ ] 5. On the phone, open the new message and tap View catalogue.
+**Task 2: Check that the catalogue button works on the phone** (DONE 3 Oct 2026: the catalogue message reached the phone with its View catalogue button and was read, with no shop icon. The owner said everything works.)
+- [x] 1. On the customer phone, send "hi" to the business number. This opens the 24 hour window.
+- [x] 2. In the CRM, open Inbox, then the chat with Shaikh Parvez. The top should say "24h remaining".
+- [x] 3. At the bottom, tap the + button, then Send products.
+- [x] 4. Click the Whole catalogue tab, then Send.
+- [x] 5. On the phone, open the new message and tap View catalogue.
 - You should see: your catalogue opens on the phone.
 - Send me: a screenshot of the phone. If the CRM shows an error, send that too.
 - If the catalogue does not open, stop here. Skip Task 4. Send me the screenshot.
 
-**Task 3: Test a basket with the automation**
-- [ ] 1. In the same chat, tap +, then Send products.
-- [ ] 2. Tick Glitter Mug (#2008) and Couple Name String Art Frame.
-- [ ] 3. Click Send 2 products.
-- [ ] 4. On the phone, open the message, tap View items, add both, open the cart and send it.
-- [ ] 5. In the CRM, open Automations, then Basket Thank You, then its Logs.
+**Task 3: Test a basket with the automation** (DONE 3 Oct 2026, checked by me in the database: basket status ok, total ₹448 from our catalogue prices, the automation ran once and both steps succeeded, the thank-you and the catalogue message each arrived once)
+- [x] 1. In the same chat, tap +, then Send products.
+- [x] 2. Tick Glitter Mug (#2008) and Couple Name String Art Frame.
+- [x] 3. Click Send 2 products.
+- [x] 4. On the phone, open the message, tap View items, add both, open the cart and send it.
+- [x] 5. In the CRM, open Automations, then Basket Thank You, then its Logs.
 - You should see on the phone: a thank-you message with both items and Total ₹2,048. If Task 2 worked, a second message with a View catalogue button follows.
 - You should see in the CRM: a basket card and a "Basket received" notification. In the Logs, both steps say success.
 - Send me: a screenshot of the phone chat and of the Logs.
+
+**Task 3b: Decide if the catalogue should follow every basket** (your choice)
+The Send Catalogue step in Basket Thank You sends the catalogue right after the thank-you. You added it as a test, so that is why the catalogue arrived a second time. If you do not want that, remove the step:
+- [ ] 1. In the CRM, open Automations, then Basket Thank You.
+- [ ] 2. Click the Send Catalogue step to open it.
+- [ ] 3. Click the red Delete button at the bottom of that step.
+- [ ] 4. Click Save.
+- You should see: Basket Thank You has only one step, Send Message.
+- Send me: nothing. Tell me "removed" or "keep it".
+- The Send Catalogue step is still useful elsewhere, for example an automation that sends the catalogue when a customer types the word "catalogue".
 
 **Task 4: Test the Send Catalogue flow node** (only if Task 2 worked)
 - [ ] 1. In the chat, open the assigned-to dropdown at the top right. It shows MJA WACRM. Unassign the chat. Flows do not start on a chat that is assigned to a person.
