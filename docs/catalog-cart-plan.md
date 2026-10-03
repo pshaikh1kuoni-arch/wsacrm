@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: Task 8, steps 1 and 2 (run SQL file 057 in Supabase and tell me it said success). Do not run the WooCommerce sync again today.
+### NEXT STEP FOR YOU: Task 8, steps 3 to 5 (after Vercel deploys: Sync now, then look at the picker). Do not run the WooCommerce sync again today.
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -25,10 +25,10 @@ How to read this board:
 - [x] Found why some products would not send: Meta marks them "Outdated" for WhatsApp.
 - [x] All of it is pushed to GitHub. 1,362 tests pass. The production build works.
 - [x] Checked your Task 1, 2 and 3 results in the database myself.
-- [x] Step 5, the picker warning: built, 1,376 tests pass, production build works. It is saved on a separate branch (`feat/picker-warning`, commit d1867ee) and is NOT on main yet, because it needs the new SQL column first. I will put it on main after you run the SQL.
+- [x] Step 5, the picker warning: built, 1,376 tests pass, production build works. It is on main and pushed (after you ran SQL 057).
 
 ### Done by you (owner)
-- [x] Ran the SQL for Steps 1 to 4 (migrations 052, 053, 054, 056). All said success.
+- [x] Ran the SQL for Steps 1 to 5 (migrations 052, 053, 054, 056, 057). All said success. I checked in the database that the new column exists.
 - [x] Pressed Sync now in the CRM, and ran the WooCommerce product sync once.
 - [x] Sent products from the CRM to your phone: a list and a single product both arrived.
 - [x] Sent two real baskets from your phone. The card, the notification and the sale prices were correct.
@@ -122,10 +122,10 @@ Why: Meta quietly drops those products from a list, or rejects a single product.
 - Send me: "looks good", or tell me what to change (the words, the colour, where it sits).
 
 **Task 8: Switch on the picker warning** (do this now)
-- [ ] 1. Open the file `supabase/migrations/057_catalog_whatsapp_status.sql` and copy all of it. On GitHub: https://github.com/pshaikh1kuoni-arch/wsacrm/blob/feat/picker-warning/supabase/migrations/057_catalog_whatsapp_status.sql . It is one short line that adds a column called whatsapp_status to your catalogue copy. It changes nothing else.
-- [ ] 2. In Supabase, open the SQL editor, paste it, and run it.
+- [x] 1. Open the file `supabase/migrations/057_catalog_whatsapp_status.sql` and copy all of it. On GitHub: https://github.com/pshaikh1kuoni-arch/wsacrm/blob/feat/picker-warning/supabase/migrations/057_catalog_whatsapp_status.sql . It is one short line that adds a column called whatsapp_status to your catalogue copy. It changes nothing else.
+- [x] 2. In Supabase, open the SQL editor, paste it, and run it. (DONE 3 Oct 2026, success)
 - You should see: a success message.
-- Tell me: "057 done". Then I put the code on main and push. Nothing else changes for your customers.
+- DONE. I put the code on main and pushed it.
 - [ ] 3. After Vercel finishes deploying (about 2 minutes after I push), in the CRM open Settings, then Catalogue, and click **Sync now**. This fills in each product's WhatsApp status.
 - [ ] 4. Open the chat with Shaikh Parvez, tap **+**, then **Send products**.
 - You should see: an amber tag, "Not ready on WhatsApp yet", under the products Meta marks Outdated. Hover over the tag to see why.
@@ -142,7 +142,8 @@ Why: Meta quietly drops those products from a list, or rejects a single product.
 - [ ] Several hours after your Task 6 sync, when you ask me, I count the Outdated products again and tell you the result.
 - [x] Picker warning: mockup made (board 6 on the design canvas) and shown to you.
 - [x] Picker warning: built (migration 057, the sync reads each product's WhatsApp status, the tag and the note in the picker, tests, four languages).
-- [ ] Picker warning: after you run SQL 057, I put it on main and push. After your Sync now, I check in the database that the statuses were saved and tell you how many products are flagged.
+- [x] Picker warning: put on main and pushed after you ran SQL 057.
+- [ ] Picker warning: after your Sync now, I check in the database that the statuses were saved and tell you how many products are flagged.
 - [ ] Not started, and a separate plan: turning a basket into an order and the payment link (`docs/orders-payments-plan.md`).
 
 ## 1. What we are building
