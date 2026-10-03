@@ -1,7 +1,7 @@
 # Orders, payments and support: locked plan
 
 Version 1.5, 4 Oct 2026. Locked for owner approval. Phase R is built and live. Phases 0 to 4 are not built yet.
-Changes from 1.4: the webhook is confirmed as a required part of the design, with a one time setup per business and a status light in Settings, Payments (decision 18). The platform fee gets a webhook safety net and auto renew in a new Phase R2. Both payment lanes stay in Test mode until launch. The body now matches decisions 16 and 17: products come from the catalogue, and the CSV and Google Sheet product import is dropped. New migrations start at 058. The Phase R text matches what was built. A new section 0 explains where we are today.
+Changes from 1.4: the webhook is confirmed as a required part of the design, with a one time setup per business and a status light in Settings, Payments (decision 18). The platform fee gets a webhook safety net and auto renew in a new Phase R2. Both payment lanes stay in Test mode until launch. The body now matches decisions 16 and 17: products come from the catalogue, and the CSV and Google Sheet product import is dropped. New migrations start at 058. The Phase R text matches what was built. A new section 0 explains where we are today, with a detailed built list (0a) and a status table for every plan item (0e).
 Changes from 1.3: decision 17 added (two payment lanes, each business uses its own Razorpay keys and its own webhook secret), and the webhook function is renamed `pay-webhook`. Changes from 1.2: Phase R (Razorpay review pack) added before Phase 1; the catalogue work (migrations 052 to 054, table `catalog_items`) is now the product source, so new migrations start at 055. Changes from 1.0: open items 1, 2, 3, 4 and 9 settled, partial payments off, Razorpay events and Phase 0 steps updated, a Check payment status button added to Phase 1, a 5 second webhook rule, Appendix A button address, Appendix C (Meta checklist) and Appendix D (Razorpay checklist) added.
 Mockup, 12 screens: 9 for orders and payments and 3 for Phase R (private link): https://claude.ai/artifact/35aFUKvLMa4kojACWAA4cF
 This file: `docs/orders-payments-plan.md`
@@ -10,21 +10,55 @@ This file: `docs/orders-payments-plan.md`
 
 ### 0a. What is built and working
 
-Built and pushed to main on 3 Oct 2026 (Phase R, the Razorpay review pack):
-1. Seven public pages on https://wagenie.vercel.app: Pricing, Terms and Conditions, Privacy Policy, Cancellation and Refunds, Delivery, About and Contact. They carry your contact details. The old "add later" placeholders are gone.
-2. Settings, Billing. The workspace Owner presses Pay ₹2,500 and Razorpay Checkout opens. The server checks the payment with Razorpay before it adds one month. Each payment gets a receipt number such as WAG-000001, and the page shows the payment history. Only the Owner can pay. Today the paid status is shown on the page, but nothing blocks access when a month ends.
-3. A Razorpay library in the code: create an order, check a signature, fetch a payment. Phase 1 reuses it for payment links.
-4. The database table `billing_payments` (migration 055). Applied in your live Supabase on 3 Oct.
-5. Razorpay Test keys are in Vercel. The live check on 3 Oct passed: the Pay button created a test order and the Razorpay window opened. In Test mode a UPI QR shows "invalid QR" on a phone. That is expected, because a real UPI app cannot read a test QR. The test card and the UPI ID success@razorpay do work.
-6. A separate Demo Workspace with fake contacts, chats and deals, and a test login for the Razorpay reviewer. The login email is razorpay.review@example.com. The password is not written in this file.
-7. Razorpay approved the website review (reported by you on 4 Oct 2026).
+Everything here is on main and live, unless it says otherwise.
 
-Built earlier by you, outside this plan: the catalogue and basket feature (see `docs/catalog-cart-plan.md`, migrations 052 to 057, table `catalog_items`). Orders use it as the product source (decision 16).
+**A. Public pages (Phase R)**
+1. Seven pages on https://wagenie.vercel.app: Pricing, Terms and Conditions, Privacy Policy, Cancellation and Refunds, Delivery, About and Contact. Their addresses are /pricing, /terms, /privacy, /refund, /delivery, /about and /contact.
+2. The landing page and all seven pages share one top menu and one footer. The old "add later" and "blank" placeholders are gone.
+3. Your business details live in one file, `src/lib/site.ts`: Parvez Shaikh, parvezaigyaan@gmail.com, Govandi, Mumbai 400043. There is no phone number yet, because none was given.
+4. The Pricing page shows one plan, WAGenie Standard, at ₹2,500 per month plus GST as applicable. It lists only features that exist today.
+5. Refund terms (my draft, for you to confirm): cancel any time, access runs to the end of the paid month, and the first payment is fully refundable if you ask within 7 days.
+6. The Terms and the Privacy Policy are drafts that I wrote, with wording based on India's DPDP Act 2023. They are not legal advice. Please read them, and have a lawyer check them if you wish.
+
+**B. Platform fee: Settings, Billing**
+1. Only the Owner sees the Pay ₹2,500 button. Pressing it opens Razorpay Checkout. Admins can see the history but cannot pay.
+2. The server sets the amount. The browser cannot change it.
+3. Before a month is added, the server checks the payment signature, then asks Razorpay for the payment and compares the order, the amount, the currency and the status.
+4. Each payment gets a receipt number such as WAG-000001. Each paid receipt adds one month, and months stack.
+5. A payment that is reported twice only counts once.
+6. The page shows the payment history and a Test mode notice.
+7. Billing requests are limited to 10 a minute.
+8. The page is translated into English, Spanish, Korean and Portuguese.
+9. Today the paid status is only shown. Nothing blocks access when a month ends.
+
+**C. Behind the scenes**
+1. A Razorpay library in the code: create an order, fetch a payment, and check checkout and webhook signatures. It uses plain web calls and no extra package. Phase 1 reuses it.
+2. The database table `billing_payments` (migration 055). Applied in your live Supabase on 3 Oct. Users cannot write to it. Admins can read it.
+3. The browser security rules now allow Razorpay Checkout.
+4. 45 new tests were added for this work. The whole suite now has 1,376 tests.
+5. `docs/crm-features.md` lists Billing and the public pages.
+
+**D. Test login and Razorpay review**
+1. A separate Demo Workspace with fake data: 8 contacts, 4 tags, 6 chats with 16 messages, 1 pipeline with 4 stages and 6 deals. It has no WhatsApp number.
+2. The test login email is razorpay.review@example.com. The password is not written in this file. Change it after launch.
+3. I checked that the demo login sees only the demo data.
+4. Razorpay Test keys are in Vercel. The live check on 3 Oct passed: Pay created a ₹2,500 test order and the Razorpay window opened.
+5. In Test mode a UPI QR shows "invalid QR" on a phone. This is expected, because a real UPI app cannot read a test QR. The test card 4111 1111 1111 1111 and the UPI ID success@razorpay do work.
+6. Razorpay approved the website review (reported by you on 4 Oct 2026).
+
+**E. Catalogue and basket (built earlier under its own plan, docs/catalog-cart-plan.md)**
+1. It connects to your Meta catalogue and copies the items into the CRM (Settings, Catalogue, Sync now).
+2. You can send products from the inbox: one product, a list, or the whole catalogue.
+3. It receives a customer's basket, shows a basket card, checks prices against our copy of the catalogue and notifies the team.
+4. A Basket Received trigger, a Send Catalogue step in Automations, a Send Catalogue node in Flows, and a Basket Thank You starter automation.
+5. A warning in the product picker for items that Meta will not send.
+6. Migrations 052 to 054, 056 and 057 are applied. Orders use this catalogue as the product source (decision 16).
 
 ### 0b. What is not built yet
 
-1. Everything for chat payments (Lane B): the Orders pages, Settings, Payments, payment links, the `pay-webhook` function, the order automations and the inbox changes. That is Phases 0 to 4.
-2. For the platform fee (Lane A): the webhook safety net, auto renew, GST ready receipts and Live keys. That is Phase R2.
+1. Chat payments (Lane B): everything in Phases 0 to 4 below. That means the Orders pages, Settings, Payments with the webhook status light, payment links, the `pay-webhook` function, order automations, the inbox changes, the website API, shipping and order questions.
+2. Platform fee (Lane A): the webhook safety net, auto renew, GST ready receipts, what happens when a month ends, and Live keys. That is Phase R2.
+3. Section 0e lists every item of the plan with its status.
 
 ### 0c. What changed since the PDF you have (version 1.0)
 
@@ -41,7 +75,9 @@ Built earlier by you, outside this plan: the catalogue and basket feature (see `
 11. New Phase R (built) and Phase R2 (later).
 12. New Appendix C (Meta checklist) and Appendix D (Razorpay checklist).
 13. New migrations start at 058, because 055 to 057 are used.
-14. Roles, costs, the customer journey and the money rules are unchanged, except for the small additions marked in sections 5 and 12.
+14. Test mode finding (3 Oct): a UPI QR does not work in Test mode, so tests use the test card or the UPI ID success@razorpay.
+15. Razorpay approved the website review (reported by you on 4 Oct).
+16. Roles, costs, the customer journey and the money rules are unchanged, except for the small additions marked in sections 5 and 12.
 
 ### 0d. What I need you to confirm
 
@@ -51,6 +87,37 @@ Built earlier by you, outside this plan: the catalogue and basket feature (see `
 4. Phase R2 as the next step for the platform fee, and the three decisions in it.
 5. The Phase R leftovers: the GST wording ("plus GST as applicable"), the refund terms, a phone number for Contact Us, that the business name on Razorpay matches the pages, and whether to use your own domain instead of wagenie.vercel.app.
 6. That I may add the webhook status light and the catalogue product picker to the mockup next, before any Phase 1 code.
+7. Read section 0e and tell me if any status looks wrong.
+
+### 0e. Status of every item in the plan
+
+Status words: Built, Partly built, Not built, Changed. "Changed" means the item is different from the PDF (version 1.0). P1.1 means Phase 1, "What I build", item 1.
+
+| Item | Status | Note |
+|---|---|---|
+| Phase R: public pages, Billing, test login | Built | Section 0a, parts A to D |
+| Catalogue and basket (separate plan) | Built | Section 0a, part E. Orders use it |
+| Phase R2: platform fee follow ups | Not built | Waits for your launch decision |
+| Phase 0: setup steps | Yours to do | Razorpay Test keys, Meta checks, templates, decisions. Not tracked here |
+| P1.1 Database migration for orders and payments | Not built | Starts at 058 |
+| P1.2 Order numbers per business | Not built | |
+| P1.3 Orders in the sidebar, product picking | Changed, not built | Products come from the catalogue |
+| P1.4 Settings, Payments | Changed, not built | Adds the webhook secret and status light |
+| P1.5 Payment link creation and cancel | Not built | The Razorpay library is ready to reuse |
+| P1.6 `pay-webhook` function | Changed, not built | Renamed. The signature check code is built and tested |
+| P1.7 Order automations and variables | Not built | |
+| P1.8 Orders page and timeline | Not built | |
+| P1.9 Inbox: Request payment, payment card | Not built | |
+| P1.10 Notifications | Not built | |
+| P1.11 Custom fields | Changed, not built | Orders only for now |
+| P1.12 Role rights for orders | Partly built | One right exists: Billing is Owner only |
+| P1.13 Tests | Partly built | Signature tests are done |
+| P1.14 Refunds recorded from Razorpay | Not built | |
+| P1.15 Check payment status button | Changed, not built | Backup only. The fetch payment code is ready |
+| Phase 2: Buy now button, ad source, typed codes, AI order taking | Not built | Sending a product list from the inbox already exists from the catalogue work |
+| Phase 2: Google Sheet product sync | Dropped | Products come from the catalogue |
+| Phase 3: website API, shipping, order questions, limits | Not built | 14 items |
+| Phase 4: advanced items | Not built | Chosen one by one |
 
 ## 1. What we are building
 
