@@ -14,7 +14,7 @@ How to read this board:
 4. `[x]` means done. `[ ]` means not done yet.
 5. Rule: whenever Claude builds something, Claude updates this board first, then tells the owner the next step.
 
-### NEXT STEP FOR YOU: Task 3b (your choice), then Task 4
+### NEXT STEP FOR YOU: Task 5 (clean up), then Task 3b (your choice)
 
 ### Done by me (Claude)
 - [x] Step 1: connect to the Meta catalogue and copy its items into the CRM (Settings, Catalogue, Sync now).
@@ -33,6 +33,7 @@ How to read this board:
 - [x] Sent two real baskets from your phone. The card, the notification and the sale prices were correct.
 - [x] Opened the Basket Thank You automation, typed the catalogue text, switched it Active and saved it (Task 1).
 - [x] Sent the whole catalogue to your phone (Task 2), and sent a real basket that triggered the automation (Task 3).
+- [x] Built the Catalogue test flow and ran it from your phone (Task 4).
 
 ### Still to do by you
 Do the tasks in order. Send me what each task asks for.
@@ -77,8 +78,8 @@ The Send Catalogue step in Basket Thank You sends the catalogue right after the 
 - Send me: nothing. Tell me "removed" or "keep it".
 - The Send Catalogue step is still useful elsewhere, for example an automation that sends the catalogue when a customer types the word "catalogue".
 
-**Task 4: Test the Send Catalogue flow node** (IN PROGRESS: the owner built the flow correctly, which I checked in the database. The first try at 9:07 pm got no reply because the chat was still assigned to MJA WACRM, and flows never start on an assigned chat. Next: do step 1 properly, then step 9 again.)
-- [ ] 1. In the CRM chat with Shaikh Parvez, open the assigned-to dropdown at the top right. It shows MJA WACRM. Choose **Unassign**. Reload the page and check the dropdown no longer shows MJA WACRM. Flows do not start on a chat that is assigned to a person.
+**Task 4: Test the Send Catalogue flow node** (DONE 3 Oct 2026, checked by me in the database: one run, status completed, the catalogue message went out 11 seconds after the keyword shoptest)
+- [x] 1. In the CRM chat with Shaikh Parvez, open the assigned-to dropdown at the top right. It shows MJA WACRM. Choose **Unassign**. Reload the page and check the dropdown no longer shows MJA WACRM. Flows do not start on a chat that is assigned to a person.
 - [x] 2. Open Flows, create a new flow, and name it Catalogue test.
 - [x] 3. Set the trigger keyword to: shoptest
 - [x] 4. Add three nodes: Start, Send catalogue, End.
@@ -86,7 +87,7 @@ The Send Catalogue step in Basket Thank You sends the catalogue right after the 
 - [x] 6. On Start, set "Advances to" to Send catalogue.
 - [x] 7. On Send catalogue, type: Here is our catalogue. Set "Advances to" to End.
 - [x] 8. Click Save, then Activate. If a list of problems appears, send me a screenshot.
-- [ ] 9. On the phone, send: shoptest
+- [x] 9. On the phone, send: shoptest
 - You should see: the View catalogue message arrives. In Flows, the run for Catalogue test says completed.
 - Send me: a screenshot of the phone and of the run.
 
@@ -109,7 +110,7 @@ The Send Catalogue step in Basket Thank You sends the catalogue right after the 
 - [ ] The Meta support ticket about the missing shop icon is still open. When Meta replies, tell me what they said.
 
 ### Still to do by me (Claude)
-- [ ] When Tasks 1 to 4 pass, I mark Step 4 and this whole plan complete.
+- [ ] Tasks 1 to 4 have passed. When you finish Task 5, I mark Step 4 and this whole plan complete.
 - [ ] If any task fails, I fix it from your screenshot, then give you the next step.
 - [ ] After Task 6, I count the Outdated products again and tell you the result.
 - [ ] If you say yes to the picker warning, I mockup, build, push and give you the SQL.
